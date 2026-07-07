@@ -132,14 +132,20 @@ Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
 ## 8 · Roadmap (nach Priorität)
 
 1. ✅ Ack + Downtime aus der Liste.
-2. **Service Discovery für bestehende Hosts** (Config-Tab: Host → `fix_all` → aktivieren) —
+2. ✅ Host-Filter mit Regex + Favoriten (Include-Listen).
+3. ✅ Zentrale Windows-Verbindungsdatei auf Fileshare (Samba01 542$).
+4. **Service Discovery für bestehende Hosts** (Config-Tab: Host → `fix_all` → aktivieren) —
    bringt vorhandene Hosts wie `DBSQL01` ins Monitoring.
-3. **Host-Detailansicht** (alle Services + Attribute) — adressiert den größten Schmerzpunkt
+5. **Host-Detailansicht** (alle Services + Attribute) — adressiert den größten Schmerzpunkt
    (unübersichtliche Navigation).
-4. **Filter / Suche / Gruppierung** (nach Ordner/Host/Status, OK-Zeilen einklappen).
-5. Tier 3: Bulk-Ack/Downtime, Host-Downtime („ganzer Host in Wartung"), Kommentare,
+6. **Autoupdater** (Vorbild DTM / WebExStudio) — App prüft beim Start auf neuere Release-Tags
+   und bietet Update im Hintergrund an. Distribution: GitHub Releases (win-x64 ZIP schon da),
+   Update-Kanal-URL im Binary, signierter Manifest-JSON. Interne Freigabe klären.
+7. Tier 3: Bulk-Ack/Downtime, Host-Downtime („ganzer Host in Wartung"), Kommentare,
    DB-Health-Board (MSSQL/Oracle-Services über alle DB-Hosts).
-6. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
+8. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
+   Binary"-Trade-off ab, sobald AD-Gruppe steht.
+9. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
    AES-mit-machine-id ab, wenn ein Keyring-Daemon verfügbar ist).
 
 ## 9 · Deal
