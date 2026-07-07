@@ -16,6 +16,8 @@ public sealed partial class StatusViewModel : ViewModelBase
     private readonly DispatcherTimer _timer;
     private List<ServiceStatus> _allServices = [];
 
+    public HostFilterCollection Filters { get; }
+
     public ObservableCollection<ServiceStatus> Services { get; } = [];
 
     [ObservableProperty]
@@ -48,11 +50,17 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private int _servicesCrit;
 
-    public StatusViewModel(ICheckmkClientProvider clients)
+    public StatusViewModel(ICheckmkClientProvider clients, HostFilterCollection filters)
     {
         _clients = clients;
+        Filters = filters;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(RefreshSeconds) };
         _timer.Tick += async (_, _) => await RefreshAsync();
+        Filters.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(HostFilterCollection.Active))
+                ApplyFilter();
+        };
     }
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();
@@ -155,6 +163,9 @@ public sealed partial class StatusViewModel : ViewModelBase
     private void ApplyFilter()
     {
         IEnumerable<ServiceStatus> q = _allServices;
+
+        if (Filters.Active is { } activeFilter)
+            q = q.Where(s => activeFilter.Matches(s.HostName));
 
         if (OnlyProblems)
             q = q.Where(s => s.ServiceState != ServiceState.Ok);

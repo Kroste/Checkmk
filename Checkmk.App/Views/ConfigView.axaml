@@ -28,12 +28,25 @@
       </StackPanel>
     </Border>
 
-    <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Margin="8,4" Foreground="#AAAAAA" />
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,240,Auto,*,Auto" ColumnSpacing="8" Margin="8,4">
+      <TextBlock Grid.Column="0" Text="Host-Filter:" VerticalAlignment="Center" Foreground="#AAAAAA" />
+      <ComboBox Grid.Column="1"
+                ItemsSource="{Binding Filters.Filters}"
+                SelectedItem="{Binding Filters.Active}"
+                PlaceholderText="(Alle Hosts)"
+                DisplayMemberBinding="{Binding Name}" />
+      <Button Grid.Column="2" Content="Auswahl als Favorit…" Click="OnSaveSelectionAsFavoriteClick"
+              ToolTip.Tip="Speichert die markierten Hosts als benannten Favoriten (Ctrl+Klick für Mehrfachauswahl)." />
+      <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                 Foreground="#AAAAAA" Margin="12,0,0,0" />
+      <Button Grid.Column="4" Content="Filter verwalten…" Click="OnManageFiltersClick" />
+    </Grid>
 
     <!-- Host-Liste -->
-    <DataGrid Grid.Row="2" ItemsSource="{Binding Hosts}" IsReadOnly="True"
+    <DataGrid Name="HostGrid" Grid.Row="2" ItemsSource="{Binding Hosts}" IsReadOnly="True"
               GridLinesVisibility="Horizontal" Margin="4"
-              CanUserResizeColumns="True" CanUserSortColumns="True">
+              CanUserResizeColumns="True" CanUserSortColumns="True"
+              SelectionMode="Extended">
       <DataGrid.Columns>
         <DataGridTextColumn Header="Host" Binding="{Binding Id}" Width="220" />
         <DataGridTextColumn Header="Ordner" Binding="{Binding Extensions.Folder}" Width="200" />

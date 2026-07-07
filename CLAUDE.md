@@ -57,10 +57,18 @@ werden direkt instanziiert, nicht über DI.
 
 ## 4 · Aktueller Funktionsstand
 
-- **Status-Tab:** Host-/Service-Livestatus (Polling, Auto-Refresh), Ampel-Punkte, Filter,
-  „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechtsklick):
-  Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets (1h/2h/4h/bis 06:00).
+- **Status-Tab:** Host-/Service-Livestatus (Polling, Auto-Refresh), Ampel-Punkte, Freitext-
+  Filter, „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechts-
+  klick): Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets.
 - **Konfig-Tab:** Host anlegen (Name/Ordner/IP/Alias), Host-Liste, „Änderungen aktivieren".
+- **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
+  bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
+  **Include-Liste** von Hostnamen. Aus dem Konfig-Tab lassen sich per Ctrl+Klick mehrere Hosts
+  markieren und mit „Auswahl als Favorit…" als benannte Liste speichern. Verwaltung
+  (Anlegen/Bearbeiten/Löschen/Aktivieren) im `FilterManagerWindow`. Ablage user-lokal und
+  unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json` bzw. `~/.config/Kroste/Checkmk/
+  filter.json`. Anwendung ist rein clientside (bei ≤ ein paar tausend Hosts problemlos);
+  Livestatus-Query-serverside kann später kommen, wenn nötig.
 - **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt via
   `ISecretProtector` (`SecretProtector.cs`).
   - **Windows: Ablage zentral** auf `\\Samba01\542$\Checkmk\settings.json` (Fachbereich 5424

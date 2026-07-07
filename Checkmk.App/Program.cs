@@ -48,6 +48,8 @@ internal static class Program
         services.AddSingleton<IConnectionSettingsStore>(_ =>
             new ConnectionSettingsStore(SecretProtectorFactory.CreateForSharedConnection()));
         services.AddSingleton<ICheckmkClientProvider, CheckmkClientProvider>();
+        services.AddSingleton<IHostFilterStore, HostFilterStore>();
+        services.AddSingleton<HostFilterCollection>();
 
         services.AddSingleton<StatusViewModel>();
         services.AddSingleton<ConfigViewModel>();

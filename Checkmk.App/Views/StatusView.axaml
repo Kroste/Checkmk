@@ -8,21 +8,32 @@
   <Grid RowDefinitions="Auto,Auto,*">
 
     <!-- Toolbar -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="4,4,4,8" ColumnSpacing="8">
-      <TextBox Grid.Column="0" Text="{Binding FilterText}"
-               PlaceholderText="Filter nach Host oder Service…" />
-      <Button Grid.Column="1" Content="Acknowledge…" Click="OnAcknowledgeClick"
-              IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
-      <Button Grid.Column="2" Content="Downtime…" Click="OnDowntimeClick"
-              IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
-      <CheckBox Grid.Column="3" Content="Nur Probleme" IsChecked="{Binding OnlyProblems}"
-                VerticalAlignment="Center" />
-      <CheckBox Grid.Column="4" Content="Auto" IsChecked="{Binding AutoRefresh}"
-                VerticalAlignment="Center" />
-      <NumericUpDown Grid.Column="5" Value="{Binding RefreshSeconds}" Minimum="5" Maximum="600"
-                     Increment="5" Width="110" FormatString="0's'" />
-      <Button Grid.Column="6" Content="Aktualisieren" Command="{Binding RefreshCommand}"
-              IsEnabled="{Binding !IsBusy}" />
+    <Grid Grid.Row="0" RowDefinitions="Auto,Auto" Margin="4,4,4,8">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0" Text="{Binding FilterText}"
+                 PlaceholderText="Freitext-Filter (Host/Service, case-insensitive Contains)…" />
+        <Button Grid.Column="1" Content="Acknowledge…" Click="OnAcknowledgeClick"
+                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <Button Grid.Column="2" Content="Downtime…" Click="OnDowntimeClick"
+                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <CheckBox Grid.Column="3" Content="Nur Probleme" IsChecked="{Binding OnlyProblems}"
+                  VerticalAlignment="Center" />
+        <CheckBox Grid.Column="4" Content="Auto" IsChecked="{Binding AutoRefresh}"
+                  VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="5" Value="{Binding RefreshSeconds}" Minimum="5" Maximum="600"
+                       Increment="5" Width="110" FormatString="0's'" />
+        <Button Grid.Column="6" Content="Aktualisieren" Command="{Binding RefreshCommand}"
+                IsEnabled="{Binding !IsBusy}" />
+      </Grid>
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,240,*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
+        <TextBlock Grid.Column="0" Text="Host-Filter:" VerticalAlignment="Center" Foreground="#AAAAAA" />
+        <ComboBox Grid.Column="1"
+                  ItemsSource="{Binding Filters.Filters}"
+                  SelectedItem="{Binding Filters.Active}"
+                  PlaceholderText="(Alle Hosts)"
+                  DisplayMemberBinding="{Binding Name}" />
+        <Button Grid.Column="3" Content="Filter verwalten…" Click="OnManageFiltersClick" />
+      </Grid>
     </Grid>
 
     <!-- Zusammenfassung -->

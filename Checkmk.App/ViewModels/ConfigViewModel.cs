@@ -12,6 +12,9 @@ public sealed partial class ConfigViewModel : ViewModelBase
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly ICheckmkClientProvider _clients;
+    private List<CheckmkObject<HostConfigExtensions>> _allHosts = [];
+
+    public HostFilterCollection Filters { get; }
 
     public ObservableCollection<CheckmkObject<HostConfigExtensions>> Hosts { get; } = [];
 
@@ -27,7 +30,16 @@ public sealed partial class ConfigViewModel : ViewModelBase
     [ObservableProperty]
     private string _newHostAlias = "";
 
-    public ConfigViewModel(ICheckmkClientProvider clients) => _clients = clients;
+    public ConfigViewModel(ICheckmkClientProvider clients, HostFilterCollection filters)
+    {
+        _clients = clients;
+        Filters = filters;
+        Filters.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(HostFilterCollection.Active))
+                ApplyFilter();
+        };
+    }
 
     [RelayCommand]
     private async Task RefreshHostsAsync()
@@ -39,10 +51,11 @@ public sealed partial class ConfigViewModel : ViewModelBase
         {
             IsBusy = true;
             var hosts = await client.GetHostConfigsAsync();
-            Hosts.Clear();
-            foreach (var h in hosts.OrderBy(h => h.Id))
-                Hosts.Add(h);
-            StatusMessage = $"{hosts.Count} Hosts geladen.";
+            _allHosts = hosts.OrderBy(h => h.Id).ToList();
+            ApplyFilter();
+            StatusMessage = Filters.Active is { } f
+                ? $"{Hosts.Count} von {hosts.Count} Hosts (Filter: {f.Name})."
+                : $"{hosts.Count} Hosts geladen.";
         }
         catch (Exception ex)
         {
@@ -50,6 +63,15 @@ public sealed partial class ConfigViewModel : ViewModelBase
             StatusMessage = $"Fehler: {ex.Message}";
         }
         finally { IsBusy = false; }
+    }
+
+    private void ApplyFilter()
+    {
+        Hosts.Clear();
+        IEnumerable<CheckmkObject<HostConfigExtensions>> q = _allHosts;
+        if (Filters.Active is { } activeFilter)
+            q = q.Where(h => activeFilter.Matches(h.Id ?? ""));
+        foreach (var h in q) Hosts.Add(h);
     }
 
     [RelayCommand]

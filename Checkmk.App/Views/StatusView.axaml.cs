@@ -16,6 +16,13 @@ public partial class StatusView : UserControl
     private async void OnDowntimeClick(object? sender, RoutedEventArgs e)
         => await ShowActionAsync(ServiceActionMode.Downtime);
 
+    private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        await new FilterManagerWindow(vm.Filters).ShowDialog(owner);
+    }
+
     private async Task ShowActionAsync(ServiceActionMode mode)
     {
         if (DataContext is not StatusViewModel vm || vm.SelectedService is null)
