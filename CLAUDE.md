@@ -69,6 +69,13 @@ werden direkt instanziiert, nicht über DI.
   Plugin-Output, Service-Aggregat (OK/WARN/CRIT/UNK) und der Service-Tabelle. Ack + Down-
   time direkt auf einzelnen Services **und** auf dem kompletten Host („ganzer Host in
   Wartung" ist damit erledigt). Mehrere Detail-Fenster können parallel offen sein.
+- **Autoupdater (Phase 1):** Beim Start fragt `GitHubReleasesUpdateChecker` den
+  `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/Kroste/Checkmk/releases/
+  latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen
+  gelben Badge in der Statusleiste. Klick öffnet den `UpdateDialog` (Release-Notes +
+  „Release-Seite öffnen"/„Später"/„Diese Version überspringen"). Skip-Version liegt in
+  `%APPDATA%\Kroste\Checkmk\updates.json` bzw. `~/.config/Kroste/Checkmk/updates.json`.
+  Kein Selbst-Ersetzen des Binary — Roadmap-Phase 2.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Konfig-Tab lassen sich per Ctrl+Klick mehrere Hosts
@@ -144,9 +151,10 @@ Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
 3. ✅ Zentrale Windows-Verbindungsdatei auf Fileshare (Samba01 542$).
 4. ✅ Service Discovery für bestehende Hosts (Config-Tab: Host → `fix_all` → aktivieren).
 5. ✅ Host-Detailansicht (Doppelklick oder Rechtsklick → eigenes Fenster).
-6. **Autoupdater** (Vorbild DTM / WebExStudio) — App prüft beim Start auf neuere Release-Tags
-   und bietet Update im Hintergrund an. Distribution: GitHub Releases (win-x64 ZIP schon da),
-   Update-Kanal-URL im Binary, signierter Manifest-JSON. Interne Freigabe klären.
+6. ✅ Autoupdater (Phase 1): GitHub-Releases-Check + Statusleisten-Badge + Dialog.
+   Ausstehend als Phase 2: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
+   atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
+   GitHub auf einen internen Fileshare umgestellt wird.
 7. Tier 3: Bulk-Ack/Downtime, Kommentare, DB-Health-Board (MSSQL/Oracle-Services über alle
    DB-Hosts).
 8. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im

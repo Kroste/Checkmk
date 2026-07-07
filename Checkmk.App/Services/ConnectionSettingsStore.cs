@@ -144,8 +144,11 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 internal sealed class Bootstrap
 {
     private const string DefaultWindowsSharedPath = @"\\Samba01\542$\Checkmk\settings.json";
+    private const string DefaultUpdateChannelUrl =
+        "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
 
     public string SharedSettingsPath { get; set; } = DefaultWindowsSharedPath;
+    public string UpdateChannelUrl { get; set; } = DefaultUpdateChannelUrl;
 
     private static string BootstrapFile => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

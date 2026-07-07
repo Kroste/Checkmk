@@ -50,6 +50,14 @@ internal static class Program
         services.AddSingleton<ICheckmkClientProvider, CheckmkClientProvider>();
         services.AddSingleton<IHostFilterStore, HostFilterStore>();
         services.AddSingleton<HostFilterCollection>();
+        services.AddSingleton<IUpdatePreferences, UpdatePreferences>();
+        services.AddSingleton<IUpdateChecker>(sp =>
+        {
+            var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = Bootstrap.LoadOrCreate().UpdateChannelUrl;
+            return new GitHubReleasesUpdateChecker(http, url,
+                sp.GetRequiredService<IUpdatePreferences>());
+        });
 
         services.AddSingleton<StatusViewModel>();
         services.AddSingleton<ConfigViewModel>();

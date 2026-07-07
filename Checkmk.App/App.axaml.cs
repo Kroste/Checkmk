@@ -34,6 +34,14 @@ public partial class App : Application
                 await about.ShowDialog(window);
             };
 
+            vm.OpenUpdateRequested += async (_, info) =>
+            {
+                var dialog = new UpdateDialog(info);
+                var result = await dialog.ShowDialog<UpdateDialogResult>(window);
+                if (result == UpdateDialogResult.Skip)
+                    vm.SkipCurrentUpdate();
+            };
+
             window.DataContext = vm;
             window.Opened += async (_, _) => await vm.InitializeAsync();
             desktop.MainWindow = window;
