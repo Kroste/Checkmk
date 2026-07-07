@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------------
+  # Windows: self-contained Single-File-EXE -> ZIP
+  # ---------------------------------------------------------------
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish (win-x64)
+        run: >
+          dotnet publish Checkmk.App/Checkmk.App.csproj
+          -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/win
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          Compress-Archive -Path publish/win/* -DestinationPath "Checkmk-$ver-win-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: Checkmk-*-win-x64.zip
+
+  # ---------------------------------------------------------------
+  # Linux: self-contained -> tar.gz + AppImage
+  # ---------------------------------------------------------------
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Standard-Kanon: Node 24 im Release-Job verfügbar halten
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Publish (linux-x64)
+        run: >
+          dotnet publish Checkmk.App/Checkmk.App.csproj
+          -c Release -r linux-x64 --self-contained
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/linux
+
+      - name: tar.gz
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          tar -czf "Checkmk-${ver}-linux-x64.tar.gz" -C publish/linux .
+
+      - name: AppImage
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 imagemagick
+
+          # AppDir-Struktur
+          mkdir -p AppDir/usr/bin
+          cp -r publish/linux/* AppDir/usr/bin/
+
+          # Icon: echtes Asset nutzen, sonst Platzhalter erzeugen
+          if [ -f Checkmk.App/Assets/checkmk.png ]; then
+            cp Checkmk.App/Assets/checkmk.png AppDir/checkmk.png
+          else
+            convert -size 256x256 xc:'#0E639C' -gravity center \
+              -pointsize 64 -fill white -annotate 0 'CMK' AppDir/checkmk.png
+          fi
+
+          cat > AppDir/checkmk.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Checkmk Cockpit
+          Exec=Checkmk.App
+          Icon=checkmk
+          Categories=Utility;Monitor;
+          Terminal=false
+          EOF
+
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/Checkmk.App" "$@"
+          EOF
+          chmod +x AppDir/AppRun AppDir/usr/bin/Checkmk.App
+
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage AppDir "Checkmk-${ver}-x86_64.AppImage"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            Checkmk-*-linux-x64.tar.gz
+            Checkmk-*-x86_64.AppImage
+
+  # ---------------------------------------------------------------
+  # Release anlegen und alle Artefakte anhängen
+  # ---------------------------------------------------------------
+  release:
+    needs: [ windows, linux ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/windows/*
+            artifacts/linux/*

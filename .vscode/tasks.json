@@ -1,0 +1,53 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/Checkmk.slnx",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "test",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["test", "${workspaceFolder}/Checkmk.slnx"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "publish-win-x64",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish", "${workspaceFolder}/Checkmk.App/Checkmk.App.csproj",
+        "-c", "Release", "-r", "win-x64", "--self-contained",
+        "-p:PublishSingleFile=true"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "clean-hard",
+      "detail": "Loescht rekursiv alle bin/- und obj/-Ordner.",
+      "type": "shell",
+      "problemMatcher": [],
+      "linux": {
+        "command": "find '${workspaceFolder}' -type d \\( -name bin -o -name obj \\) -prune -exec rm -rf '{}' +"
+      },
+      "osx": {
+        "command": "find '${workspaceFolder}' -type d \\( -name bin -o -name obj \\) -prune -exec rm -rf '{}' +"
+      },
+      "windows": {
+        "command": "Get-ChildItem -Path '${workspaceFolder}' -Recurse -Directory -Include bin,obj | Remove-Item -Recurse -Force",
+        "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } }
+      }
+    }
+  ]
+}

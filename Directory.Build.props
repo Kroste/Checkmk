@@ -7,10 +7,13 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <!-- Nur direkte Abhaengigkeiten auditieren; transitive Backend-Pakete
-         (z. B. Linux-DBus) sind fuer den win-x64-Build irrelevant. -->
-    <NuGetAuditMode>direct</NuGetAuditMode>
+    <!-- Versionierung aus Git-Tags (vX.Y.Z) via MinVer -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+  </ItemGroup>
 
   <PropertyGroup>
     <Authors>Lars</Authors>

@@ -26,6 +26,8 @@
     <PackageReference Include="NLog" />
     <PackageReference Include="NLog.Extensions.Logging" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <!-- Transitiv ueber Avalonia; explizit auf aktuelle Version angehoben (Security) -->
+    <PackageReference Include="Tmds.DBus.Protocol" />
   </ItemGroup>
 
   <ItemGroup>
