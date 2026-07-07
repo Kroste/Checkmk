@@ -147,6 +147,12 @@ Git-Tags (`v*`), `.editorconfig` (file-scoped namespaces), NLog (Secrets vor dem
 maskieren), globaler Exception-Handler. CI + Release als GitHub Actions: Release erzeugt bei
 Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
 
+**Release-Notes-Konvention:** Für ausführliche Notes eine Datei
+`RELEASE_NOTES/<tag>.md` im Repo anlegen (Beispiel: `RELEASE_NOTES/v1.0.0.md`).
+Der Release-Workflow liest sie bevorzugt; Fallback ist die Message des annotated
+Git-Tags. `generate_release_notes` ist bewusst aus — sonst hängt GitHub redundant
+den Commit-Log an.
+
 ## 8 · Roadmap (nach Priorität)
 
 1. ✅ Ack + Downtime aus der Liste.

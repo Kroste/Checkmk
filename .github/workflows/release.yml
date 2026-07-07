@@ -124,14 +124,38 @@ jobs:
     needs: [ windows, linux ]
     runs-on: ubuntu-latest
     steps:
+      # Volle Historie fuer die Tag-Message-Extraktion (annotated tag body).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
+      # Release-Body:
+      #  1. RELEASE_NOTES/<tag>.md im Repo (bevorzugt, ausfuehrliche Notes)
+      #  2. sonst: Message des annotated Git-Tags
+      #  3. sonst: leerer Body (softprops setzt dann nur den Tag-Namen)
+      - name: Prepare release notes
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          notes_file="RELEASE_NOTES/${tag}.md"
+          if [ -f "$notes_file" ]; then
+            echo "Using $notes_file"
+            cp "$notes_file" release-body.md
+          else
+            echo "Falling back to annotated tag message of $tag"
+            git tag -l --format='%(contents)' "$tag" > release-body.md
+          fi
+          echo "--- Release-Body ---"
+          cat release-body.md
+
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: release-body.md
           files: |
             artifacts/windows/*
             artifacts/linux/*
