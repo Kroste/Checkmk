@@ -1,8 +1,12 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Checkmk.App;
+using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
 
@@ -21,6 +25,19 @@ public partial class StatusView : UserControl
         if (DataContext is not StatusViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
         await new FilterManagerWindow(vm.Filters).ShowDialog(owner);
+    }
+
+    private void OnServiceDoubleTapped(object? sender, TappedEventArgs e) => OpenHostDetails();
+    private void OnOpenHostDetailsClick(object? sender, RoutedEventArgs e) => OpenHostDetails();
+
+    private void OpenHostDetails()
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var clients = App.Services!.GetRequiredService<ICheckmkClientProvider>();
+        var detailVm = new HostDetailViewModel(clients, vm.SelectedService.HostName);
+        new HostDetailWindow(detailVm).Show(owner);
     }
 
     private async Task ShowActionAsync(ServiceActionMode mode)

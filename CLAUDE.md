@@ -64,6 +64,11 @@ werden direkt instanziiert, nicht über DI.
   **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
   `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert
   danach die Änderungen — bringt vorhandene Hosts wie `DBSQL01` ins Monitoring.
+- **Host-Details** (`HostDetailWindow`): Doppelklick oder Rechtsklick auf eine Zeile
+  öffnet ein eigenes Fenster mit Host-State (Ampel), Config-Attributen (Ordner/IP/Alias),
+  Plugin-Output, Service-Aggregat (OK/WARN/CRIT/UNK) und der Service-Tabelle. Ack + Down-
+  time direkt auf einzelnen Services **und** auf dem kompletten Host („ganzer Host in
+  Wartung" ist damit erledigt). Mehrere Detail-Fenster können parallel offen sein.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Konfig-Tab lassen sich per Ctrl+Klick mehrere Hosts
@@ -138,13 +143,12 @@ Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
 2. ✅ Host-Filter mit Regex + Favoriten (Include-Listen).
 3. ✅ Zentrale Windows-Verbindungsdatei auf Fileshare (Samba01 542$).
 4. ✅ Service Discovery für bestehende Hosts (Config-Tab: Host → `fix_all` → aktivieren).
-5. **Host-Detailansicht** (alle Services + Attribute) — adressiert den größten Schmerzpunkt
-   (unübersichtliche Navigation).
+5. ✅ Host-Detailansicht (Doppelklick oder Rechtsklick → eigenes Fenster).
 6. **Autoupdater** (Vorbild DTM / WebExStudio) — App prüft beim Start auf neuere Release-Tags
    und bietet Update im Hintergrund an. Distribution: GitHub Releases (win-x64 ZIP schon da),
    Update-Kanal-URL im Binary, signierter Manifest-JSON. Interne Freigabe klären.
-7. Tier 3: Bulk-Ack/Downtime, Host-Downtime („ganzer Host in Wartung"), Kommentare,
-   DB-Health-Board (MSSQL/Oracle-Services über alle DB-Hosts).
+7. Tier 3: Bulk-Ack/Downtime, Kommentare, DB-Health-Board (MSSQL/Oracle-Services über alle
+   DB-Hosts).
 8. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
    Binary"-Trade-off ab, sobald AD-Gruppe steht.
 9. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst

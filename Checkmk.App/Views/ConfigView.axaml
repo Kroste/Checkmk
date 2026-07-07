@@ -56,9 +56,12 @@
               SelectedItem="{Binding SelectedHost}" IsReadOnly="True"
               GridLinesVisibility="Horizontal" Margin="4"
               CanUserResizeColumns="True" CanUserSortColumns="True"
-              SelectionMode="Extended">
+              SelectionMode="Extended"
+              DoubleTapped="OnHostDoubleTapped">
       <DataGrid.ContextMenu>
         <ContextMenu>
+          <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
+          <Separator />
           <MenuItem Header="Services entdecken (fix_all + aktivieren)"
                     Command="{Binding DiscoverServicesCommand}" />
           <Separator />

@@ -68,6 +68,16 @@ public sealed class CheckmkClient
         return result.Value;
     }
 
+    /// <summary>
+    /// Ein einzelner konfigurierter Host inkl. Attribute. Praktisch fuer die
+    /// Host-Detailansicht — vermeidet den Bulk-Abruf ueber alle Hosts.
+    /// </summary>
+    public Task<CheckmkObject<HostConfigExtensions>> GetHostConfigAsync(string hostName,
+        bool effectiveAttributes = true, CancellationToken ct = default)
+        => GetAsync<CheckmkObject<HostConfigExtensions>>(
+            $"objects/host_config/{Uri.EscapeDataString(hostName)}"
+            + $"?effective_attributes={effectiveAttributes.ToString().ToLowerInvariant()}", ct);
+
     /// <summary>Live-Status aller Hosts (Monitoring/Livestatus).</summary>
     public async Task<IReadOnlyList<HostStatus>> GetHostStatusesAsync(CancellationToken ct = default)
     {
@@ -75,6 +85,21 @@ public sealed class CheckmkClient
         var url = "domain-types/host/collections/all?" + ColumnsQuery(cols, hostNameCol: "name");
         var result = await GetAsync<CheckmkCollection<HostStatusEnvelope>>(url, ct);
         return result.Value.Select(v => v.Extensions).ToList();
+    }
+
+    /// <summary>
+    /// Live-Status eines einzelnen Hosts (Livestatus-Query filtert serverseitig
+    /// ueber <c>name</c>). Liefert <c>null</c>, wenn der Host nicht ueberwacht wird.
+    /// </summary>
+    public async Task<HostStatus?> GetHostStatusAsync(string hostName, CancellationToken ct = default)
+    {
+        var cols = new[] { "name", "state", "plugin_output", "acknowledged", "scheduled_downtime_depth" };
+        var query = JsonSerializer.Serialize(new { op = "=", left = "name", right = hostName });
+        var url = "domain-types/host/collections/all?" + ColumnsQuery(cols)
+                + "&query=" + Uri.EscapeDataString(query);
+
+        var result = await GetAsync<CheckmkCollection<HostStatusEnvelope>>(url, ct);
+        return result.Value.Select(v => v.Extensions).FirstOrDefault();
     }
 
     /// <summary>

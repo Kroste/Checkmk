@@ -17,7 +17,7 @@ public sealed partial class ServiceActionDialogViewModel : ObservableObject
 {
     public ServiceActionMode Mode { get; }
     public string HostName { get; }
-    public string ServiceDescription { get; }
+    public string? ServiceDescription { get; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OkCommand))]
@@ -28,13 +28,15 @@ public sealed partial class ServiceActionDialogViewModel : ObservableObject
 
     public bool IsDowntime => Mode == ServiceActionMode.Downtime;
     public string Header => IsDowntime ? "Downtime setzen" : "Problem acknowledgen";
-    public string Target => $"{HostName} / {ServiceDescription}";
+    public string Target => string.IsNullOrEmpty(ServiceDescription)
+        ? $"{HostName} (gesamter Host)"
+        : $"{HostName} / {ServiceDescription}";
     public IReadOnlyList<DowntimePreset> Presets => DowntimePreset.Defaults;
 
     /// <summary>Wird mit true (OK) oder false (Abbrechen) ausgeloest.</summary>
     public event EventHandler<bool>? RequestClose;
 
-    public ServiceActionDialogViewModel(ServiceActionMode mode, string hostName, string serviceDescription)
+    public ServiceActionDialogViewModel(ServiceActionMode mode, string hostName, string? serviceDescription)
     {
         Mode = mode;
         HostName = hostName;

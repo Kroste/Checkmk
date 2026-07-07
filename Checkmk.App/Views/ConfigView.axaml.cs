@@ -1,8 +1,11 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
 
@@ -15,6 +18,20 @@ public partial class ConfigView : UserControl
         if (DataContext is not ConfigViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
         await new FilterManagerWindow(vm.Filters).ShowDialog(owner);
+    }
+
+    private void OnHostDoubleTapped(object? sender, TappedEventArgs e) => OpenHostDetails();
+    private void OnOpenHostDetailsClick(object? sender, RoutedEventArgs e) => OpenHostDetails();
+
+    private void OpenHostDetails()
+    {
+        if (DataContext is not ConfigViewModel vm || vm.SelectedHost?.Id is not { } hostName)
+            return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var clients = App.Services!.GetRequiredService<ICheckmkClientProvider>();
+        var detailVm = new HostDetailViewModel(clients, hostName);
+        new HostDetailWindow(detailVm).Show(owner);
     }
 
     private async void OnSaveSelectionAsFavoriteClick(object? sender, RoutedEventArgs e)

@@ -50,9 +50,12 @@
     <DataGrid Grid.Row="2" ItemsSource="{Binding Services}"
               SelectedItem="{Binding SelectedService}"
               IsReadOnly="True" GridLinesVisibility="Horizontal"
-              CanUserResizeColumns="True" CanUserSortColumns="True">
+              CanUserResizeColumns="True" CanUserSortColumns="True"
+              DoubleTapped="OnServiceDoubleTapped">
       <DataGrid.ContextMenu>
         <ContextMenu>
+          <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
+          <Separator />
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
           <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
         </ContextMenu>
