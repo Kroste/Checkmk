@@ -60,6 +60,9 @@ werden direkt instanziiert, nicht über DI.
 - **Status-Tab:** Host-/Service-Livestatus (Polling, Auto-Refresh), Ampel-Punkte, Freitext-
   Filter, „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechts-
   klick): Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets.
+  **Bulk-Ack/Downtime**: Ctrl/Shift-Klick markiert mehrere Services; ein Kommentar für
+  alle, iterative Ausführung mit Fortschritt „Ack 3/12: host/service" in der Statusleiste.
+  Einzelfehler brechen den Bulk nicht ab, werden geloggt und am Ende summiert.
 - **Konfig-Tab:** Host anlegen (Name/Ordner/IP/Alias), Host-Liste, „Änderungen aktivieren".
   **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
   `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert
@@ -155,12 +158,15 @@ Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
    Ausstehend als Phase 2: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
    atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
    GitHub auf einen internen Fileshare umgestellt wird.
-7. Tier 3: Bulk-Ack/Downtime, Kommentare, DB-Health-Board (MSSQL/Oracle-Services über alle
-   DB-Hosts).
-8. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
+7. ✅ Bulk-Ack/Downtime (Status-Tab + Host-Detail: Ctrl/Shift-Klick auf Services →
+   ein Kommentar, iterative Ausführung, Einzelfehler brechen den Bulk nicht ab).
+8. Tier 3 (Rest): **Kommentare** (Anzeigen bestehender Kommentare + neue anlegen),
+   **DB-Health-Board** (MSSQL/Oracle-Services über alle DB-Hosts, Filter auf
+   Service-Description „MSSQL"/„ORA-"…).
+9. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
    Binary"-Trade-off ab, sobald AD-Gruppe steht.
-9. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
-   AES-mit-machine-id ab, wenn ein Keyring-Daemon verfügbar ist).
+10. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
+    AES-mit-machine-id ab, wenn ein Keyring-Daemon verfügbar ist).
 
 ## 9 · Deal
 

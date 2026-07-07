@@ -127,6 +127,73 @@ public sealed partial class HostDetailViewModel : ViewModelBase
         finally { IsBusy = false; }
     }
 
+    /// <summary>Ack fuer mehrere gewaehlte Services (Bulk). Fehler werden gesammelt.</summary>
+    public async Task PerformBulkServiceAcknowledgeAsync(IReadOnlyList<ServiceStatus> services, string comment)
+    {
+        var client = _clients.Current;
+        if (client is null || services.Count == 0) return;
+
+        var errors = 0;
+        var done = 0;
+        try
+        {
+            IsBusy = true;
+            foreach (var svc in services)
+            {
+                try
+                {
+                    done++;
+                    StatusMessage = $"Ack {done}/{services.Count}: {svc.Description}";
+                    await client.AcknowledgeServiceProblemAsync(svc.HostName, svc.Description, comment);
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    Log.Warn(ex, "Bulk-Ack fehlgeschlagen fuer {Host}/{Service}.", svc.HostName, svc.Description);
+                }
+            }
+            StatusMessage = errors == 0
+                ? $"Acknowledged: {done} Services."
+                : $"Acknowledged: {done - errors}/{done} — {errors} Fehler (siehe Log).";
+            await RefreshAsync();
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>Downtime fuer mehrere gewaehlte Services (Bulk). Fehler werden gesammelt.</summary>
+    public async Task PerformBulkServiceDowntimeAsync(IReadOnlyList<ServiceStatus> services,
+        string comment, DateTimeOffset start, DateTimeOffset end)
+    {
+        var client = _clients.Current;
+        if (client is null || services.Count == 0) return;
+
+        var errors = 0;
+        var done = 0;
+        try
+        {
+            IsBusy = true;
+            foreach (var svc in services)
+            {
+                try
+                {
+                    done++;
+                    StatusMessage = $"Downtime {done}/{services.Count}: {svc.Description}";
+                    await client.ScheduleServiceDowntimeAsync(svc.HostName, svc.Description, start, end, comment);
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    Log.Warn(ex, "Bulk-Downtime fehlgeschlagen fuer {Host}/{Service}.", svc.HostName, svc.Description);
+                }
+            }
+            StatusMessage = errors == 0
+                ? $"Downtime bis {end:HH:mm} gesetzt: {done} Services."
+                : $"Downtime: {done - errors}/{done} — {errors} Fehler (siehe Log).";
+            await RefreshAsync();
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>Ack fuer den kompletten Host (nur sinnvoll, wenn Host-Status != UP).</summary>
     public async Task PerformHostAcknowledgeAsync(string comment)
     {

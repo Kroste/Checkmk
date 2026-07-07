@@ -47,10 +47,11 @@
     </StackPanel>
 
     <!-- Service-Tabelle -->
-    <DataGrid Grid.Row="2" ItemsSource="{Binding Services}"
+    <DataGrid Name="ServiceGrid" Grid.Row="2" ItemsSource="{Binding Services}"
               SelectedItem="{Binding SelectedService}"
               IsReadOnly="True" GridLinesVisibility="Horizontal"
               CanUserResizeColumns="True" CanUserSortColumns="True"
+              SelectionMode="Extended"
               DoubleTapped="OnServiceDoubleTapped">
       <DataGrid.ContextMenu>
         <ContextMenu>

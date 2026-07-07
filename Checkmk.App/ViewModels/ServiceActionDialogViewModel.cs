@@ -18,6 +18,7 @@ public sealed partial class ServiceActionDialogViewModel : ObservableObject
     public ServiceActionMode Mode { get; }
     public string HostName { get; }
     public string? ServiceDescription { get; }
+    private readonly string? _targetOverride;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OkCommand))]
@@ -28,9 +29,10 @@ public sealed partial class ServiceActionDialogViewModel : ObservableObject
 
     public bool IsDowntime => Mode == ServiceActionMode.Downtime;
     public string Header => IsDowntime ? "Downtime setzen" : "Problem acknowledgen";
-    public string Target => string.IsNullOrEmpty(ServiceDescription)
-        ? $"{HostName} (gesamter Host)"
-        : $"{HostName} / {ServiceDescription}";
+    public string Target => _targetOverride
+        ?? (string.IsNullOrEmpty(ServiceDescription)
+            ? $"{HostName} (gesamter Host)"
+            : $"{HostName} / {ServiceDescription}");
     public IReadOnlyList<DowntimePreset> Presets => DowntimePreset.Defaults;
 
     /// <summary>Wird mit true (OK) oder false (Abbrechen) ausgeloest.</summary>
@@ -41,6 +43,17 @@ public sealed partial class ServiceActionDialogViewModel : ObservableObject
         Mode = mode;
         HostName = hostName;
         ServiceDescription = serviceDescription;
+        _selectedPreset = DowntimePreset.Defaults[0];
+    }
+
+    /// <summary>Ctor fuer Bulk-Aktionen — Target-String wird vom Aufrufer gebaut
+    /// (z. B. "5 Services auf 2 Hosts").</summary>
+    public ServiceActionDialogViewModel(ServiceActionMode mode, string targetLabel)
+    {
+        Mode = mode;
+        HostName = "";
+        ServiceDescription = null;
+        _targetOverride = targetLabel;
         _selectedPreset = DowntimePreset.Defaults[0];
     }
 

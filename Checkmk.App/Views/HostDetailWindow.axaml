@@ -87,10 +87,11 @@
       </Grid>
 
       <!-- Service-Tabelle -->
-      <DataGrid Grid.Row="3" ItemsSource="{Binding Services}"
+      <DataGrid Name="ServiceGrid" Grid.Row="3" ItemsSource="{Binding Services}"
                 SelectedItem="{Binding SelectedService}"
                 IsReadOnly="True" GridLinesVisibility="Horizontal" Margin="8,0,8,0"
-                CanUserResizeColumns="True" CanUserSortColumns="True">
+                CanUserResizeColumns="True" CanUserSortColumns="True"
+                SelectionMode="Extended">
         <DataGrid.ContextMenu>
           <ContextMenu>
             <MenuItem Header="Acknowledge…" Click="OnServiceAckClick" />

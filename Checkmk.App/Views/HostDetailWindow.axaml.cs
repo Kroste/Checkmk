@@ -1,8 +1,11 @@
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Checkmk.App.Controls;
 using Checkmk.App.ViewModels;
+using Checkmk.Core.Models;
 
 namespace Checkmk.App.Views;
 
@@ -36,23 +39,36 @@ public partial class HostDetailWindow : ChromeWindow
 
     private async System.Threading.Tasks.Task ShowServiceActionAsync(ServiceActionMode mode)
     {
-        if (_vm is null || _vm.SelectedService is null) return;
+        if (_vm is null) return;
+        var selected = GetSelectedServices();
+        if (selected.Count == 0) return;
 
-        var svc = _vm.SelectedService;
-        var dialogVm = new ServiceActionDialogViewModel(mode, svc.HostName, svc.Description);
+        var dialogVm = selected.Count == 1
+            ? new ServiceActionDialogViewModel(mode, selected[0].HostName, selected[0].Description)
+            : new ServiceActionDialogViewModel(mode, $"{selected.Count} Services auf {_vm.HostName}");
+
         var dialog = new ServiceActionDialog(dialogVm);
         var confirmed = await dialog.ShowDialog<bool>(this);
         if (!confirmed) return;
 
         if (mode == ServiceActionMode.Acknowledge)
         {
-            await _vm.PerformServiceAcknowledgeAsync(dialogVm.Comment);
+            if (selected.Count == 1) await _vm.PerformServiceAcknowledgeAsync(dialogVm.Comment);
+            else await _vm.PerformBulkServiceAcknowledgeAsync(selected, dialogVm.Comment);
         }
         else
         {
             var (start, end) = dialogVm.Window();
-            await _vm.PerformServiceDowntimeAsync(dialogVm.Comment, start, end);
+            if (selected.Count == 1) await _vm.PerformServiceDowntimeAsync(dialogVm.Comment, start, end);
+            else await _vm.PerformBulkServiceDowntimeAsync(selected, dialogVm.Comment, start, end);
         }
+    }
+
+    private IReadOnlyList<ServiceStatus> GetSelectedServices()
+    {
+        var grid = this.FindControl<DataGrid>("ServiceGrid");
+        if (grid is null) return [];
+        return grid.SelectedItems.OfType<ServiceStatus>().ToList();
     }
 
     private async System.Threading.Tasks.Task ShowHostActionAsync(ServiceActionMode mode)

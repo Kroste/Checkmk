@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -6,6 +8,7 @@ using Avalonia.Markup.Xaml;
 using Checkmk.App;
 using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
+using Checkmk.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
@@ -42,27 +45,52 @@ public partial class StatusView : UserControl
 
     private async Task ShowActionAsync(ServiceActionMode mode)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null)
-            return;
-        if (TopLevel.GetTopLevel(this) is not Window owner)
-            return;
+        if (DataContext is not StatusViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-        var svc = vm.SelectedService;
-        var dialogVm = new ServiceActionDialogViewModel(mode, svc.HostName, svc.Description);
+        var selected = GetSelectedServices();
+        if (selected.Count == 0) return;
+
+        ServiceActionDialogViewModel dialogVm;
+        if (selected.Count == 1)
+        {
+            var svc = selected[0];
+            dialogVm = new ServiceActionDialogViewModel(mode, svc.HostName, svc.Description);
+        }
+        else
+        {
+            var hosts = selected.Select(s => s.HostName).Distinct().Count();
+            var label = hosts == 1
+                ? $"{selected.Count} Services auf {selected[0].HostName}"
+                : $"{selected.Count} Services auf {hosts} Hosts";
+            dialogVm = new ServiceActionDialogViewModel(mode, label);
+        }
+
         var dialog = new ServiceActionDialog(dialogVm);
-
         var confirmed = await dialog.ShowDialog<bool>(owner);
-        if (!confirmed)
-            return;
+        if (!confirmed) return;
 
         if (mode == ServiceActionMode.Acknowledge)
         {
-            await vm.PerformAcknowledgeAsync(dialogVm.Comment);
+            if (selected.Count == 1)
+                await vm.PerformAcknowledgeAsync(dialogVm.Comment);
+            else
+                await vm.PerformBulkAcknowledgeAsync(selected, dialogVm.Comment);
         }
         else
         {
             var (start, end) = dialogVm.Window();
-            await vm.PerformDowntimeAsync(dialogVm.Comment, start, end);
+            if (selected.Count == 1)
+                await vm.PerformDowntimeAsync(dialogVm.Comment, start, end);
+            else
+                await vm.PerformBulkDowntimeAsync(selected, dialogVm.Comment, start, end);
         }
+    }
+
+    private IReadOnlyList<ServiceStatus> GetSelectedServices()
+    {
+        var grid = this.FindControl<DataGrid>("ServiceGrid");
+        if (grid is null) return [];
+        return grid.SelectedItems.OfType<ServiceStatus>().ToList();
     }
 }
