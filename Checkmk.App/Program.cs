@@ -45,7 +45,8 @@ internal static class Program
         var services = new ServiceCollection();
 
         services.AddSingleton<ISecretProtector>(_ => SecretProtectorFactory.Create());
-        services.AddSingleton<IConnectionSettingsStore, ConnectionSettingsStore>();
+        services.AddSingleton<IConnectionSettingsStore>(_ =>
+            new ConnectionSettingsStore(SecretProtectorFactory.CreateForSharedConnection()));
         services.AddSingleton<ICheckmkClientProvider, CheckmkClientProvider>();
 
         services.AddSingleton<StatusViewModel>();

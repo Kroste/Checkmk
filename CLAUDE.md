@@ -61,11 +61,19 @@ werden direkt instanziiert, nicht über DI.
   „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechtsklick):
   Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets (1h/2h/4h/bis 06:00).
 - **Konfig-Tab:** Host anlegen (Name/Ordner/IP/Alias), Host-Liste, „Änderungen aktivieren".
-- **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret plattformspezifisch
-  verschlüsselt via `ISecretProtector` (`SecretProtector.cs`): **Windows** = DPAPI-CurrentUser,
-  **Linux** = AES-GCM mit Schlüssel aus `SHA256(machine-id ‖ user ‖ entropy)`. Ablage unter
-  `%APPDATA%/Kroste/Checkmk/settings.json` bzw. `~/.config/Kroste/Checkmk/settings.json`.
-  About mit GitHub + Buy-Me-a-Coffee.
+- **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt via
+  `ISecretProtector` (`SecretProtector.cs`).
+  - **Windows: Ablage zentral** auf `\\Samba01\542$\Checkmk\settings.json` (Fachbereich 5424
+    IT-Basis-Dienste). Mehrere Clients teilen dieselbe Datei → Verschlüsselung mit
+    `SharedAesProtector` (AES-GCM, Schlüssel via PBKDF2 aus im Binary hinterlegter Passphrase).
+    Der Pfad ist per `%APPDATA%\Kroste\Checkmk\bootstrap.json` (`SharedSettingsPath`)
+    überschreibbar — beim ersten Start wird der Default reingeschrieben, danach von Hand
+    editierbar. Bewusst kein UI dafür.
+  - **Linux/macOS: user-lokal** unter `~/.config/Kroste/Checkmk/settings.json`, Verschlüsselung
+    per `LinuxMachineKeyProtector` (AES-GCM, Schlüssel aus `SHA256(machine-id ‖ user ‖ entropy)`).
+  - Sicherheitsgrenze Windows-Shared: schützt vor Zufallseinsicht auf dem Share (Klartext-
+    Vermeidung), **nicht** vor einem Angreifer mit App-Binary — der Key ist im Binary abgeleitet.
+    Für echte Multi-User-Isolation: DPAPI-NG mit AD-Gruppen-SID (Roadmap).
 
 ## 5 · Checkmk-REST-API — nicht-offensichtliche Regeln
 

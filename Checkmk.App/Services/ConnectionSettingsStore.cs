@@ -34,14 +34,19 @@ public interface IConnectionSettingsStore
     string? LoadSecret(ConnectionSettings settings);
     void Save(ConnectionSettings settings, string plainSecret);
     bool IsConfigured(ConnectionSettings settings);
+    string SettingsFilePath { get; }
 }
 
 /// <summary>
-/// Speichert die Verbindungskonfiguration plattformkonform:
-/// Windows unter <c>%APPDATA%</c>, Linux/macOS unter <c>$XDG_CONFIG_HOME</c>
-/// (bzw. <c>~/.config</c>). Das Secret wird ueber <see cref="ISecretProtector"/>
-/// plattformspezifisch verschluesselt (Windows: DPAPI-CurrentUser,
-/// Linux: AES-GCM mit machine-id/UID-abgeleitetem Schluessel).
+/// Speichert die Verbindungskonfiguration:
+/// <list type="bullet">
+///   <item>Windows: zentral auf einem Fileshare — Default <c>\\Samba01\542$\Checkmk\settings.json</c>,
+///     ueberschreibbar via <c>%APPDATA%\Kroste\Checkmk\bootstrap.json</c>. Verschluesselung mit
+///     dem <see cref="SharedAesProtector"/>, damit mehrere Windows-Clients dieselbe Datei
+///     entschluesseln koennen.</item>
+///   <item>Linux/macOS: user-lokal unter <c>~/.config/Kroste/Checkmk/settings.json</c>,
+///     Verschluesselung wie in <see cref="SecretProtectorFactory.Create"/> definiert.</item>
+/// </list>
 /// </summary>
 public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 {
@@ -50,14 +55,23 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
     private readonly ISecretProtector _protector;
     private readonly string _path;
 
+    public string SettingsFilePath => _path;
+
     public ConnectionSettingsStore(ISecretProtector protector)
     {
         _protector = protector;
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Kroste", "Checkmk");
-        Directory.CreateDirectory(dir);
-        _path = Path.Combine(dir, "settings.json");
+        _path = ResolvePath();
+        try
+        {
+            var dir = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Zielverzeichnis konnte nicht erstellt werden: {Path}", _path);
+        }
+        Log.Info("Verbindungseinstellungen liegen unter {Path}", _path);
     }
 
     public ConnectionSettings Load()
@@ -109,4 +123,64 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
            && !string.IsNullOrWhiteSpace(s.Site)
            && !string.IsNullOrWhiteSpace(s.Username)
            && !string.IsNullOrEmpty(s.ProtectedSecret);
+
+    private static string ResolvePath()
+    {
+        if (OperatingSystem.IsWindows())
+            return Bootstrap.LoadOrCreate().SharedSettingsPath;
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Kroste", "Checkmk", "settings.json");
+    }
+}
+
+/// <summary>
+/// Bootstrap-Datei im Userspace — enthaelt nur den Pfad zur zentralen Verbindungsdatei auf dem
+/// Windows-Fileshare. Wird beim ersten Start mit dem Default belegt und kann von Hand editiert
+/// werden, falls sich der Fileserver-Pfad aendert. Bewusst kein UI dafuer: der Default ist die
+/// Konvention, Abweichungen sind Sonderfall.
+/// </summary>
+internal sealed class Bootstrap
+{
+    private const string DefaultWindowsSharedPath = @"\\Samba01\542$\Checkmk\settings.json";
+
+    public string SharedSettingsPath { get; set; } = DefaultWindowsSharedPath;
+
+    private static string BootstrapFile => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Kroste", "Checkmk", "bootstrap.json");
+
+    public static Bootstrap LoadOrCreate()
+    {
+        var path = BootstrapFile;
+        if (File.Exists(path))
+        {
+            try
+            {
+                var json = File.ReadAllText(path);
+                var loaded = JsonSerializer.Deserialize<Bootstrap>(json);
+                if (loaded != null && !string.IsNullOrWhiteSpace(loaded.SharedSettingsPath))
+                    return loaded;
+            }
+            catch
+            {
+                // fall through to default
+            }
+        }
+
+        var b = new Bootstrap();
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path,
+                JsonSerializer.Serialize(b, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch
+        {
+            // Wenn wir das Bootstrap-File nicht schreiben koennen, ist das nicht kritisch —
+            // der Default gilt trotzdem.
+        }
+        return b;
+    }
 }

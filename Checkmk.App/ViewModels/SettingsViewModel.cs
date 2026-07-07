@@ -19,6 +19,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private bool _useHttps = true;
     [ObservableProperty] private bool _ignoreCertificateErrors;
 
+    public string StorageLocationLabel { get; }
+
     /// <summary>Wird true, sobald erfolgreich gespeichert wurde (Fenster kann schliessen).</summary>
     public bool Saved { get; private set; }
 
@@ -36,6 +38,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
         UseHttps = s.UseHttps;
         IgnoreCertificateErrors = s.IgnoreCertificateErrors;
         Secret = _store.LoadSecret(s) ?? "";
+
+        var isShared = _store.SettingsFilePath.StartsWith(@"\\", StringComparison.Ordinal);
+        StorageLocationLabel = isShared
+            ? $"Zentrale Datei: {_store.SettingsFilePath}"
+            : $"Lokale Datei: {_store.SettingsFilePath}";
     }
 
     [RelayCommand]
