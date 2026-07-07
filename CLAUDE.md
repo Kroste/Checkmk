@@ -171,9 +171,11 @@ den Commit-Log an.
    GitHub auf einen internen Fileshare umgestellt wird.
 7. ✅ Bulk-Ack/Downtime (Status-Tab + Host-Detail: Ctrl/Shift-Klick auf Services →
    ein Kommentar, iterative Ausführung, Einzelfehler brechen den Bulk nicht ab).
-8. Tier 3 (Rest): **Kommentare** (Anzeigen bestehender Kommentare + neue anlegen),
-   **DB-Health-Board** (MSSQL/Oracle-Services über alle DB-Hosts, Filter auf
-   Service-Description „MSSQL"/„ORA-"…).
+8. ✅ Kommentare (Anzeige im Host-Detail + Add auf Host/Service).
+   DB-Health-Board wurde als „durch Host-Filter mit Regex/Include-Liste ausreichend
+   abgedeckt" verworfen — statt eines eigenen Tabs legt jeder DB-Admin sich einen
+   Favoriten „DB-Server" an (Regex `.*sql.*|.*ora.*` oder Include-Liste der Instanzen)
+   und sieht seine DBs in Status/Konfig gefiltert.
 9. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
    Binary"-Trade-off ab, sobald AD-Gruppe steht.
 10. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
