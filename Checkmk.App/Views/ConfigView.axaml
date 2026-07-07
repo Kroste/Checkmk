@@ -20,6 +20,15 @@
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Content="Anlegen" Command="{Binding CreateHostCommand}"
                   IsEnabled="{Binding !IsBusy}" />
+          <Button Content="Services entdecken" Command="{Binding DiscoverServicesCommand}"
+                  ToolTip.Tip="Startet Service-Discovery (fix_all) auf dem markierten Host und aktiviert die Änderungen.">
+            <Button.IsEnabled>
+              <MultiBinding Converter="{x:Static BoolConverters.And}">
+                <Binding Path="!IsBusy" />
+                <Binding Path="SelectedHost" Converter="{x:Static ObjectConverters.IsNotNull}" />
+              </MultiBinding>
+            </Button.IsEnabled>
+          </Button>
           <Button Content="Änderungen aktivieren" Command="{Binding ActivateChangesCommand}"
                   IsEnabled="{Binding !IsBusy}" Background="#0E639C" />
           <Button Content="Liste neu laden" Command="{Binding RefreshHostsCommand}"
@@ -43,10 +52,19 @@
     </Grid>
 
     <!-- Host-Liste -->
-    <DataGrid Name="HostGrid" Grid.Row="2" ItemsSource="{Binding Hosts}" IsReadOnly="True"
+    <DataGrid Name="HostGrid" Grid.Row="2" ItemsSource="{Binding Hosts}"
+              SelectedItem="{Binding SelectedHost}" IsReadOnly="True"
               GridLinesVisibility="Horizontal" Margin="4"
               CanUserResizeColumns="True" CanUserSortColumns="True"
               SelectionMode="Extended">
+      <DataGrid.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Services entdecken (fix_all + aktivieren)"
+                    Command="{Binding DiscoverServicesCommand}" />
+          <Separator />
+          <MenuItem Header="Auswahl als Favorit…" Click="OnSaveSelectionAsFavoriteClick" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
       <DataGrid.Columns>
         <DataGridTextColumn Header="Host" Binding="{Binding Id}" Width="220" />
         <DataGridTextColumn Header="Ordner" Binding="{Binding Extensions.Folder}" Width="200" />

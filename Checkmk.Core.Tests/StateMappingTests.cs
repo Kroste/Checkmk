@@ -59,6 +59,59 @@ public class StateMappingTests
     }
 }
 
+public class ServiceDiscoveryTests
+{
+    private static readonly System.Text.Json.JsonSerializerOptions Opts =
+        new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+    [Fact]
+    public void RunState_deserializes_from_object_envelope()
+    {
+        // GET /objects/service_discovery_run/{host_name} liefert einen
+        // CheckmkObject<T>-Envelope mit "extensions".
+        const string json = """
+            {
+                "id": "DBSQL01",
+                "title": "Service discovery on DBSQL01",
+                "extensions": { "active": false, "state": "finished" }
+            }
+            """;
+
+        var envelope = System.Text.Json.JsonSerializer
+            .Deserialize<CheckmkObject<ServiceDiscoveryRunState>>(json, Opts);
+
+        envelope.Should().NotBeNull();
+        envelope!.Extensions.Should().NotBeNull();
+        envelope.Extensions!.Active.Should().BeFalse();
+        envelope.Extensions.State.Should().Be("finished");
+    }
+
+    [Fact]
+    public void Active_run_deserializes_with_active_true()
+    {
+        const string json = """
+            { "id": "web01", "extensions": { "active": true, "state": "running" } }
+            """;
+
+        var envelope = System.Text.Json.JsonSerializer
+            .Deserialize<CheckmkObject<ServiceDiscoveryRunState>>(json, Opts);
+
+        envelope!.Extensions!.Active.Should().BeTrue();
+        envelope.Extensions.State.Should().Be("running");
+    }
+
+    [Theory]
+    [InlineData(ServiceDiscoveryMode.FixAll, "fix_all")]
+    [InlineData(ServiceDiscoveryMode.New, "new")]
+    [InlineData(ServiceDiscoveryMode.Remove, "remove")]
+    [InlineData(ServiceDiscoveryMode.TabulaRasa, "tabula_rasa")]
+    public void Mode_constants_use_checkmk_wire_values(string constant, string expected)
+        => constant.Should().Be(expected);
+}
+
 public class HostAttributesSerializationTests
 {
     // Muss identisch zu CheckmkClient.JsonOpts sein.

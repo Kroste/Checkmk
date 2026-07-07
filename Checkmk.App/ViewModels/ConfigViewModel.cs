@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Checkmk.App.Services;
+using Checkmk.Core;
 using Checkmk.Core.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +18,9 @@ public sealed partial class ConfigViewModel : ViewModelBase
     public HostFilterCollection Filters { get; }
 
     public ObservableCollection<CheckmkObject<HostConfigExtensions>> Hosts { get; } = [];
+
+    [ObservableProperty]
+    private CheckmkObject<HostConfigExtensions>? _selectedHost;
 
     [ObservableProperty]
     private string _newHostName = "";
@@ -97,6 +101,43 @@ public sealed partial class ConfigViewModel : ViewModelBase
         catch (Exception ex)
         {
             Log.Warn(ex, "Host anlegen fehlgeschlagen.");
+            StatusMessage = $"Fehler: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// Bringt einen bestehenden Host ins Monitoring: startet die Service-Discovery
+    /// im Modus <c>fix_all</c>, pollt bis der Run fertig ist und aktiviert danach die
+    /// Aenderungen. Kann bei vielen Services mehrere Sekunden dauern.
+    /// </summary>
+    [RelayCommand]
+    private async Task DiscoverServicesAsync()
+    {
+        var client = _clients.Current;
+        if (client is null) { StatusMessage = "Nicht konfiguriert."; return; }
+
+        var host = SelectedHost?.Id;
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            StatusMessage = "Kein Host ausgewählt.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            StatusMessage = $"Service-Discovery läuft für {host}…";
+            await client.DiscoverServicesAsync(host, ServiceDiscoveryMode.FixAll);
+
+            StatusMessage = $"Discovery beendet für {host}. Aktiviere Änderungen…";
+            await client.ActivateChangesAsync();
+            StatusMessage = $"Fertig — {host} ist im Monitoring.";
+            await RefreshHostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Service-Discovery fuer {Host} fehlgeschlagen.", host);
             StatusMessage = $"Fehler: {ex.Message}";
         }
         finally { IsBusy = false; }

@@ -203,6 +203,68 @@ public sealed class CheckmkClient
         await EnsureSuccessAsync(resp, ct);
     }
 
+    // ---------------------------------------------------------------------
+    // Service Discovery
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Startet einen Service-Discovery-Run auf dem gegebenen Host. Laeuft als
+    /// Hintergrund-Task auf dem Server — mit <see cref="WaitForServiceDiscoveryAsync"/>
+    /// pollen bis fertig, danach <see cref="ActivateChangesAsync"/> aufrufen.
+    /// </summary>
+    public async Task StartServiceDiscoveryAsync(string hostName,
+        string mode = ServiceDiscoveryMode.FixAll, CancellationToken ct = default)
+    {
+        var payload = new { host_name = hostName, mode };
+        using var resp = await _http.PostAsJsonAsync(
+            "domain-types/service_discovery_run/actions/start/invoke", payload, JsonOpts, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    /// <summary>Aktueller Status eines laufenden Discovery-Runs.</summary>
+    public async Task<ServiceDiscoveryRunState> GetServiceDiscoveryRunAsync(string hostName,
+        CancellationToken ct = default)
+    {
+        var envelope = await GetAsync<CheckmkObject<ServiceDiscoveryRunState>>(
+            $"objects/service_discovery_run/{Uri.EscapeDataString(hostName)}", ct);
+        return envelope.Extensions ?? new ServiceDiscoveryRunState();
+    }
+
+    /// <summary>
+    /// Pollt <see cref="GetServiceDiscoveryRunAsync"/> bis der Run abgeschlossen ist
+    /// (<c>active == false</c>). Standard-Timeout 2 Minuten, Poll-Intervall 1.5 s.
+    /// </summary>
+    public async Task WaitForServiceDiscoveryAsync(string hostName,
+        TimeSpan? timeout = null, TimeSpan? pollInterval = null, CancellationToken ct = default)
+    {
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromMinutes(2));
+        var delay = pollInterval ?? TimeSpan.FromMilliseconds(1500);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+            var state = await GetServiceDiscoveryRunAsync(hostName, ct);
+            if (!state.Active)
+                return;
+            await Task.Delay(delay, ct);
+        }
+        throw new TimeoutException(
+            $"Service-Discovery fuer Host '{hostName}' hat das Zeitlimit ueberschritten.");
+    }
+
+    /// <summary>Convenience: Discovery starten und auf Ende warten (kombiniert Start + Wait).</summary>
+    public async Task DiscoverServicesAsync(string hostName,
+        string mode = ServiceDiscoveryMode.FixAll,
+        TimeSpan? timeout = null, CancellationToken ct = default)
+    {
+        await StartServiceDiscoveryAsync(hostName, mode, ct);
+        await WaitForServiceDiscoveryAsync(hostName, timeout, ct: ct);
+    }
+
+    // ---------------------------------------------------------------------
+    // Activate Changes
+    // ---------------------------------------------------------------------
+
     /// <summary>
     /// Aktiviert ausstehende Aenderungen (Setup -> scharfschalten).
     /// If-Match: * erspart das vorherige ETag-Abholen.

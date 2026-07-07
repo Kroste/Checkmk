@@ -61,6 +61,9 @@ werden direkt instanziiert, nicht über DI.
   Filter, „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechts-
   klick): Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets.
 - **Konfig-Tab:** Host anlegen (Name/Ordner/IP/Alias), Host-Liste, „Änderungen aktivieren".
+  **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
+  `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert
+  danach die Änderungen — bringt vorhandene Hosts wie `DBSQL01` ins Monitoring.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Konfig-Tab lassen sich per Ctrl+Klick mehrere Hosts
@@ -134,8 +137,7 @@ Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
 1. ✅ Ack + Downtime aus der Liste.
 2. ✅ Host-Filter mit Regex + Favoriten (Include-Listen).
 3. ✅ Zentrale Windows-Verbindungsdatei auf Fileshare (Samba01 542$).
-4. **Service Discovery für bestehende Hosts** (Config-Tab: Host → `fix_all` → aktivieren) —
-   bringt vorhandene Hosts wie `DBSQL01` ins Monitoring.
+4. ✅ Service Discovery für bestehende Hosts (Config-Tab: Host → `fix_all` → aktivieren).
 5. **Host-Detailansicht** (alle Services + Attribute) — adressiert den größten Schmerzpunkt
    (unübersichtliche Navigation).
 6. **Autoupdater** (Vorbild DTM / WebExStudio) — App prüft beim Start auf neuere Release-Tags
