@@ -19,6 +19,9 @@ public sealed partial class StatusViewModel : ViewModelBase
     public ObservableCollection<ServiceStatus> Services { get; } = [];
 
     [ObservableProperty]
+    private ServiceStatus? _selectedService;
+
+    [ObservableProperty]
     private string _filterText = "";
 
     [ObservableProperty]
@@ -103,6 +106,50 @@ public sealed partial class StatusViewModel : ViewModelBase
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>Acknowledged das aktuell gewaehlte Service-Problem und aktualisiert.</summary>
+    public async Task PerformAcknowledgeAsync(string comment)
+    {
+        var client = _clients.Current;
+        var svc = SelectedService;
+        if (client is null || svc is null) return;
+
+        try
+        {
+            IsBusy = true;
+            await client.AcknowledgeServiceProblemAsync(svc.HostName, svc.Description, comment);
+            StatusMessage = $"Acknowledged: {svc.HostName} / {svc.Description}.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Acknowledge fehlgeschlagen.");
+            StatusMessage = $"Fehler: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>Setzt eine Downtime auf dem gewaehlten Service und aktualisiert.</summary>
+    public async Task PerformDowntimeAsync(string comment, DateTimeOffset start, DateTimeOffset end)
+    {
+        var client = _clients.Current;
+        var svc = SelectedService;
+        if (client is null || svc is null) return;
+
+        try
+        {
+            IsBusy = true;
+            await client.ScheduleServiceDowntimeAsync(svc.HostName, svc.Description, start, end, comment);
+            StatusMessage = $"Downtime bis {end:HH:mm} gesetzt: {svc.HostName} / {svc.Description}.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Downtime fehlgeschlagen.");
+            StatusMessage = $"Fehler: {ex.Message}";
+        }
+        finally { IsBusy = false; }
     }
 
     private void ApplyFilter()

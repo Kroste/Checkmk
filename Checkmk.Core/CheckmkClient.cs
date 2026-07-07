@@ -183,6 +183,26 @@ public sealed class CheckmkClient
         await EnsureSuccessAsync(resp, ct);
     }
 
+    /// <summary>Plant eine Downtime fuer einen einzelnen Service.</summary>
+    public async Task ScheduleServiceDowntimeAsync(string hostName, string serviceDescription,
+        DateTimeOffset start, DateTimeOffset end, string comment, CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            downtime_type = "service",
+            host_name = hostName,
+            service_descriptions = new[] { serviceDescription },
+            start_time = start.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            end_time = end.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            recur = "fixed",
+            duration = 0,
+            comment
+        };
+        using var resp = await _http.PostAsJsonAsync(
+            "domain-types/downtime/collections/service", payload, JsonOpts, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
     /// <summary>
     /// Aktiviert ausstehende Aenderungen (Setup -> scharfschalten).
     /// If-Match: * erspart das vorherige ETag-Abholen.
