@@ -5,8 +5,8 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <!-- Self-contained win-x64 ist die bevorzugte Distribution (kein System-.NET noetig). -->
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <!-- Self-contained Single-File ist die bevorzugte Distribution (kein System-.NET noetig). -->
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>

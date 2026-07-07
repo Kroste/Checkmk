@@ -1,5 +1,3 @@
-using System.Runtime.Versioning;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Checkmk.Core;
@@ -16,7 +14,7 @@ public sealed class ConnectionSettings
     public bool UseHttps { get; set; } = true;
     public bool IgnoreCertificateErrors { get; set; }
 
-    /// <summary>DPAPI-verschluesseltes Secret (Base64). Nie im Klartext im JSON.</summary>
+    /// <summary>Plattformspezifisch verschluesseltes Secret (Base64). Nie im Klartext im JSON.</summary>
     public string? ProtectedSecret { get; set; }
 
     public CheckmkOptions ToOptions(string plainSecret) => new()
@@ -39,19 +37,22 @@ public interface IConnectionSettingsStore
 }
 
 /// <summary>
-/// Speichert die Verbindungskonfiguration unter
-/// %APPDATA%/Kroste/Checkmk/settings.json. Das Secret wird per DPAPI
-/// (CurrentUser) verschluesselt — auf Nicht-Windows Fallback mit Warnung.
+/// Speichert die Verbindungskonfiguration plattformkonform:
+/// Windows unter <c>%APPDATA%</c>, Linux/macOS unter <c>$XDG_CONFIG_HOME</c>
+/// (bzw. <c>~/.config</c>). Das Secret wird ueber <see cref="ISecretProtector"/>
+/// plattformspezifisch verschluesselt (Windows: DPAPI-CurrentUser,
+/// Linux: AES-GCM mit machine-id/UID-abgeleitetem Schluessel).
 /// </summary>
 public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("Kroste.Checkmk.v1");
 
+    private readonly ISecretProtector _protector;
     private readonly string _path;
 
-    public ConnectionSettingsStore()
+    public ConnectionSettingsStore(ISecretProtector protector)
     {
+        _protector = protector;
         var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Kroste", "Checkmk");
@@ -82,7 +83,7 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
         try
         {
             var blob = Convert.FromBase64String(settings.ProtectedSecret);
-            return Unprotect(blob);
+            return Encoding.UTF8.GetString(_protector.Unprotect(blob));
         }
         catch (Exception ex)
         {
@@ -95,7 +96,7 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
     {
         settings.ProtectedSecret = string.IsNullOrEmpty(plainSecret)
             ? null
-            : Convert.ToBase64String(Protect(plainSecret));
+            : Convert.ToBase64String(_protector.Protect(Encoding.UTF8.GetBytes(plainSecret)));
 
         var json = JsonSerializer.Serialize(settings,
             new JsonSerializerOptions { WriteIndented = true });
@@ -108,31 +109,4 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
            && !string.IsNullOrWhiteSpace(s.Site)
            && !string.IsNullOrWhiteSpace(s.Username)
            && !string.IsNullOrEmpty(s.ProtectedSecret);
-
-    // --- Krypto ---
-
-    private static byte[] Protect(string plain)
-    {
-        var data = Encoding.UTF8.GetBytes(plain);
-        if (OperatingSystem.IsWindows())
-            return WindowsProtect(data);
-
-        Log.Warn("DPAPI nur unter Windows verfuegbar — Secret wird UNVERSCHLUESSELT abgelegt (nur Dev).");
-        return data;
-    }
-
-    private static string Unprotect(byte[] blob)
-    {
-        if (OperatingSystem.IsWindows())
-            return Encoding.UTF8.GetString(WindowsUnprotect(blob));
-        return Encoding.UTF8.GetString(blob);
-    }
-
-    [SupportedOSPlatform("windows")]
-    private static byte[] WindowsProtect(byte[] data)
-        => ProtectedData.Protect(data, Entropy, DataProtectionScope.CurrentUser);
-
-    [SupportedOSPlatform("windows")]
-    private static byte[] WindowsUnprotect(byte[] blob)
-        => ProtectedData.Unprotect(blob, Entropy, DataProtectionScope.CurrentUser);
 }

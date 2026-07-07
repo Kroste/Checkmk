@@ -61,8 +61,11 @@ werden direkt instanziiert, nicht über DI.
   „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechtsklick):
   Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets (1h/2h/4h/bis 06:00).
 - **Konfig-Tab:** Host anlegen (Name/Ordner/IP/Alias), Host-Liste, „Änderungen aktivieren".
-- **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret **DPAPI-verschlüsselt**
-  in `%APPDATA%/Kroste/Checkmk/settings.json`. About mit GitHub + Buy-Me-a-Coffee.
+- **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret plattformspezifisch
+  verschlüsselt via `ISecretProtector` (`SecretProtector.cs`): **Windows** = DPAPI-CurrentUser,
+  **Linux** = AES-GCM mit Schlüssel aus `SHA256(machine-id ‖ user ‖ entropy)`. Ablage unter
+  `%APPDATA%/Kroste/Checkmk/settings.json` bzw. `~/.config/Kroste/Checkmk/settings.json`.
+  About mit GitHub + Buy-Me-a-Coffee.
 
 ## 5 · Checkmk-REST-API — nicht-offensichtliche Regeln
 
@@ -95,9 +98,12 @@ Diese Punkte kosten sonst zuverlässig Zeit:
 - **FluentAssertions auf v7 pinnen** (`[7.2.2,8.0.0)`). v8 = kommerzielle Xceed-Lizenz.
   Bei Dependabot/Renovate die Obergrenze prüfen — automatische Updates heben den Pin sonst aus
   (Major-Bumps für FluentAssertions per `ignore` ausschließen).
-- **`Tmds.DBus.Protocol`** (transitiv via Avalonia/Linux): aktuelle Version explizit pinnen
-  (z. B. 0.94.2), *nicht* das Audit unterdrücken. Alte Versionen haben GHSA-xrw6-gwf8-vvr9 →
-  bricht mit `TreatWarningsAsErrors` (NU1903).
+- **`Tmds.DBus.Protocol`** (transitiv via `Avalonia.FreeDesktop` auf Linux): **exakt** auf die
+  von der eingesetzten Avalonia-Version geforderte Fassung pinnen — API-Breaks zwischen den
+  0.9x-Minor-Versionen führen sonst zu `MissingTypeException: Tmds.DBus.Protocol.Connection`
+  beim App-Start (nur Linux, nur zur Laufzeit, Compile ist grün). Aktuell: **0.92.0** für
+  Avalonia 12.0.5. Beim Avalonia-Update `nuspec` von `avalonia.freedesktop` prüfen. Die
+  Advisory GHSA-xrw6-gwf8-vvr9 betrifft nur < 0.20; 0.92 ist nicht verwundbar.
 
 ## 7 · Projektstandard
 
@@ -117,6 +123,8 @@ Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
 4. **Filter / Suche / Gruppierung** (nach Ordner/Host/Status, OK-Zeilen einklappen).
 5. Tier 3: Bulk-Ack/Downtime, Host-Downtime („ganzer Host in Wartung"), Kommentare,
    DB-Health-Board (MSSQL/Oracle-Services über alle DB-Hosts).
+6. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
+   AES-mit-machine-id ab, wenn ein Keyring-Daemon verfügbar ist).
 
 ## 9 · Deal
 

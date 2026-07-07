@@ -34,6 +34,18 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "publish-linux-x64",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish", "${workspaceFolder}/Checkmk.App/Checkmk.App.csproj",
+        "-c", "Release", "-r", "linux-x64", "--self-contained",
+        "-p:PublishSingleFile=true",
+        "-p:IncludeNativeLibrariesForSelfExtract=true"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "clean-hard",
       "detail": "Loescht rekursiv alle bin/- und obj/-Ordner.",
       "type": "shell",
