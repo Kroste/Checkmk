@@ -17,6 +17,10 @@ public sealed partial class ConfigViewModel : ViewModelBase
 
     public HostFilterCollection Filters { get; }
 
+    /// <summary>Wird nur eingeblendet, wenn <see cref="Bootstrap"/>.ShowHostCreation true ist.
+    /// Steuert die Sichtbarkeit des Host-anlegen-Formulars im Konfig-Tab.</summary>
+    public bool IsHostCreationVisible { get; } = Bootstrap.LoadOrCreate().ShowHostCreation;
+
     public ObservableCollection<CheckmkObject<HostConfigExtensions>> Hosts { get; } = [];
 
     [ObservableProperty]

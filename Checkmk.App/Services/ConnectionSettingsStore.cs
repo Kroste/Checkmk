@@ -150,6 +150,14 @@ internal sealed class Bootstrap
     public string SharedSettingsPath { get; set; } = DefaultWindowsSharedPath;
     public string UpdateChannelUrl { get; set; } = DefaultUpdateChannelUrl;
 
+    /// <summary>
+    /// Blendet das „Host anlegen"-Formular im Konfig-Tab ein. Default false —
+    /// bewusst versteckt, weil Setup-Handgriffe im Fachbereich zentral erfolgen und
+    /// eine Fehlbedienung Config-Aenderungen produziert. Bei Bedarf per JSON auf true
+    /// setzen (kein UI-Schalter).
+    /// </summary>
+    public bool ShowHostCreation { get; set; }
+
     private static string BootstrapFile => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Kroste", "Checkmk", "bootstrap.json");

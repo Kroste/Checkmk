@@ -41,7 +41,7 @@
         <TabItem Header="Status">
           <views:StatusView DataContext="{Binding Status}" />
         </TabItem>
-        <TabItem Header="Konfiguration">
+        <TabItem Header="Hosts">
           <views:ConfigView DataContext="{Binding Config}" />
         </TabItem>
       </TabControl>

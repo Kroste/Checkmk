@@ -5,10 +5,11 @@
              x:Class="Checkmk.App.Views.ConfigView"
              x:DataType="vm:ConfigViewModel">
 
-  <Grid RowDefinitions="Auto,Auto,*">
+  <Grid RowDefinitions="Auto,Auto,Auto,*">
 
-    <!-- Host anlegen -->
-    <Border Grid.Row="0" Background="#252526" CornerRadius="6" Padding="12" Margin="4">
+    <!-- Host anlegen (per Bootstrap.ShowHostCreation ein-/ausblendbar; Default aus) -->
+    <Border Grid.Row="0" Background="#252526" CornerRadius="6" Padding="12" Margin="4"
+            IsVisible="{Binding IsHostCreationVisible}">
       <StackPanel Spacing="8">
         <TextBlock Text="Host anlegen" FontWeight="SemiBold" />
         <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
@@ -17,27 +18,29 @@
           <TextBox Grid.Column="2" Text="{Binding NewHostIp}" PlaceholderText="IP-Adresse" />
           <TextBox Grid.Column="3" Text="{Binding NewHostAlias}" PlaceholderText="Alias" />
         </Grid>
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="Anlegen" Command="{Binding CreateHostCommand}"
-                  IsEnabled="{Binding !IsBusy}" />
-          <Button Content="Services entdecken" Command="{Binding DiscoverServicesCommand}"
-                  ToolTip.Tip="Startet Service-Discovery (fix_all) auf dem markierten Host und aktiviert die Änderungen.">
-            <Button.IsEnabled>
-              <MultiBinding Converter="{x:Static BoolConverters.And}">
-                <Binding Path="!IsBusy" />
-                <Binding Path="SelectedHost" Converter="{x:Static ObjectConverters.IsNotNull}" />
-              </MultiBinding>
-            </Button.IsEnabled>
-          </Button>
-          <Button Content="Änderungen aktivieren" Command="{Binding ActivateChangesCommand}"
-                  IsEnabled="{Binding !IsBusy}" Background="#0E639C" />
-          <Button Content="Liste neu laden" Command="{Binding RefreshHostsCommand}"
-                  IsEnabled="{Binding !IsBusy}" />
-        </StackPanel>
+        <Button Content="Anlegen" Command="{Binding CreateHostCommand}"
+                IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" />
       </StackPanel>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="Auto,240,Auto,*,Auto" ColumnSpacing="8" Margin="8,4">
+    <!-- Aktions-Toolbar (immer sichtbar) -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="8,4">
+      <Button Content="Services entdecken" Command="{Binding DiscoverServicesCommand}"
+              ToolTip.Tip="Startet Service-Discovery (fix_all) auf dem markierten Host und aktiviert die Änderungen.">
+        <Button.IsEnabled>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="!IsBusy" />
+            <Binding Path="SelectedHost" Converter="{x:Static ObjectConverters.IsNotNull}" />
+          </MultiBinding>
+        </Button.IsEnabled>
+      </Button>
+      <Button Content="Änderungen aktivieren" Command="{Binding ActivateChangesCommand}"
+              IsEnabled="{Binding !IsBusy}" Background="#0E639C" />
+      <Button Content="Liste neu laden" Command="{Binding RefreshHostsCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+    </StackPanel>
+
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,240,Auto,*,Auto" ColumnSpacing="8" Margin="8,4">
       <TextBlock Grid.Column="0" Text="Host-Filter:" VerticalAlignment="Center" Foreground="#AAAAAA" />
       <ComboBox Grid.Column="1"
                 ItemsSource="{Binding Filters.Filters}"
@@ -52,7 +55,7 @@
     </Grid>
 
     <!-- Host-Liste -->
-    <DataGrid Name="HostGrid" Grid.Row="2" ItemsSource="{Binding Hosts}"
+    <DataGrid Name="HostGrid" Grid.Row="3" ItemsSource="{Binding Hosts}"
               SelectedItem="{Binding SelectedHost}" IsReadOnly="True"
               GridLinesVisibility="Horizontal" Margin="4"
               CanUserResizeColumns="True" CanUserSortColumns="True"

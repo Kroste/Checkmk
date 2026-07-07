@@ -20,7 +20,7 @@ Technische Details (Architektur, API-Fallen, Roadmap) stehen in
 - [Bulk-Aktionen (mehrere Services gleichzeitig)](#bulk-aktionen-mehrere-services-gleichzeitig)
 - [Host-Details](#host-details)
 - [Host-Filter und Favoriten](#host-filter-und-favoriten)
-- [Konfiguration — Hosts anlegen und Services entdecken](#konfiguration--hosts-anlegen-und-services-entdecken)
+- [Hosts-Tab — Host-Liste, Service Discovery, Änderungen aktivieren](#hosts-tab--host-liste-service-discovery-änderungen-aktivieren)
 - [Updates](#updates)
 - [Wo liegen meine Daten](#wo-liegen-meine-daten)
 - [Wenn etwas nicht funktioniert](#wenn-etwas-nicht-funktioniert)
@@ -160,7 +160,7 @@ werden gesammelt und am Ende gemeldet: **„Acknowledged: 10/12 — 2 Fehler
 Wenn du einen Host komplett anschauen willst (alle seine Services + Konfig),
 öffnet sich ein eigenes Fenster:
 
-- **Doppelklick** auf eine Zeile (im Status-Tab oder im Konfig-Tab), oder
+- **Doppelklick** auf eine Zeile (im Status-Tab oder im Hosts-Tab), oder
 - **Rechtsklick → „Host-Details…"**.
 
 Das Fenster zeigt oben:
@@ -190,14 +190,14 @@ speicherbare Filter — nennt sich hier **„Favoriten"**.
 
 ### Filter auswählen
 
-In der Toolbar (Status-Tab **und** Konfig-Tab) ist eine Combobox
+In der Toolbar (Status-Tab **und** Hosts-Tab) ist eine Combobox
 **„Host-Filter:"**. Wählst du dort einen Favoriten, sind sofort in beiden Tabs
 nur noch die passenden Hosts sichtbar. Zurück auf alle: Auswahl leeren
 („(Alle Hosts)").
 
 ### Favoriten aus einer Auswahl speichern
 
-Im **Konfig-Tab** die passenden Hosts per Ctrl-/Shift-Klick markieren, dann
+Im **Hosts-Tab** die passenden Hosts per Ctrl-/Shift-Klick markieren, dann
 **„Auswahl als Favorit…"**. Namen eingeben („DB-Server", „Meine kritischen",
 …) und speichern. Der Favorit steht dann in der Combobox beider Tabs.
 
@@ -226,14 +226,19 @@ ist `%APPDATA%\Kroste\Checkmk\filter.json`.
 
 ---
 
-## Konfiguration — Hosts anlegen und Services entdecken
+## Hosts-Tab — Host-Liste, Service Discovery, Änderungen aktivieren
 
-Der **Konfig-Tab** ist für Änderungen an der Checkmk-Setup-Seite (also nicht
+Der **Hosts-Tab** ist für Änderungen an der Checkmk-Setup-Seite (also nicht
 Live-Status, sondern was überhaupt überwacht wird).
 
-### Host anlegen
+### Host anlegen (standardmäßig ausgeblendet)
 
-Formular oben:
+Das Anlege-Formular ist per Default **nicht sichtbar** — der Handgriff läuft
+im Fachbereich zentral, Fehlbedienung produziert Config-Änderungen. Zum
+Einblenden: `%APPDATA%\Kroste\Checkmk\bootstrap.json` öffnen und
+`"showHostCreation": true` ergänzen. Kein UI-Schalter, absichtlich.
+
+Wenn das Formular sichtbar ist:
 
 - **Hostname** *(Pflicht)* — der Name, unter dem der Host in Checkmk laufen
   soll.

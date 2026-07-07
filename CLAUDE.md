@@ -63,10 +63,13 @@ werden direkt instanziiert, nicht über DI.
   **Bulk-Ack/Downtime**: Ctrl/Shift-Klick markiert mehrere Services; ein Kommentar für
   alle, iterative Ausführung mit Fortschritt „Ack 3/12: host/service" in der Statusleiste.
   Einzelfehler brechen den Bulk nicht ab, werden geloggt und am Ende summiert.
-- **Konfig-Tab:** Host anlegen (Name/Ordner/IP/Alias), Host-Liste, „Änderungen aktivieren".
+- **Hosts-Tab** (früher „Konfiguration"): Host-Liste mit Ordner/IP/Alias, „Änderungen aktivieren",
   **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
   `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert
   danach die Änderungen — bringt vorhandene Hosts wie `DBSQL01` ins Monitoring.
+  Das „Host anlegen"-Formular ist per Default **ausgeblendet** (Setup-Handgriffe
+  laufen zentral, Fehlbedienung produziert Config-Änderungen); wieder einblenden
+  über `%APPDATA%\Kroste\Checkmk\bootstrap.json` mit `"showHostCreation": true`.
 - **Host-Details** (`HostDetailWindow`): Doppelklick oder Rechtsklick auf eine Zeile
   öffnet ein eigenes Fenster mit Host-State (Ampel), Config-Attributen (Ordner/IP/Alias),
   Plugin-Output, Service-Aggregat (OK/WARN/CRIT/UNK) und der Service-Tabelle. Ack + Down-
@@ -86,7 +89,7 @@ werden direkt instanziiert, nicht über DI.
   Kein Selbst-Ersetzen des Binary — Roadmap-Phase 2.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
-  **Include-Liste** von Hostnamen. Aus dem Konfig-Tab lassen sich per Ctrl+Klick mehrere Hosts
+  **Include-Liste** von Hostnamen. Aus dem Hosts-Tab lassen sich per Ctrl+Klick mehrere Hosts
   markieren und mit „Auswahl als Favorit…" als benannte Liste speichern. Verwaltung
   (Anlegen/Bearbeiten/Löschen/Aktivieren) im `FilterManagerWindow`. Ablage user-lokal und
   unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json` bzw. `~/.config/Kroste/Checkmk/
