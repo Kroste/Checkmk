@@ -58,3 +58,35 @@ public class StateMappingTests
         svc.InDowntime.Should().BeTrue();
     }
 }
+
+public class HostAttributesSerializationTests
+{
+    // Muss identisch zu CheckmkClient.JsonOpts sein.
+    private static readonly System.Text.Json.JsonSerializerOptions Opts =
+        new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+    [Fact]
+    public void Empty_attributes_serialize_without_null_fields()
+    {
+        // Regression: Checkmk lehnt "ipaddress": null etc. mit
+        // "These fields have problems: attributes" (HTTP 400) ab.
+        var json = System.Text.Json.JsonSerializer.Serialize(new HostAttributes(), Opts);
+
+        json.Should().Be("{}");
+        json.Should().NotContain("null");
+    }
+
+    [Fact]
+    public void Only_set_attributes_are_included()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new HostAttributes { IpAddress = "10.0.0.5" }, Opts);
+
+        json.Should().Contain("ipaddress");
+        json.Should().NotContain("alias");
+        json.Should().NotContain("labels");
+    }
+}

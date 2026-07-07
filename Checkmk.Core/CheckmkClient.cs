@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Checkmk.Core.Exceptions;
 using Checkmk.Core.Models;
 using Microsoft.Extensions.Options;
@@ -23,7 +24,13 @@ public sealed class CheckmkClient
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+    // WhenWritingNull: Checkmk lehnt null-Werte im "attributes"-Block ab
+    // ("These fields have problems: attributes"). Nicht gesetzte Attribute
+    // muessen weggelassen, nicht als null gesendet werden.
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     private readonly HttpClient _http;
 
