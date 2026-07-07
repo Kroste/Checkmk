@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Checkmk.App.ViewModels"
+             xmlns:models="using:Checkmk.Core.Models"
+             x:Class="Checkmk.App.Views.ConfigView"
+             x:DataType="vm:ConfigViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,*">
+
+    <!-- Host anlegen -->
+    <Border Grid.Row="0" Background="#252526" CornerRadius="6" Padding="12" Margin="4">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Host anlegen" FontWeight="SemiBold" />
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+          <TextBox Grid.Column="0" Text="{Binding NewHostName}" PlaceholderText="Hostname *" />
+          <TextBox Grid.Column="1" Text="{Binding NewHostFolder}" PlaceholderText="Ordner (/)" />
+          <TextBox Grid.Column="2" Text="{Binding NewHostIp}" PlaceholderText="IP-Adresse" />
+          <TextBox Grid.Column="3" Text="{Binding NewHostAlias}" PlaceholderText="Alias" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Anlegen" Command="{Binding CreateHostCommand}"
+                  IsEnabled="{Binding !IsBusy}" />
+          <Button Content="Änderungen aktivieren" Command="{Binding ActivateChangesCommand}"
+                  IsEnabled="{Binding !IsBusy}" Background="#0E639C" />
+          <Button Content="Liste neu laden" Command="{Binding RefreshHostsCommand}"
+                  IsEnabled="{Binding !IsBusy}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Margin="8,4" Foreground="#AAAAAA" />
+
+    <!-- Host-Liste -->
+    <DataGrid Grid.Row="2" ItemsSource="{Binding Hosts}" IsReadOnly="True"
+              GridLinesVisibility="Horizontal" Margin="4"
+              CanUserResizeColumns="True" CanUserSortColumns="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Host" Binding="{Binding Id}" Width="220" />
+        <DataGridTextColumn Header="Ordner" Binding="{Binding Extensions.Folder}" Width="200" />
+        <DataGridTextColumn Header="IP-Adresse"
+                            Binding="{Binding Extensions.Attributes.IpAddress}" Width="160" />
+        <DataGridTextColumn Header="Alias"
+                            Binding="{Binding Extensions.Attributes.Alias}" Width="*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

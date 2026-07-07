@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Self-contained win-x64 ist die bevorzugte Distribution (kein System-.NET noetig). -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/**" />
+    <None Update="nlog.config" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="NLog" />
+    <PackageReference Include="NLog.Extensions.Logging" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Checkmk.Core/Checkmk.Core.csproj" />
+  </ItemGroup>
+
+</Project>

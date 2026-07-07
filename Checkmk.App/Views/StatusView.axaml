@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Checkmk.App.ViewModels"
+             xmlns:models="using:Checkmk.Core.Models"
+             x:Class="Checkmk.App.Views.StatusView"
+             x:DataType="vm:StatusViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,*">
+
+    <!-- Toolbar -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="4,4,4,8" ColumnSpacing="8">
+      <TextBox Grid.Column="0" Text="{Binding FilterText}"
+               PlaceholderText="Filter nach Host oder Service…" />
+      <CheckBox Grid.Column="1" Content="Nur Probleme" IsChecked="{Binding OnlyProblems}"
+                VerticalAlignment="Center" />
+      <CheckBox Grid.Column="2" Content="Auto" IsChecked="{Binding AutoRefresh}"
+                VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="3" Value="{Binding RefreshSeconds}" Minimum="5" Maximum="600"
+                     Increment="5" Width="110" FormatString="0's'" />
+      <Button Grid.Column="4" Content="Aktualisieren" Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+    </Grid>
+
+    <!-- Zusammenfassung -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="4,0,4,8">
+      <TextBlock Text="{Binding HostsUp, StringFormat='Hosts UP: {0}'}" Foreground="#66BB6A" />
+      <TextBlock Text="{Binding HostsDown, StringFormat='DOWN: {0}'}" Foreground="#EF5350" />
+      <Rectangle Width="1" Fill="#444" />
+      <TextBlock Text="{Binding ServicesOk, StringFormat='OK: {0}'}" Foreground="#66BB6A" />
+      <TextBlock Text="{Binding ServicesWarn, StringFormat='WARN: {0}'}" Foreground="#FFCA28" />
+      <TextBlock Text="{Binding ServicesCrit, StringFormat='CRIT: {0}'}" Foreground="#EF5350" />
+    </StackPanel>
+
+    <!-- Service-Tabelle -->
+    <DataGrid Grid.Row="2" ItemsSource="{Binding Services}"
+              IsReadOnly="True" GridLinesVisibility="Horizontal"
+              CanUserResizeColumns="True" CanUserSortColumns="True">
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="" Width="34">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="models:ServiceStatus">
+              <Border Width="14" Height="14" CornerRadius="7"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Background="{Binding ServiceState, Converter={StaticResource StateToBrush}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTextColumn Header="Host" Binding="{Binding HostName}" Width="180" />
+        <DataGridTextColumn Header="Service" Binding="{Binding Description}" Width="220" />
+        <DataGridTextColumn Header="Status" Binding="{Binding ServiceState}" Width="90" />
+        <DataGridTextColumn Header="Ausgabe" Binding="{Binding PluginOutput}" Width="*" />
+        <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="50" />
+        <DataGridCheckBoxColumn Header="DT" Binding="{Binding InDowntime}" Width="50" />
+        <DataGridTextColumn Header="Letzter Check"
+                            Binding="{Binding LastCheck, StringFormat='{}{0:HH:mm:ss}'}" Width="110" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

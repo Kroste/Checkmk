@@ -1,0 +1,22 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Nur direkte Abhaengigkeiten auditieren; transitive Backend-Pakete
+         (z. B. Linux-DBus) sind fuer den win-x64-Build irrelevant. -->
+    <NuGetAuditMode>direct</NuGetAuditMode>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Lars</Authors>
+    <Company>Kroste</Company>
+    <RepositoryUrl>https://github.com/Kroste/Checkmk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+</Project>
