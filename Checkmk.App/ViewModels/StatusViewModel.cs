@@ -160,6 +160,28 @@ public sealed partial class StatusViewModel : ViewModelBase
         finally { IsBusy = false; }
     }
 
+    /// <summary>Legt einen Kommentar auf dem gewaehlten Service an.</summary>
+    public async Task PerformAddCommentAsync(string comment, bool persistent)
+    {
+        var client = _clients.Current;
+        var svc = SelectedService;
+        if (client is null || svc is null) return;
+
+        try
+        {
+            IsBusy = true;
+            await client.AddServiceCommentAsync(svc.HostName, svc.Description, comment, persistent);
+            StatusMessage = $"Kommentar gespeichert: {svc.HostName} / {svc.Description}.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Kommentar-Anlage fehlgeschlagen.");
+            StatusMessage = $"Fehler: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>Ack fuer alle uebergebenen Services (Bulk). Fehler werden gesammelt, nicht abgebrochen.</summary>
     public async Task PerformBulkAcknowledgeAsync(IReadOnlyList<ServiceStatus> services, string comment)
     {

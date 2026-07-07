@@ -23,6 +23,19 @@ public partial class StatusView : UserControl
     private async void OnDowntimeClick(object? sender, RoutedEventArgs e)
         => await ShowActionAsync(ServiceActionMode.Downtime);
 
+    private async void OnCommentClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var svc = vm.SelectedService;
+        var dialog = new CommentInputDialog($"{svc.HostName} / {svc.Description}");
+        var result = await dialog.ShowDialog<CommentInputResult?>(owner);
+        if (result is null) return;
+
+        await vm.PerformAddCommentAsync(result.Comment, result.Persistent);
+    }
+
     private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm) return;

@@ -37,6 +37,34 @@ public partial class HostDetailWindow : ChromeWindow
     private async void OnHostDowntimeClick(object? sender, RoutedEventArgs e)
         => await ShowHostActionAsync(ServiceActionMode.Downtime);
 
+    private async void OnHostCommentClick(object? sender, RoutedEventArgs e)
+        => await ShowCommentDialogAsync(onSelectedService: false);
+
+    private async void OnServiceCommentClick(object? sender, RoutedEventArgs e)
+        => await ShowCommentDialogAsync(onSelectedService: true);
+
+    private async System.Threading.Tasks.Task ShowCommentDialogAsync(bool onSelectedService)
+    {
+        if (_vm is null) return;
+
+        string target;
+        if (onSelectedService)
+        {
+            if (_vm.SelectedService is null) return;
+            target = $"{_vm.HostName} / {_vm.SelectedService.Description}";
+        }
+        else
+        {
+            target = $"{_vm.HostName} (gesamter Host)";
+        }
+
+        var dialog = new CommentInputDialog(target);
+        var result = await dialog.ShowDialog<CommentInputResult?>(this);
+        if (result is null) return;
+
+        await _vm.PerformAddCommentAsync(result.Comment, result.Persistent, onSelectedService);
+    }
+
     private async System.Threading.Tasks.Task ShowServiceActionAsync(ServiceActionMode mode)
     {
         if (_vm is null) return;

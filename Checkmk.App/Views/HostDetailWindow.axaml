@@ -11,7 +11,7 @@
         WindowStartupLocation="CenterOwner">
 
   <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
-    <Grid RowDefinitions="40,Auto,Auto,*,Auto">
+    <Grid RowDefinitions="40,Auto,Auto,*,Auto,Auto">
 
       <!-- Titelleiste -->
       <Border Grid.Row="0" Background="#252526" PointerPressed="OnTitleBarPressed">
@@ -63,12 +63,13 @@
           <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
             <Button Content="Host-Ack…" Click="OnHostAckClick" />
             <Button Content="Host-Downtime…" Click="OnHostDowntimeClick" />
+            <Button Content="Host-Kommentar…" Click="OnHostCommentClick" />
           </StackPanel>
         </Grid>
       </Border>
 
       <!-- Service-Aggregate + Aktionen -->
-      <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="14"
+      <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="14"
             Margin="14,0,14,8">
         <TextBlock Grid.Column="0" Text="{Binding ServicesOk, StringFormat='OK: {0}'}"
                    Foreground="#66BB6A" VerticalAlignment="Center" />
@@ -82,7 +83,9 @@
                 IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <Button Grid.Column="6" Content="Downtime…" Click="OnServiceDowntimeClick"
                 IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
-        <Button Grid.Column="7" Content="Aktualisieren" Command="{Binding RefreshCommand}"
+        <Button Grid.Column="7" Content="Kommentar…" Click="OnServiceCommentClick"
+                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <Button Grid.Column="8" Content="Aktualisieren" Command="{Binding RefreshCommand}"
                 IsEnabled="{Binding !IsBusy}" />
       </Grid>
 
@@ -96,6 +99,7 @@
           <ContextMenu>
             <MenuItem Header="Acknowledge…" Click="OnServiceAckClick" />
             <MenuItem Header="Downtime…" Click="OnServiceDowntimeClick" />
+            <MenuItem Header="Kommentar…" Click="OnServiceCommentClick" />
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
@@ -119,8 +123,38 @@
         </DataGrid.Columns>
       </DataGrid>
 
+      <!-- Kommentare -->
+      <Border Grid.Row="4" Background="#252526" CornerRadius="6" Margin="8,6,8,4" Padding="10,6">
+        <Grid RowDefinitions="Auto,Auto">
+          <TextBlock Grid.Row="0" Foreground="#888888" FontSize="11" Margin="0,0,0,4"
+                     Text="{Binding Comments.Count, StringFormat='Kommentare ({0})'}" />
+          <ScrollViewer Grid.Row="1" MaxHeight="140" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Comments}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:CompileBindings="False">
+                  <Grid ColumnDefinitions="180,*,Auto" ColumnSpacing="8" Margin="0,2">
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Extensions.ServiceDescription, FallbackValue='(Host)'}"
+                               Foreground="#0E639C" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding Extensions.Comment}"
+                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Extensions.Author}" Foreground="#AAAAAA" FontSize="11" />
+                      <TextBlock Text="{Binding Extensions.EntryTime, StringFormat='{}{0:dd.MM. HH:mm}'}"
+                                 Foreground="#888888" FontSize="11" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
       <!-- Statusleiste -->
-      <Border Grid.Row="4" Background="#007ACC">
+      <Border Grid.Row="5" Background="#007ACC">
         <TextBlock Text="{Binding StatusMessage}" Margin="10,4" FontSize="12"
                    TextTrimming="CharacterEllipsis" />
       </Border>

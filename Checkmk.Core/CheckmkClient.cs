@@ -229,6 +229,58 @@ public sealed class CheckmkClient
     }
 
     // ---------------------------------------------------------------------
+    // Kommentare
+    // ---------------------------------------------------------------------
+
+    /// <summary>Alle Kommentare (Host + Service) auf dem gegebenen Host.</summary>
+    public async Task<IReadOnlyList<CheckmkObject<CommentExtensions>>> GetCommentsForHostAsync(
+        string hostName, CancellationToken ct = default)
+    {
+        var query = JsonSerializer.Serialize(new { op = "=", left = "host_name", right = hostName });
+        var url = "domain-types/comment/collections/all?query=" + Uri.EscapeDataString(query);
+        var result = await GetAsync<CheckmkCollection<CheckmkObject<CommentExtensions>>>(url, ct);
+        return result.Value;
+    }
+
+    /// <summary>Legt einen Host-Kommentar an.</summary>
+    public async Task AddHostCommentAsync(string hostName, string comment,
+        bool persistent = false, CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            comment_type = "host",
+            host_name = hostName,
+            comment,
+            persistent
+        };
+        using var resp = await _http.PostAsJsonAsync(
+            "domain-types/comment/collections/host", payload, JsonOpts, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    /// <summary>Legt einen Kommentar auf einem einzelnen Service an.</summary>
+    public async Task AddServiceCommentAsync(string hostName, string serviceDescription,
+        string comment, bool persistent = false, CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            comment_type = "service",
+            host_name = hostName,
+            service_description = serviceDescription,
+            comment,
+            persistent
+        };
+        using var resp = await _http.PostAsJsonAsync(
+            "domain-types/comment/collections/service", payload, JsonOpts, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    // Delete-Endpoint fuer Kommentare bewusst ausgelassen — 2.4/2.5 hat mehrere
+    // konkurrierende Varianten (POST .../actions/delete/invoke mit "delete_type",
+    // vs. DELETE /objects/comment/{id}). Erst am Live-Server verifizieren,
+    // dann nachziehen.
+
+    // ---------------------------------------------------------------------
     // Service Discovery
     // ---------------------------------------------------------------------
 

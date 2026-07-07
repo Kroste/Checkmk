@@ -59,6 +59,7 @@
           <Separator />
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
           <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
+          <MenuItem Header="Kommentar…" Click="OnCommentClick" />
         </ContextMenu>
       </DataGrid.ContextMenu>
       <DataGrid.Columns>

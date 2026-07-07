@@ -21,6 +21,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     public string HostName { get; }
 
     public ObservableCollection<ServiceStatus> Services { get; } = [];
+    public ObservableCollection<CheckmkObject<CommentExtensions>> Comments { get; } = [];
 
     [ObservableProperty] private ServiceStatus? _selectedService;
     [ObservableProperty] private HostStatus? _hostStatus;
@@ -53,15 +54,20 @@ public sealed partial class HostDetailViewModel : ViewModelBase
             IsBusy = true;
             StatusMessage = "Aktualisiere…";
 
-            // Parallel: die drei Endpunkte sind unabhaengig.
+            // Parallel: die vier Endpunkte sind unabhaengig.
             var configTask = SafeGetConfigAsync(client);
             var statusTask = client.GetHostStatusAsync(HostName);
             var servicesTask = client.GetServiceStatusesAsync(HostName);
+            var commentsTask = SafeGetCommentsAsync(client);
 
-            await Task.WhenAll(configTask, statusTask, servicesTask);
+            await Task.WhenAll(configTask, statusTask, servicesTask, commentsTask);
 
             HostConfig = configTask.Result;
             HostStatus = statusTask.Result;
+
+            Comments.Clear();
+            foreach (var c in commentsTask.Result.OrderByDescending(c => c.Extensions?.EntryTime))
+                Comments.Add(c);
 
             var services = servicesTask.Result;
             ServicesOk = services.Count(s => s.ServiceState == ServiceState.Ok);
@@ -236,6 +242,35 @@ public sealed partial class HostDetailViewModel : ViewModelBase
         finally { IsBusy = false; }
     }
 
+    /// <summary>Legt einen neuen Kommentar auf dem Host oder einem gewaehlten Service an.</summary>
+    public async Task PerformAddCommentAsync(string comment, bool persistent, bool onSelectedService)
+    {
+        var client = _clients.Current;
+        if (client is null) return;
+
+        try
+        {
+            IsBusy = true;
+            if (onSelectedService && SelectedService is { } svc)
+            {
+                await client.AddServiceCommentAsync(svc.HostName, svc.Description, comment, persistent);
+                StatusMessage = $"Kommentar gespeichert für {svc.Description}.";
+            }
+            else
+            {
+                await client.AddHostCommentAsync(HostName, comment, persistent);
+                StatusMessage = $"Host-Kommentar gespeichert für {HostName}.";
+            }
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Kommentar-Anlage fehlgeschlagen.");
+            StatusMessage = $"Fehler: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
     // Config kann 404 werfen, wenn der Host nicht (mehr) im Setup ist — Detail-Fenster
     // soll trotzdem oeffnen. In dem Fall bleibt HostConfig null und die UI zeigt "-".
     private async Task<CheckmkObject<HostConfigExtensions>?> SafeGetConfigAsync(
@@ -246,6 +281,19 @@ public sealed partial class HostDetailViewModel : ViewModelBase
         {
             Log.Debug(ex, "GetHostConfig fuer {Host} nicht verfuegbar.", HostName);
             return null;
+        }
+    }
+
+    // Kommentare koennen bei Rechte-Problemen ebenfalls 4xx werfen — dann leere Liste,
+    // damit das Detail-Fenster benutzbar bleibt.
+    private async Task<IReadOnlyList<CheckmkObject<CommentExtensions>>> SafeGetCommentsAsync(
+        Checkmk.Core.CheckmkClient client)
+    {
+        try { return await client.GetCommentsForHostAsync(HostName); }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "GetCommentsForHost fuer {Host} nicht verfuegbar.", HostName);
+            return [];
         }
     }
 }

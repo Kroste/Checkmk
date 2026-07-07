@@ -112,6 +112,66 @@ public class ServiceDiscoveryTests
         => constant.Should().Be(expected);
 }
 
+public class CommentDeserializationTests
+{
+    private static readonly System.Text.Json.JsonSerializerOptions Opts =
+        new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+    [Fact]
+    public void Service_comment_extensions_deserialize_and_flag_as_service()
+    {
+        const string json = """
+            {
+                "id": "17",
+                "extensions": {
+                    "host_name": "DBSQL01",
+                    "service_description": "CPU load",
+                    "author": "cmkadmin",
+                    "comment": "Wartung, siehe INC-4711",
+                    "persistent": false,
+                    "entry_time": "2026-01-15T10:30:00Z"
+                }
+            }
+            """;
+
+        var env = System.Text.Json.JsonSerializer
+            .Deserialize<CheckmkObject<CommentExtensions>>(json, Opts);
+
+        env!.Id.Should().Be("17");
+        env.Extensions!.HostName.Should().Be("DBSQL01");
+        env.Extensions.ServiceDescription.Should().Be("CPU load");
+        env.Extensions.Author.Should().Be("cmkadmin");
+        env.Extensions.IsService.Should().BeTrue();
+        env.Extensions.Persistent.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Host_comment_has_no_service_description_and_is_not_service()
+    {
+        const string json = """
+            {
+                "id": "99",
+                "extensions": {
+                    "host_name": "web01",
+                    "author": "alice",
+                    "comment": "Reboot geplant",
+                    "persistent": true
+                }
+            }
+            """;
+
+        var env = System.Text.Json.JsonSerializer
+            .Deserialize<CheckmkObject<CommentExtensions>>(json, Opts);
+
+        env!.Extensions!.ServiceDescription.Should().BeNull();
+        env.Extensions.IsService.Should().BeFalse();
+        env.Extensions.Persistent.Should().BeTrue();
+    }
+}
+
 public class HostAttributesSerializationTests
 {
     // Muss identisch zu CheckmkClient.JsonOpts sein.

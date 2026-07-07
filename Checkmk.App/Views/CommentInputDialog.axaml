@@ -1,0 +1,40 @@
+<controls:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Checkmk.App.Controls"
+        x:Class="Checkmk.App.Views.CommentInputDialog"
+        Width="480" Height="320"
+        Title="Kommentar hinzufügen"
+        WindowStartupLocation="CenterOwner">
+
+  <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
+    <Grid RowDefinitions="40,*,Auto">
+
+      <Border Grid.Row="0" Background="#252526" PointerPressed="OnTitleBarPressed">
+        <TextBlock Text="Kommentar hinzufügen" FontWeight="SemiBold"
+                   VerticalAlignment="Center" Margin="12,0" />
+      </Border>
+
+      <StackPanel Grid.Row="1" Margin="16" Spacing="10">
+        <StackPanel Spacing="2">
+          <TextBlock Text="Ziel" Foreground="#AAAAAA" FontSize="12" />
+          <TextBlock Name="TargetText" FontWeight="SemiBold" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Spacing="2">
+          <TextBlock Text="Kommentar (Pflicht)" Foreground="#AAAAAA" FontSize="12" />
+          <TextBox Name="CommentBox" AcceptsReturn="True" Height="110"
+                   TextWrapping="Wrap" PlaceholderText="Grund / Ticket-Nr. / Kontext…" />
+        </StackPanel>
+
+        <CheckBox Name="PersistentCheck"
+                  Content="Persistent (bleibt nach Neustart des Monitorings erhalten)" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Speichern" Click="OnOkClick" Background="#0E639C" IsDefault="True" />
+        <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</controls:ChromeWindow>

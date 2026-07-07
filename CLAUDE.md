@@ -72,6 +72,11 @@ werden direkt instanziiert, nicht über DI.
   Plugin-Output, Service-Aggregat (OK/WARN/CRIT/UNK) und der Service-Tabelle. Ack + Down-
   time direkt auf einzelnen Services **und** auf dem kompletten Host („ganzer Host in
   Wartung" ist damit erledigt). Mehrere Detail-Fenster können parallel offen sein.
+- **Kommentare**: bestehende Kommentare (Host + Service) werden im Host-Detail-Fenster
+  unten aufgelistet (Zeitstempel absteigend). Neue Kommentare per „Host-Kommentar…" bzw.
+  „Kommentar…" auf dem markierten Service; Status-Tab hat Rechtsklick → „Kommentar…".
+  Persistent-Flag im Dialog wählbar. Delete-Endpoint noch nicht implementiert (2.4/2.5-API
+  hat konkurrierende Varianten — nachziehen sobald an Live-Server verifiziert).
 - **Autoupdater (Phase 1):** Beim Start fragt `GitHubReleasesUpdateChecker` den
   `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/Kroste/Checkmk/releases/
   latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen
