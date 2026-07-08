@@ -26,10 +26,13 @@ public partial class StatusView : UserControl
 
     private async void OnCommentClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-        var svc = vm.SelectedService;
+        var svc = GetTargetService();
+        if (svc is null) return;
+        vm.SelectedService = svc; // PerformAddCommentAsync arbeitet auf SelectedService
+
         var dialog = new CommentInputDialog($"{svc.HostName} / {svc.Description}");
         var result = await dialog.ShowDialog<CommentInputResult?>(owner);
         if (result is null) return;
@@ -75,11 +78,14 @@ public partial class StatusView : UserControl
 
     private void OpenHostDetails()
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
+        var host = GetTargetHostName();
+        if (host is null) return;
+
         var clients = App.Services!.GetRequiredService<ICheckmkClientProvider>();
-        var detailVm = new HostDetailViewModel(clients, vm.SelectedService.HostName);
+        var detailVm = new HostDetailViewModel(clients, host);
         new HostDetailWindow(detailVm).Show(owner);
     }
 
@@ -88,13 +94,14 @@ public partial class StatusView : UserControl
         if (DataContext is not StatusViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-        var selected = GetSelectedServices();
+        var selected = GetTargetServices();
         if (selected.Count == 0) return;
 
         ServiceActionDialogViewModel dialogVm;
         if (selected.Count == 1)
         {
             var svc = selected[0];
+            vm.SelectedService = svc; // damit die Single-Service-Methoden das richtige Ziel treffen
             dialogVm = new ServiceActionDialogViewModel(mode, svc.HostName, svc.Description);
         }
         else
@@ -132,5 +139,46 @@ public partial class StatusView : UserControl
         var grid = this.FindControl<DataGrid>("ServiceGrid");
         if (grid is null) return [];
         return grid.SelectedItems.OfType<ServiceStatus>().ToList();
+    }
+
+    // --- Ziel-Aufloesung: Tabelle (Grid-Auswahl) oder Baum (SelectedTreeItem) ---
+
+    private IReadOnlyList<ServiceStatus> GetTargetServices()
+    {
+        if (DataContext is not StatusViewModel vm) return [];
+        if (!vm.TreeView) return GetSelectedServices();
+
+        return vm.SelectedTreeItem switch
+        {
+            ServiceStatus s => [s],
+            HostNodeViewModel h => h.Services.ToList(),
+            _ => []
+        };
+    }
+
+    private ServiceStatus? GetTargetService()
+    {
+        if (DataContext is not StatusViewModel vm) return null;
+        if (!vm.TreeView) return vm.SelectedService;
+
+        return vm.SelectedTreeItem switch
+        {
+            ServiceStatus s => s,
+            HostNodeViewModel h => h.Services.FirstOrDefault(),
+            _ => null
+        };
+    }
+
+    private string? GetTargetHostName()
+    {
+        if (DataContext is not StatusViewModel vm) return null;
+        if (!vm.TreeView) return vm.SelectedService?.HostName;
+
+        return vm.SelectedTreeItem switch
+        {
+            ServiceStatus s => s.HostName,
+            HostNodeViewModel h => h.HostName,
+            _ => null
+        };
     }
 }

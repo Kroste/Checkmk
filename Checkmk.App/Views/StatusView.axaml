@@ -89,14 +89,23 @@
     </DataGrid>
 
     <!-- Baum-Ansicht: Hosts -> Services -->
-    <TreeView Grid.Row="2" IsVisible="{Binding TreeView}" ItemsSource="{Binding HostTree}">
+    <TreeView Grid.Row="2" IsVisible="{Binding TreeView}" ItemsSource="{Binding HostTree}"
+              SelectedItem="{Binding SelectedTreeItem}"
+              DoubleTapped="OnServiceDoubleTapped">
+      <TreeView.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
+          <Separator />
+          <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
+          <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
+          <MenuItem Header="Kommentar…" Click="OnCommentClick" />
+        </ContextMenu>
+      </TreeView.ContextMenu>
       <TreeView.DataTemplates>
         <TreeDataTemplate DataType="vm:HostNodeViewModel" ItemsSource="{Binding Services}">
           <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <Border Background="{Binding Os, Converter={StaticResource OsToBrush}}"
-                    CornerRadius="3" Padding="6,1" VerticalAlignment="Center">
-              <TextBlock Text="{Binding OsLabel}" FontSize="11" Foreground="White" />
-            </Border>
+            <ContentControl Content="{Binding Os, Converter={StaticResource OsToIcon}}"
+                            Width="18" Height="18" VerticalAlignment="Center" />
             <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center"
                     Background="{Binding WorstState, Converter={StaticResource StateToBrush}}" />
             <TextBlock Text="{Binding HostName}" FontWeight="SemiBold" VerticalAlignment="Center" />

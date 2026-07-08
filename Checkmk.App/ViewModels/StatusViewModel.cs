@@ -28,6 +28,10 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private bool _treeView;
 
+    /// <summary>Aktuell im Baum gewaehlter Knoten (HostNodeViewModel oder ServiceStatus).</summary>
+    [ObservableProperty]
+    private object? _selectedTreeItem;
+
     /// <summary>Nach jedem Refresh: Services beschraenkt auf den aktiven Filter + Filtername.
     /// Fuer Tray-Signal und Notifications.</summary>
     public event Action<IReadOnlyList<ServiceStatus>, string?>? Refreshed;
