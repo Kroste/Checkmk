@@ -276,7 +276,8 @@ public sealed partial class StatusViewModel : ViewModelBase
             var f = FilterText.Trim();
             q = q.Where(s =>
                 s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
-                s.Description.Contains(f, StringComparison.OrdinalIgnoreCase));
+                s.Description.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
         Services.Clear();

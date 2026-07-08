@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 using Checkmk.App;
 using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
@@ -41,6 +42,32 @@ public partial class StatusView : UserControl
         if (DataContext is not StatusViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
         await new FilterManagerWindow(vm.Filters).ShowDialog(owner);
+    }
+
+    private async void OnExportCsvClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not { } top) return;
+
+        var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Status als CSV exportieren",
+            SuggestedFileName = $"checkmk-status-{System.DateTime.Now:yyyyMMdd-HHmm}.csv",
+            DefaultExtension = "csv",
+            FileTypeChoices = [new FilePickerFileType("CSV") { Patterns = ["*.csv"] }]
+        });
+        if (file is null) return;
+
+        try
+        {
+            var bytes = CsvExporter.ToCsvBytes(vm.Services);
+            await System.IO.File.WriteAllBytesAsync(file.Path.LocalPath, bytes);
+            vm.StatusMessage = $"{vm.Services.Count} Zeilen exportiert: {file.Name}";
+        }
+        catch (System.Exception ex)
+        {
+            vm.StatusMessage = $"CSV-Export fehlgeschlagen: {ex.Message}";
+        }
     }
 
     private void OnServiceDoubleTapped(object? sender, TappedEventArgs e) => OpenHostDetails();
