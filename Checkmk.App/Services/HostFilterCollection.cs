@@ -31,7 +31,12 @@ public sealed class HostFilterCollection : ObservableObject
         _store = store;
         var s = _store.Load();
         foreach (var f in s.Filters)
-            Filters.Add(f);
+        {
+            // Defensiv: eine mit der alten Apply()-Version geschriebene filter.json kann
+            // einen null-Eintrag enthalten. Ueberspringen -> Datei heilt beim naechsten Save.
+            if (f is not null)
+                Filters.Add(f);
+        }
         _active = string.IsNullOrEmpty(s.ActiveFilterName)
             ? null
             : Filters.FirstOrDefault(f => f.Name == s.ActiveFilterName);

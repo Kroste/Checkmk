@@ -54,20 +54,27 @@ public sealed partial class FilterManagerViewModel : ObservableObject
     private void Apply()
     {
         if (Selected is null) return;
-        Selected.Name = string.IsNullOrWhiteSpace(EditName) ? "unbenannt" : EditName.Trim();
-        Selected.HostNameRegex = string.IsNullOrWhiteSpace(EditRegex) ? null : EditRegex.Trim();
-        Selected.ExplicitHosts = EditExplicitHosts
+
+        // Referenz sichern: Das RemoveAt unten leert die two-way-gebundene ListBox-Auswahl
+        // und schreibt Selected=null zurueck. Ohne diese lokale Kopie wuerde danach ein
+        // null in die Filter-Liste eingefuegt (-> NRE beim naechsten Laden/Matchen).
+        var item = Selected;
+
+        item.Name = string.IsNullOrWhiteSpace(EditName) ? "unbenannt" : EditName.Trim();
+        item.HostNameRegex = string.IsNullOrWhiteSpace(EditRegex) ? null : EditRegex.Trim();
+        item.ExplicitHosts = EditExplicitHosts
             .Split(['\n', '\r', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
         _collection.Update();
 
-        // ObservableCollection benachrichtigt bei Property-Aenderungen auf Items nicht — Refresh trickst
-        var idx = Filters.IndexOf(Selected);
+        // ObservableCollection benachrichtigt bei Property-Aenderungen auf Items nicht — Re-Insert
+        // erzwingt das Neu-Rendern des Eintrags (ListBox zeigt HostFilter via ToString/Name).
+        var idx = Filters.IndexOf(item);
         if (idx >= 0)
         {
             Filters.RemoveAt(idx);
-            Filters.Insert(idx, Selected);
-            Selected = Filters[idx];
+            Filters.Insert(idx, item);
+            Selected = item;
         }
     }
 
