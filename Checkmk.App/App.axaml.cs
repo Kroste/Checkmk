@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
 using Checkmk.App.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,8 +46,16 @@ public partial class App : Application
             window.DataContext = vm;
             window.Opened += async (_, _) => await vm.InitializeAsync();
             desktop.MainWindow = window;
+
+            // Tray-Icon, Minimieren ins Tray, Status-Notifications.
+            var status = Services.GetRequiredService<StatusViewModel>();
+            var toast = Services.GetRequiredService<IToastNotifier>();
+            _trayController = new TrayController(this, window, status, toast);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    // Referenz halten, damit TrayController/TrayIcon nicht vom GC eingesammelt werden.
+    private TrayController? _trayController;
 }

@@ -20,6 +20,10 @@ public sealed partial class StatusViewModel : ViewModelBase
 
     public ObservableCollection<ServiceStatus> Services { get; } = [];
 
+    /// <summary>Nach jedem Refresh: Services beschraenkt auf den aktiven Filter + Filtername.
+    /// Fuer Tray-Signal und Notifications.</summary>
+    public event Action<IReadOnlyList<ServiceStatus>, string?>? Refreshed;
+
     [ObservableProperty]
     private ServiceStatus? _selectedService;
 
@@ -101,6 +105,14 @@ public sealed partial class StatusViewModel : ViewModelBase
 
             _allServices = [.. services];
             ApplyFilter();
+
+            // Fuer Tray/Notifications: Services beschraenkt auf den AKTIVEN Filter
+            // (nicht Freitext/Nur-Probleme — das sind reine Ansichtsfilter).
+            var active = Filters.Active;
+            IReadOnlyList<ServiceStatus> scoped = active is null
+                ? _allServices
+                : _allServices.Where(s => active.Matches(s.HostName)).ToList();
+            Refreshed?.Invoke(scoped, active?.Name);
 
             StatusMessage = $"Aktualisiert {DateTime.Now:HH:mm:ss} — "
                           + $"{services.Count} Services, {hosts.Count} Hosts.";

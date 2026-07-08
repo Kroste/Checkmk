@@ -48,6 +48,7 @@ internal static class Program
         services.AddSingleton<IConnectionSettingsStore>(_ =>
             new ConnectionSettingsStore(SecretProtectorFactory.CreateForSharedConnection()));
         services.AddSingleton<ICheckmkClientProvider, CheckmkClientProvider>();
+        services.AddSingleton<IToastNotifier>(_ => ToastNotifierFactory.Create());
         services.AddSingleton<IHostFilterStore, HostFilterStore>();
         services.AddSingleton<HostFilterCollection>();
         services.AddSingleton<IUpdatePreferences, UpdatePreferences>();
