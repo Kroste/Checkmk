@@ -18,14 +18,23 @@ public sealed partial class HostDetailViewModel : ViewModelBase
 
     private readonly ICheckmkClientProvider _clients;
 
+    // Lade-/Leer-Platzhalter: verhindern null-Zwischenglieder in den Bindings.
+    // Sonst loggt Avalonia "Binding: Value is null", solange die Daten noch nicht
+    // geladen sind (oder wenn die Config 404 liefert und null zurueckkommt).
+    private static readonly HostStatus LoadingStatus = new() { State = -1 }; // -1 => Unknown => grau
+    private static readonly CheckmkObject<HostConfigExtensions> EmptyConfig = new()
+    {
+        Extensions = new HostConfigExtensions { Attributes = new HostAttributes() }
+    };
+
     public string HostName { get; }
 
     public ObservableCollection<ServiceStatus> Services { get; } = [];
     public ObservableCollection<CheckmkObject<CommentExtensions>> Comments { get; } = [];
 
     [ObservableProperty] private ServiceStatus? _selectedService;
-    [ObservableProperty] private HostStatus? _hostStatus;
-    [ObservableProperty] private CheckmkObject<HostConfigExtensions>? _hostConfig;
+    [ObservableProperty] private HostStatus _hostStatus = LoadingStatus;
+    [ObservableProperty] private CheckmkObject<HostConfigExtensions> _hostConfig = EmptyConfig;
 
     // Aggregierte Zahlen fuer den Header
     [ObservableProperty] private int _servicesOk;
@@ -62,8 +71,8 @@ public sealed partial class HostDetailViewModel : ViewModelBase
 
             await Task.WhenAll(configTask, statusTask, servicesTask, commentsTask);
 
-            HostConfig = configTask.Result;
-            HostStatus = statusTask.Result;
+            HostConfig = configTask.Result ?? EmptyConfig;
+            HostStatus = statusTask.Result ?? LoadingStatus;
 
             Comments.Clear();
             foreach (var c in commentsTask.Result.OrderByDescending(c => c.Extensions?.EntryTime))
@@ -272,7 +281,8 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     }
 
     // Config kann 404 werfen, wenn der Host nicht (mehr) im Setup ist — Detail-Fenster
-    // soll trotzdem oeffnen. In dem Fall bleibt HostConfig null und die UI zeigt "-".
+    // soll trotzdem oeffnen. In dem Fall wird auf EmptyConfig zurueckgefallen (siehe
+    // RefreshAsync), die UI zeigt "-" ohne Binding-Fehler.
     private async Task<CheckmkObject<HostConfigExtensions>?> SafeGetConfigAsync(
         Checkmk.Core.CheckmkClient client)
     {
