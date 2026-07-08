@@ -6,6 +6,7 @@
 
   <Application.Resources>
     <conv:StateToBrushConverter x:Key="StateToBrush" />
+    <conv:OsToBrushConverter x:Key="OsToBrush" />
   </Application.Resources>
 
   <Application.Styles>

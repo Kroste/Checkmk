@@ -15,10 +15,18 @@ public sealed partial class StatusViewModel : ViewModelBase
     private readonly ICheckmkClientProvider _clients;
     private readonly DispatcherTimer _timer;
     private List<ServiceStatus> _allServices = [];
+    private Dictionary<string, OsFamily> _osByHost = [];
 
     public HostFilterCollection Filters { get; }
 
     public ObservableCollection<ServiceStatus> Services { get; } = [];
+
+    /// <summary>Baum-Ansicht: Hosts als Knoten (OS-Pictogram + Problem-Zaehler), Services als Kinder.</summary>
+    public ObservableCollection<HostNodeViewModel> HostTree { get; } = [];
+
+    /// <summary>false = Tabelle, true = Baum.</summary>
+    [ObservableProperty]
+    private bool _treeView;
 
     /// <summary>Nach jedem Refresh: Services beschraenkt auf den aktiven Filter + Filtername.
     /// Fuer Tray-Signal und Notifications.</summary>
@@ -104,6 +112,15 @@ public sealed partial class StatusViewModel : ViewModelBase
             ServicesCrit = services.Count(s => s.ServiceState == ServiceState.Critical);
 
             _allServices = [.. services];
+
+            // OS-Familie je Host aus der "Check_MK Agent"-Service-Ausgabe (z. B. "OS: windows").
+            _osByHost = _allServices
+                .Where(s => s.Description == "Check_MK Agent")
+                .Select(s => (s.HostName, Os: OsDetection.ParseFamily(s.PluginOutput)))
+                .Where(x => x.Os != OsFamily.Unknown)
+                .GroupBy(x => x.HostName)
+                .ToDictionary(g => g.Key, g => g.First().Os);
+
             ApplyFilter();
 
             // Fuer Tray/Notifications: Services beschraenkt auf den AKTIVEN Filter
@@ -283,5 +300,49 @@ public sealed partial class StatusViewModel : ViewModelBase
         Services.Clear();
         foreach (var s in q.OrderByDescending(s => s.State).ThenBy(s => s.HostName))
             Services.Add(s);
+
+        BuildTree();
+    }
+
+    /// <summary>
+    /// Baut den Host-Baum: oberste Knoten = Hosts (Host-Filter + Freitext), Kinder = deren
+    /// Services. "Nur Probleme" filtert auch hier (dann nur Problem-Services + Hosts mit Problemen).
+    /// </summary>
+    private void BuildTree()
+    {
+        IEnumerable<ServiceStatus> q = _allServices;
+
+        if (Filters.Active is { } activeFilter)
+            q = q.Where(s => activeFilter.Matches(s.HostName));
+
+        if (!string.IsNullOrWhiteSpace(FilterText))
+        {
+            var f = FilterText.Trim();
+            q = q.Where(s =>
+                s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                s.Description.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        HostTree.Clear();
+        foreach (var group in q.GroupBy(s => s.HostName).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var all = group.ToList();
+            var hasProblems = all.Any(s => s.ServiceState != ServiceState.Ok);
+
+            if (OnlyProblems && !hasProblems)
+                continue;
+
+            IEnumerable<ServiceStatus> children = OnlyProblems
+                ? all.Where(s => s.ServiceState != ServiceState.Ok)
+                : all;
+
+            children = children.OrderByDescending(s => s.State).ThenBy(s => s.Description);
+
+            HostTree.Add(new HostNodeViewModel(
+                group.Key,
+                _osByHost.GetValueOrDefault(group.Key, OsFamily.Unknown),
+                children));
+        }
     }
 }

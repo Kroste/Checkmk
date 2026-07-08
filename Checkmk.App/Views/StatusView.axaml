@@ -25,15 +25,17 @@
         <Button Grid.Column="6" Content="Aktualisieren" Command="{Binding RefreshCommand}"
                 IsEnabled="{Binding !IsBusy}" />
       </Grid>
-      <Grid Grid.Row="1" ColumnDefinitions="Auto,240,*,Auto,Auto" ColumnSpacing="8" Margin="0,6,0,0">
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,240,Auto,*,Auto,Auto" ColumnSpacing="8" Margin="0,6,0,0">
         <TextBlock Grid.Column="0" Text="Host-Filter:" VerticalAlignment="Center" Foreground="#AAAAAA" />
         <ComboBox Grid.Column="1"
                   ItemsSource="{Binding Filters.Filters}"
                   SelectedItem="{Binding Filters.Active}"
                   PlaceholderText="(Alle Hosts)"
                   DisplayMemberBinding="{Binding Name}" />
-        <Button Grid.Column="3" Content="CSV-Export…" Click="OnExportCsvClick" />
-        <Button Grid.Column="4" Content="Filter verwalten…" Click="OnManageFiltersClick" />
+        <ToggleButton Grid.Column="2" Content="Baumansicht" IsChecked="{Binding TreeView}"
+                      VerticalAlignment="Center" />
+        <Button Grid.Column="4" Content="CSV-Export…" Click="OnExportCsvClick" />
+        <Button Grid.Column="5" Content="Filter verwalten…" Click="OnManageFiltersClick" />
       </Grid>
     </Grid>
 
@@ -49,6 +51,7 @@
 
     <!-- Service-Tabelle -->
     <DataGrid Name="ServiceGrid" Grid.Row="2" ItemsSource="{Binding Services}"
+              IsVisible="{Binding !TreeView}"
               SelectedItem="{Binding SelectedService}"
               IsReadOnly="True" GridLinesVisibility="Horizontal"
               CanUserResizeColumns="True" CanUserSortColumns="True"
@@ -84,5 +87,34 @@
                             Binding="{Binding LastCheck, StringFormat='{}{0:HH:mm:ss}'}" Width="110" />
       </DataGrid.Columns>
     </DataGrid>
+
+    <!-- Baum-Ansicht: Hosts -> Services -->
+    <TreeView Grid.Row="2" IsVisible="{Binding TreeView}" ItemsSource="{Binding HostTree}">
+      <TreeView.DataTemplates>
+        <TreeDataTemplate DataType="vm:HostNodeViewModel" ItemsSource="{Binding Services}">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Background="{Binding Os, Converter={StaticResource OsToBrush}}"
+                    CornerRadius="3" Padding="6,1" VerticalAlignment="Center">
+              <TextBlock Text="{Binding OsLabel}" FontSize="11" Foreground="White" />
+            </Border>
+            <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center"
+                    Background="{Binding WorstState, Converter={StaticResource StateToBrush}}" />
+            <TextBlock Text="{Binding HostName}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding ProblemBadge}" Foreground="#EF5350" VerticalAlignment="Center"
+                       IsVisible="{Binding HasProblems}" />
+          </StackPanel>
+        </TreeDataTemplate>
+
+        <DataTemplate DataType="models:ServiceStatus">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center"
+                    Background="{Binding ServiceState, Converter={StaticResource StateToBrush}}" />
+            <TextBlock Text="{Binding Description}" VerticalAlignment="Center" MinWidth="200" />
+            <TextBlock Text="{Binding PluginOutput}" Foreground="#AAAAAA" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </DataTemplate>
+      </TreeView.DataTemplates>
+    </TreeView>
   </Grid>
 </UserControl>
