@@ -143,7 +143,7 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 /// </summary>
 internal sealed class Bootstrap
 {
-    private const string DefaultWindowsSharedPath = @"\\Samba01\542$\Checkmk\settings.json";
+    private const string DefaultWindowsSharedPath = @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\settings.json";
     private const string DefaultUpdateChannelUrl =
         "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
 
