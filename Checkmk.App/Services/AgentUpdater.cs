@@ -132,7 +132,8 @@ public static class AgentUpdater
         }
         catch (Exception ex)
         {
-            Log.Warn(ex, "Agent-Update fuer {Host} fehlgeschlagen.", script);
+            // WICHTIG: niemals 'script' loggen — enthaelt Admin- und Register-Passwort.
+            Log.Warn(ex, "Agent-Update-Prozess konnte nicht ausgefuehrt werden.");
             output.AppendLine("FEHLER: " + ex.Message);
             ok = false;
         }
