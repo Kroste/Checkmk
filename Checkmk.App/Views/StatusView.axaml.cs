@@ -40,6 +40,28 @@ public partial class StatusView : UserControl
         await vm.PerformAddCommentAsync(result.Comment, result.Persistent);
     }
 
+    private async void OnUpdateClientClick(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var host = GetTargetHostName();
+        if (host is null) return;
+
+        if (!System.OperatingSystem.IsWindows())
+        {
+            if (DataContext is StatusViewModel svm)
+                svm.StatusMessage = "Client-Aktualisierung ist nur unter Windows verfuegbar.";
+            return;
+        }
+
+        var creds = await new CredentialDialog(host).ShowDialog<CredentialResult?>(owner);
+        if (creds is null) return;
+
+        var settings = App.Services!.GetRequiredService<IConnectionSettingsStore>().Load();
+        await new AgentUpdateWindow(host, creds.User, creds.Password,
+            settings.AgentShare, settings.AgentUpdateScript).ShowDialog(owner);
+    }
+
     private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm) return;

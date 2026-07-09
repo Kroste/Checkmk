@@ -4,7 +4,7 @@
         xmlns:vm="using:Checkmk.App.ViewModels"
         x:Class="Checkmk.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
-        Width="480" Height="460"
+        Width="560" Height="640"
         Title="Verbindung"
         WindowStartupLocation="CenterOwner">
 
@@ -16,7 +16,8 @@
                    VerticalAlignment="Center" Margin="12,0" />
       </Border>
 
-      <StackPanel Grid.Row="1" Margin="16" Spacing="10">
+      <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="16" Spacing="10">
         <StackPanel Spacing="3">
           <TextBlock Text="Host" />
           <TextBox Text="{Binding Host}" PlaceholderText="monitoring.lhp.intern" />
@@ -38,10 +39,28 @@
           <CheckBox Content="Zertifikatsfehler ignorieren (Lab)"
                     IsChecked="{Binding IgnoreCertificateErrors}" />
         </StackPanel>
+
+        <Border Height="1" Background="#333" Margin="0,4" />
+        <TextBlock Text="Client-Aktualisierung" FontWeight="SemiBold" />
+        <StackPanel Spacing="3">
+          <TextBlock Text="Agent-Share (Ordner mit dem aktuellen MSI)" />
+          <TextBox Text="{Binding AgentShare}"
+                   PlaceholderText="\\samba01\542$\...\CheckMK" />
+        </StackPanel>
+        <StackPanel Spacing="3">
+          <TextBlock Text="Update-Skript-Vorlage (Platzhalter: {host}, {installer})" />
+          <TextBox Text="{Binding AgentUpdateScript}" AcceptsReturn="True" Height="180"
+                   TextWrapping="NoWrap" FontFamily="Consolas,monospace"
+                   VerticalContentAlignment="Top" />
+          <TextBlock Text="Enthaelt auch den Register-Befehl inkl. Passwort (Klartext)."
+                     Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+
         <TextBlock Text="{Binding StatusMessage}" Foreground="#AAAAAA" TextWrapping="Wrap" />
         <TextBlock Text="{Binding StorageLocationLabel}" Foreground="#707070"
                    FontSize="11" TextWrapping="Wrap" />
       </StackPanel>
+      </ScrollViewer>
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                   Margin="16" Spacing="8">

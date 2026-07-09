@@ -18,6 +18,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _secret = "";
     [ObservableProperty] private bool _useHttps = true;
     [ObservableProperty] private bool _ignoreCertificateErrors;
+    [ObservableProperty] private string _agentShare = "";
+    [ObservableProperty] private string _agentUpdateScript = "";
 
     public string StorageLocationLabel { get; }
 
@@ -38,6 +40,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         UseHttps = s.UseHttps;
         IgnoreCertificateErrors = s.IgnoreCertificateErrors;
         Secret = _store.LoadSecret(s) ?? "";
+        AgentShare = s.AgentShare;
+        AgentUpdateScript = s.AgentUpdateScript;
 
         var isShared = _store.SettingsFilePath.StartsWith(@"\\", StringComparison.Ordinal);
         StorageLocationLabel = isShared
@@ -84,6 +88,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Site = Site.Trim(),
         Username = Username.Trim(),
         UseHttps = UseHttps,
-        IgnoreCertificateErrors = IgnoreCertificateErrors
+        IgnoreCertificateErrors = IgnoreCertificateErrors,
+        AgentShare = AgentShare.Trim(),
+        AgentUpdateScript = AgentUpdateScript
     };
 }

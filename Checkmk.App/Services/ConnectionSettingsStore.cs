@@ -17,6 +17,40 @@ public sealed class ConnectionSettings
     /// <summary>Plattformspezifisch verschluesseltes Secret (Base64). Nie im Klartext im JSON.</summary>
     public string? ProtectedSecret { get; set; }
 
+    /// <summary>Share, in dem der aktuelle Checkmk-Agent-Installer (MSI) liegt.</summary>
+    public string AgentShare { get; set; } = @"\\samba01\542$\5424_IT-Basis-Dienste\CheckMK";
+
+    /// <summary>
+    /// Editierbare PowerShell-Skript-Vorlage, die auf dem Zielhost ausgefuehrt wird.
+    /// Platzhalter: {host} = Hostname, {installer} = lokaler Pfad des kopierten Installers.
+    /// Enthaelt auch den Register-Befehl inkl. Passwort (Klartext, bewusst).
+    /// </summary>
+    public string AgentUpdateScript { get; set; } = DefaultAgentUpdateScript;
+
+    public const string DefaultAgentUpdateScript =
+        "# Laeuft auf dem Zielhost. {host}=Hostname, {installer}=lokaler MSI-Pfad.\n" +
+        "$ErrorActionPreference = 'Stop'\n" +
+        "\n" +
+        "# 1) Vorhandenen Checkmk-Agent deinstallieren (falls vorhanden)\n" +
+        "$keys = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'," +
+        "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'\n" +
+        "Get-ItemProperty $keys -ErrorAction SilentlyContinue |\n" +
+        "  Where-Object { $_.DisplayName -like 'Checkmk Agent*' } |\n" +
+        "  ForEach-Object {\n" +
+        "    Write-Output \"Deinstalliere $($_.DisplayName)\"\n" +
+        "    Start-Process msiexec.exe -ArgumentList \"/x $($_.PSChildName) /qn /norestart\" -Wait\n" +
+        "  }\n" +
+        "\n" +
+        "# 2) Aktuellen Client installieren (wurde nach {installer} kopiert)\n" +
+        "Write-Output 'Installiere neuen Agent'\n" +
+        "Start-Process msiexec.exe -ArgumentList \"/i `\"{installer}`\" /qn /norestart\" -Wait\n" +
+        "\n" +
+        "# 3) Registrieren\n" +
+        "Write-Output 'Registriere Agent-Controller'\n" +
+        "& \"C:\\Program Files (x86)\\checkmk\\service\\cmk-agent-ctl.exe\" register " +
+        "-H {host} -s cmk.lhp.intern -i LHP -U Agent_cmk -P ************\n" +
+        "Write-Output 'Fertig.'\n";
+
     public CheckmkOptions ToOptions(string plainSecret) => new()
     {
         Host = Host,
