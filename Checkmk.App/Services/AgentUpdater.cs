@@ -43,6 +43,8 @@ public static class AgentUpdater
             $h = '%%HOST%%'
             $share = '%%SHARE%%'
             $remote = '%%REMOTE%%'
+            Write-Output "== Client-Aktualisierung fuer $h =="
+            Write-Output "Suche aktuellen Installer in $share ..."
             $src = Get-ChildItem -Path $share -Filter *.msi -ErrorAction Stop |
                    Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
             if (-not $src) { throw "Kein MSI im Share gefunden: $share" }
@@ -86,57 +88,67 @@ public static class AgentUpdater
     private static async Task<AgentUpdateResult> ExecutePowerShellAsync(
         string script, IProgress<string>? progress, CancellationToken ct)
     {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command -",
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
-        };
-
         var output = new StringBuilder();
         var ok = true;
 
+        void Emit(string line)
+        {
+            output.AppendLine(line);
+            progress?.Report(line);
+        }
+
+        // Mehrzeilige Skripte laufen ueber '-Command -' (STDIN) unzuverlaessig und
+        // liefern teils gar keine Ausgabe. Deshalb: Temp-.ps1 schreiben und mit -File
+        // ausfuehren (zuverlaessig fuer mehrzeilige Skripte).
+        var tempPs1 = Path.Combine(Path.GetTempPath(), $"cmk-agent-update-{Guid.NewGuid():N}.ps1");
         try
         {
-            using var proc = new Process { StartInfo = psi };
-            proc.OutputDataReceived += (_, e) =>
+            await File.WriteAllTextAsync(tempPs1, script, new UTF8Encoding(true), ct);
+
+            var psi = new ProcessStartInfo
             {
-                if (e.Data is null) return;
-                output.AppendLine(e.Data);
-                progress?.Report(e.Data);
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{tempPs1}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
             };
+
+            using var proc = new Process { StartInfo = psi };
+            proc.OutputDataReceived += (_, e) => { if (e.Data is not null) Emit(e.Data); };
             proc.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is null) return;
                 ok = false;
-                output.AppendLine("FEHLER: " + e.Data);
-                progress?.Report("FEHLER: " + e.Data);
+                Emit("FEHLER: " + e.Data);
             };
 
             proc.Start();
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
-
-            // Skript ueber STDIN uebergeben (Passwort NICHT in den Argumenten).
-            await proc.StandardInput.WriteAsync(script);
-            proc.StandardInput.Close();
-
             await proc.WaitForExitAsync(ct);
+
             if (proc.ExitCode != 0) ok = false;
+            Emit($"--- Exit-Code: {proc.ExitCode} ---");
         }
         catch (Exception ex)
         {
             // WICHTIG: niemals 'script' loggen — enthaelt Admin- und Register-Passwort.
             Log.Warn(ex, "Agent-Update-Prozess konnte nicht ausgefuehrt werden.");
-            output.AppendLine("FEHLER: " + ex.Message);
+            Emit("FEHLER: " + ex.Message);
             ok = false;
         }
+        finally
+        {
+            try { if (File.Exists(tempPs1)) File.Delete(tempPs1); }
+            catch { /* best effort */ }
+        }
+
+        if (output.Length == 0)
+            Emit("(keine Ausgabe erhalten — Skript wurde evtl. nicht ausgefuehrt)");
 
         return new AgentUpdateResult(ok, output.ToString());
     }
