@@ -119,19 +119,16 @@ public static class AgentUpdater
 
             using var proc = new Process { StartInfo = psi };
             proc.OutputDataReceived += (_, e) => { if (e.Data is not null) Emit(e.Data); };
-            proc.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data is null) return;
-                ok = false;
-                Emit("FEHLER: " + e.Data);
-            };
+            // stderr NICHT automatisch als Fehler werten — native Tools (cmk-agent-ctl,
+            // msiexec) schreiben auch Infos dorthin. Erfolg entscheidet der Exit-Code.
+            proc.ErrorDataReceived += (_, e) => { if (e.Data is not null) Emit("» " + e.Data); };
 
             proc.Start();
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
             await proc.WaitForExitAsync(ct);
 
-            if (proc.ExitCode != 0) ok = false;
+            ok = proc.ExitCode == 0;
             Emit($"--- Exit-Code: {proc.ExitCode} ---");
         }
         catch (Exception ex)

@@ -45,9 +45,9 @@ public sealed class ConnectionSettings
         "Write-Output 'Installiere neuen Agent'\n" +
         "Start-Process msiexec.exe -ArgumentList \"/i `\"{installer}`\" /qn /norestart\" -Wait\n" +
         "\n" +
-        "# 3) Registrieren\n" +
+        "# 3) Registrieren (--trust-cert: Server-Zertifikat ohne interaktive Rueckfrage vertrauen)\n" +
         "Write-Output 'Registriere Agent-Controller'\n" +
-        "& \"C:\\Program Files (x86)\\checkmk\\service\\cmk-agent-ctl.exe\" register " +
+        "& \"C:\\Program Files (x86)\\checkmk\\service\\cmk-agent-ctl.exe\" register --trust-cert " +
         "-H {host} -s cmk.lhp.intern -i LHP -U Agent_cmk -P ************\n" +
         "Write-Output 'Fertig.'\n";
 
