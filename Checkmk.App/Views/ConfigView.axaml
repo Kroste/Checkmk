@@ -35,7 +35,7 @@
         </Button.IsEnabled>
       </Button>
       <Button Content="Änderungen aktivieren" Command="{Binding ActivateChangesCommand}"
-              IsEnabled="{Binding !IsBusy}" Background="#0E639C" />
+              IsEnabled="{Binding !IsBusy}" Background="#123E6B" />
       <Button Content="Liste neu laden" Command="{Binding RefreshHostsCommand}"
               IsEnabled="{Binding !IsBusy}" />
     </StackPanel>

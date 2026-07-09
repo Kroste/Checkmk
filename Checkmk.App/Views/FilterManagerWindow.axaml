@@ -50,7 +50,7 @@
                      FontFamily="Consolas,Courier New,monospace" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <Button Content="Übernehmen" Command="{Binding ApplyCommand}" Background="#0E639C" />
+            <Button Content="Übernehmen" Command="{Binding ApplyCommand}" Background="#123E6B" />
             <Button Content="Aktivieren" Command="{Binding ActivateSelectedCommand}" />
             <Button Content="Filter deaktivieren" Command="{Binding ClearActiveCommand}" />
           </StackPanel>

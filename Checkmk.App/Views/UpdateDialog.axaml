@@ -17,7 +17,7 @@
       <StackPanel Grid.Row="1" Margin="20,16,20,8" Spacing="4">
         <TextBlock Text="Neue Version verfügbar" FontSize="18" FontWeight="Bold" />
         <StackPanel Orientation="Horizontal" Spacing="6">
-          <TextBlock Name="VersionText" Foreground="#0E639C" FontWeight="SemiBold" />
+          <TextBlock Name="VersionText" Foreground="#123E6B" FontWeight="SemiBold" />
           <TextBlock Name="CurrentVersionText" Foreground="#888888" />
         </StackPanel>
       </StackPanel>
@@ -37,7 +37,7 @@
         <Button Content="Diese Version überspringen" Click="OnSkipClick" />
         <Button Content="Später" Click="OnLaterClick" />
         <Button Content="Release-Seite öffnen" Click="OnOpenReleaseClick"
-                Background="#0E639C" IsDefault="True" />
+                Background="#123E6B" IsDefault="True" />
       </StackPanel>
     </Grid>
   </Border>

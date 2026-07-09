@@ -32,7 +32,7 @@
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                   Margin="16" Spacing="8">
-        <Button Content="Speichern" Click="OnOkClick" Background="#0E639C" IsDefault="True" />
+        <Button Content="Speichern" Click="OnOkClick" Background="#123E6B" IsDefault="True" />
         <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
       </StackPanel>
     </Grid>

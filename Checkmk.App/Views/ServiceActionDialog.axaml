@@ -37,7 +37,7 @@
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                   Margin="16" Spacing="8">
-        <Button Content="OK" Command="{Binding OkCommand}" Background="#0E639C" />
+        <Button Content="OK" Command="{Binding OkCommand}" Background="#123E6B" />
         <Button Content="Abbrechen" Command="{Binding CancelCommand}" />
       </StackPanel>
     </Grid>

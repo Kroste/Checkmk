@@ -46,7 +46,7 @@
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                   Margin="16" Spacing="8">
         <Button Content="Testen" Command="{Binding TestCommand}" IsEnabled="{Binding !IsBusy}" />
-        <Button Content="Speichern" Command="{Binding SaveCommand}" Background="#0E639C" />
+        <Button Content="Speichern" Command="{Binding SaveCommand}" Background="#123E6B" />
         <Button Content="Abbrechen" Command="{Binding CancelCommand}" />
       </StackPanel>
     </Grid>

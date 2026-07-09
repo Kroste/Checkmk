@@ -22,7 +22,7 @@ namespace Checkmk.App.Converters;
 public sealed class OsToIconConverter : IValueConverter
 {
     private static readonly IBrush WindowBlue = new SolidColorBrush(Color.Parse("#4FA3E3"));
-    private static readonly IBrush Black = new SolidColorBrush(Color.Parse("#1E1E1E"));
+    private static readonly IBrush Black = new SolidColorBrush(Color.Parse("#33383B"));
     private static readonly IBrush White = Brushes.White;
     private static readonly IBrush Orange = new SolidColorBrush(Color.Parse("#F4A81D"));
     private static readonly IBrush Grey = new SolidColorBrush(Color.Parse("#888888"));
@@ -81,8 +81,8 @@ public sealed class OsToIconConverter : IValueConverter
         var beak = new Path { Fill = Orange, Data = Geometry.Parse("M7,4.1 H9 L8,5.5 Z") };
         var footL = new Path { Fill = Orange, Data = Geometry.Parse("M6,13.8 L4.7,15.4 L7,14.9 Z") };
         var footR = new Path { Fill = Orange, Data = Geometry.Parse("M10,13.8 L11.3,15.4 L9,14.9 Z") };
-        var eyeL = new Ellipse { Width = 1.3, Height = 1.3, Fill = Black };
-        var eyeR = new Ellipse { Width = 1.3, Height = 1.3, Fill = Black };
+        var eyeL = new Ellipse { Width = 1.3, Height = 1.3, Fill = White };
+        var eyeR = new Ellipse { Width = 1.3, Height = 1.3, Fill = White };
         Canvas.SetLeft(eyeL, 6.4); Canvas.SetTop(eyeL, 3.0);
         Canvas.SetLeft(eyeR, 8.3); Canvas.SetTop(eyeR, 3.0);
 

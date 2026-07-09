@@ -19,7 +19,7 @@
           <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0" Spacing="8"
                       VerticalAlignment="Center">
             <TextBlock Text="Checkmk Cockpit" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <Border Background="#0E639C" CornerRadius="3" Padding="6,1" VerticalAlignment="Center">
+            <Border Background="#123E6B" CornerRadius="3" Padding="6,1" VerticalAlignment="Center">
               <TextBlock Text="2.5 · v1" FontSize="11" />
             </Border>
           </StackPanel>
@@ -47,7 +47,7 @@
       </TabControl>
 
       <!-- Statusleiste -->
-      <Border Grid.Row="2" Background="#007ACC">
+      <Border Grid.Row="2" Background="#123E6B">
         <Grid ColumnDefinitions="*,Auto,Auto" Margin="10,0">
           <TextBlock Grid.Column="0" Text="{Binding Status.StatusMessage}"
                      VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis" />

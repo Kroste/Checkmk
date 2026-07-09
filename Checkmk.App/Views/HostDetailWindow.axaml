@@ -19,7 +19,7 @@
           <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0" Spacing="8"
                       VerticalAlignment="Center">
             <TextBlock Text="Host-Details:" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding HostName}" VerticalAlignment="Center" Foreground="#0E639C"
+            <TextBlock Text="{Binding HostName}" VerticalAlignment="Center" Foreground="#123E6B"
                        FontWeight="SemiBold" />
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -148,7 +148,7 @@
                   <Grid ColumnDefinitions="180,*,Auto" ColumnSpacing="8" Margin="0,2">
                     <TextBlock Grid.Column="0"
                                Text="{Binding Extensions.ServiceDescription, FallbackValue='(Host)'}"
-                               Foreground="#0E639C" VerticalAlignment="Center"
+                               Foreground="#123E6B" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Grid.Column="1" Text="{Binding Extensions.Comment}"
                                TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -167,7 +167,7 @@
       </Border>
 
       <!-- Statusleiste -->
-      <Border Grid.Row="5" Background="#007ACC">
+      <Border Grid.Row="5" Background="#123E6B">
         <TextBlock Text="{Binding StatusMessage}" Margin="10,4" FontSize="12"
                    TextTrimming="CharacterEllipsis" />
       </Border>
