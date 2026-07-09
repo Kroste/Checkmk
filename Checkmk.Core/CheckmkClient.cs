@@ -111,8 +111,8 @@ public sealed class CheckmkClient
     {
         var cols = new[]
         {
-            "host_name", "description", "state", "plugin_output",
-            "acknowledged", "scheduled_downtime_depth", "last_check"
+            "host_name", "host_alias", "description", "state", "plugin_output",
+            "acknowledged", "scheduled_downtime_depth", "last_check", "last_state_change"
         };
         var url = "domain-types/service/collections/all?" + ColumnsQuery(cols);
 

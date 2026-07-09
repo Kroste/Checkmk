@@ -11,6 +11,9 @@ public sealed record ServiceStatus
     [JsonPropertyName("host_name")]
     public string HostName { get; init; } = string.Empty;
 
+    [JsonPropertyName("host_alias")]
+    public string? HostAlias { get; init; }
+
     [JsonPropertyName("description")]
     public string Description { get; init; } = string.Empty;
 
@@ -30,6 +33,9 @@ public sealed record ServiceStatus
     [JsonPropertyName("last_check")]
     public long LastCheckUnix { get; init; }
 
+    [JsonPropertyName("last_state_change")]
+    public long LastStateChangeUnix { get; init; }
+
     [JsonIgnore]
     public ServiceState ServiceState => State switch
     {
@@ -48,6 +54,32 @@ public sealed record ServiceStatus
 
     [JsonIgnore]
     public DateTimeOffset LastCheck => DateTimeOffset.FromUnixTimeSeconds(LastCheckUnix);
+
+    [JsonIgnore]
+    public DateTimeOffset LastStateChange => DateTimeOffset.FromUnixTimeSeconds(LastStateChangeUnix);
+
+    /// <summary>Zeit seit der letzten Statusaenderung, kompakt (z. B. "2 d", "3 h", "15 m").</summary>
+    [JsonIgnore]
+    public string Age
+    {
+        get
+        {
+            if (LastStateChangeUnix <= 0)
+                return "-";
+
+            var span = DateTimeOffset.UtcNow - LastStateChange;
+            if (span < TimeSpan.Zero)
+                span = TimeSpan.Zero;
+
+            if (span.TotalDays >= 1)
+                return $"{(int)span.TotalDays} d {span.Hours} h";
+            if (span.TotalHours >= 1)
+                return $"{(int)span.TotalHours} h {span.Minutes} m";
+            if (span.TotalMinutes >= 1)
+                return $"{(int)span.TotalMinutes} m";
+            return $"{(int)span.TotalSeconds} s";
+        }
+    }
 }
 
 public enum ServiceState

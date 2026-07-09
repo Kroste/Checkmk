@@ -15,8 +15,8 @@ public class CsvExporterTests
     {
         var csv = CsvExporter.ToCsv([Svc("h1", "CPU", ServiceState.Ok, "load 0.5")]);
 
-        csv.Should().StartWith("Host;Service;Status;Ausgabe;Ack;Downtime;Letzter Check\r\n");
-        csv.Should().Contain("h1;CPU;Ok;load 0.5;nein;nein;");
+        csv.Should().StartWith("Host;Alias;Service;Status;Ausgabe;Ack;Downtime;Age\r\n");
+        csv.Should().Contain("h1;;CPU;Ok;load 0.5;nein;nein;");
     }
 
     [Fact]

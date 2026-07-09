@@ -77,14 +77,14 @@
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
 
-        <DataGridTextColumn Header="Host" Binding="{Binding HostName}" Width="180" />
-        <DataGridTextColumn Header="Service" Binding="{Binding Description}" Width="220" />
+        <DataGridTextColumn Header="Host" Binding="{Binding HostName}" Width="160" />
+        <DataGridTextColumn Header="Alias" Binding="{Binding HostAlias}" Width="180" />
+        <DataGridTextColumn Header="Service" Binding="{Binding Description}" Width="200" />
         <DataGridTextColumn Header="Status" Binding="{Binding ServiceState}" Width="90" />
         <DataGridTextColumn Header="Ausgabe" Binding="{Binding PluginOutput}" Width="*" />
         <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="50" />
         <DataGridCheckBoxColumn Header="DT" Binding="{Binding InDowntime}" Width="50" />
-        <DataGridTextColumn Header="Letzter Check"
-                            Binding="{Binding LastCheck, StringFormat='{}{0:HH:mm:ss}'}" Width="110" />
+        <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="90" />
       </DataGrid.Columns>
     </DataGrid>
 
@@ -105,7 +105,7 @@
         <TreeDataTemplate DataType="vm:HostNodeViewModel" ItemsSource="{Binding Services}">
           <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <ContentControl Content="{Binding Os, Converter={StaticResource OsToIcon}}"
-                            Width="18" Height="18" VerticalAlignment="Center" />
+                            Width="26" Height="26" VerticalAlignment="Center" />
             <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center"
                     Background="{Binding WorstState, Converter={StaticResource StateToBrush}}" />
             <TextBlock Text="{Binding HostName}" FontWeight="SemiBold" VerticalAlignment="Center" />

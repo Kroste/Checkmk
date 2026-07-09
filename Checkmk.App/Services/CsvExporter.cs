@@ -14,7 +14,7 @@ public static class CsvExporter
     private const string NewLine = "\r\n";
 
     private static readonly string[] Headers =
-        ["Host", "Service", "Status", "Ausgabe", "Ack", "Downtime", "Letzter Check"];
+        ["Host", "Alias", "Service", "Status", "Ausgabe", "Ack", "Downtime", "Age"];
 
     public static string ToCsv(IEnumerable<ServiceStatus> rows)
     {
@@ -24,12 +24,13 @@ public static class CsvExporter
         foreach (var s in rows)
         {
             sb.Append(Esc(s.HostName)).Append(Delimiter);
+            sb.Append(Esc(s.HostAlias ?? string.Empty)).Append(Delimiter);
             sb.Append(Esc(s.Description)).Append(Delimiter);
             sb.Append(Esc(s.ServiceState.ToString())).Append(Delimiter);
             sb.Append(Esc(s.PluginOutput ?? string.Empty)).Append(Delimiter);
             sb.Append(s.IsAcknowledged ? "ja" : "nein").Append(Delimiter);
             sb.Append(s.InDowntime ? "ja" : "nein").Append(Delimiter);
-            sb.Append(Esc(s.LastCheck.ToString("yyyy-MM-dd HH:mm:ss")));
+            sb.Append(Esc(s.Age));
             sb.Append(NewLine);
         }
 

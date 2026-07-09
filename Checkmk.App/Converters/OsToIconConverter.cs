@@ -4,6 +4,8 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Checkmk.App.Services;
 
 using Path = Avalonia.Controls.Shapes.Path;
@@ -11,8 +13,11 @@ using Path = Avalonia.Controls.Shapes.Path;
 namespace Checkmk.App.Converters;
 
 /// <summary>
-/// OS-Familie -> Pictogramm-Control: generisches Fenster (Windows), Tux-artiger
-/// Pinguin (Linux), "?" (unbekannt). Vektor, keine Bild-Assets, kein Marken-Logo.
+/// OS-Familie -> Pictogramm-Control. Wenn ein Asset unter
+/// avares://Checkmk.App/Assets/os/{windows|linux}.png existiert, wird DAS gerendert
+/// (so kann z. B. das echte Windows-Logo eingelegt werden). Sonst Vektor-Fallback:
+/// generisches Fenster (Windows), Tux-artiger Pinguin (Linux), "?" (unbekannt).
+/// Vektoren stecken in einer Viewbox und skalieren mit der Control-Groesse.
 /// </summary>
 public sealed class OsToIconConverter : IValueConverter
 {
@@ -25,24 +30,33 @@ public sealed class OsToIconConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         => value switch
         {
-            OsFamily.Windows => WindowIcon(),
-            OsFamily.Linux => PenguinIcon(),
+            OsFamily.Windows => AssetOr("windows", WindowIcon),
+            OsFamily.Linux => AssetOr("linux", PenguinIcon),
             _ => UnknownIcon()
         };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 
-    private static Control WindowIcon() => new Path
+    /// <summary>Nimmt das Asset, falls vorhanden, sonst das gezeichnete Fallback-Icon.</summary>
+    private static Control AssetOr(string name, Func<Control> fallback)
     {
-        Width = 16,
-        Height = 16,
-        Stretch = Stretch.Uniform,
-        Stroke = WindowBlue,
-        StrokeThickness = 1.4,
-        StrokeJoin = PenLineJoin.Round,
-        // Rahmen + Titelleiste + Fensterkreuz (Panes)
-        Data = Geometry.Parse("M2,3 H14 V13 H2 Z M2,6 H14 M8,6 V13 M2,9.5 H14")
+        var uri = new Uri($"avares://Checkmk.App/Assets/os/{name}.png");
+        if (AssetLoader.Exists(uri))
+            return new Image { Source = new Bitmap(AssetLoader.Open(uri)), Stretch = Stretch.Uniform };
+        return fallback();
+    }
+
+    private static Control WindowIcon() => new Viewbox
+    {
+        Child = new Path
+        {
+            Stroke = WindowBlue,
+            StrokeThickness = 1.4,
+            StrokeJoin = PenLineJoin.Round,
+            Stretch = Stretch.Uniform,
+            Data = Geometry.Parse("M2,3 H14 V13 H2 Z M2,6 H14 M8,6 V13 M2,9.5 H14")
+        }
     };
 
     private static Control PenguinIcon()
@@ -79,18 +93,18 @@ public sealed class OsToIconConverter : IValueConverter
         canvas.Children.Add(footR);
         canvas.Children.Add(eyeL);
         canvas.Children.Add(eyeR);
-        return canvas;
+
+        return new Viewbox { Child = canvas };
     }
 
     private static Control UnknownIcon() => new TextBlock
     {
         Text = "?",
         FontWeight = FontWeight.Bold,
-        FontSize = 14,
+        FontSize = 18,
         Foreground = Grey,
-        Width = 16,
-        Height = 16,
         TextAlignment = TextAlignment.Center,
+        HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center
     };
 }

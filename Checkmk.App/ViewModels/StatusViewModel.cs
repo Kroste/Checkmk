@@ -298,6 +298,7 @@ public sealed partial class StatusViewModel : ViewModelBase
             q = q.Where(s =>
                 s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
                 s.Description.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                (s.HostAlias?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
@@ -325,6 +326,7 @@ public sealed partial class StatusViewModel : ViewModelBase
             q = q.Where(s =>
                 s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
                 s.Description.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                (s.HostAlias?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
