@@ -60,7 +60,11 @@
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Ordner" Foreground="#888" FontSize="11" />
             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HostConfig.Extensions.Folder, FallbackValue=—}" />
             <TextBlock Grid.Row="0" Grid.Column="2" Text="IP" Foreground="#888" FontSize="11" />
-            <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding HostConfig.Extensions.Attributes.IpAddress, FallbackValue=—}" />
+            <StackPanel Grid.Row="0" Grid.Column="3" Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding DisplayIp}" />
+              <TextBlock Text="{Binding IpNote}" Foreground="#888" FontSize="11"
+                         VerticalAlignment="Center" IsVisible="{Binding IpNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Alias" Foreground="#888" FontSize="11" />
             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding HostConfig.Extensions.Attributes.Alias, FallbackValue=—}" />

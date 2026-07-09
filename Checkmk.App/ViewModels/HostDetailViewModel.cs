@@ -36,6 +36,10 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     [ObservableProperty] private HostStatus _hostStatus = LoadingStatus;
     [ObservableProperty] private CheckmkObject<HostConfigExtensions> _hostConfig = EmptyConfig;
 
+    // Angezeigte IP: aus Checkmk, sonst per Ping/DNS ermittelt (+ Herkunftshinweis).
+    [ObservableProperty] private string _displayIp = "—";
+    [ObservableProperty] private string? _ipNote;
+
     // Aggregierte Zahlen fuer den Header
     [ObservableProperty] private int _servicesOk;
     [ObservableProperty] private int _servicesWarn;
@@ -88,6 +92,8 @@ public sealed partial class HostDetailViewModel : ViewModelBase
             foreach (var s in services.OrderByDescending(s => s.State).ThenBy(s => s.Description))
                 Services.Add(s);
 
+            await UpdateIpAsync();
+
             StatusMessage = $"Aktualisiert {DateTime.Now:HH:mm:ss} — {services.Count} Services.";
         }
         catch (Exception ex)
@@ -96,6 +102,30 @@ public sealed partial class HostDetailViewModel : ViewModelBase
             StatusMessage = $"Fehler: {ex.Message}";
         }
         finally { IsBusy = false; }
+    }
+
+    /// <summary>IP anzeigen: aus Checkmk, sonst per Ping/DNS ermitteln.</summary>
+    private async Task UpdateIpAsync()
+    {
+        var cmkIp = HostConfig.Extensions?.Attributes?.IpAddress;
+        if (!string.IsNullOrWhiteSpace(cmkIp))
+        {
+            DisplayIp = cmkIp;
+            IpNote = "aus Checkmk";
+            return;
+        }
+
+        DisplayIp = "wird ermittelt…";
+        IpNote = null;
+
+        var (ip, source) = await IpResolver.ResolveAsync(HostName);
+        DisplayIp = ip ?? "nicht ermittelbar";
+        IpNote = source switch
+        {
+            IpSource.Ping => "per Ping ermittelt",
+            IpSource.Dns => "per DNS ermittelt",
+            _ => "keine IP in Checkmk"
+        };
     }
 
     /// <summary>Ack fuer den aktuell gewaehlten Service.</summary>
