@@ -54,7 +54,15 @@ internal static class Program
         services.AddSingleton<IUpdatePreferences, UpdatePreferences>();
         services.AddSingleton<IUpdateChecker>(sp =>
         {
-            var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            // Update-Check laeuft ins Internet -> ueber den Firmen-Proxy. Ohne
+            // Proxy-Credentials gibt der FortiProxy 407. DefaultCredentials nutzt
+            // den angemeldeten Windows-User (Negotiate/NTLM).
+            var handler = new HttpClientHandler
+            {
+                UseProxy = true,
+                DefaultProxyCredentials = System.Net.CredentialCache.DefaultCredentials
+            };
+            var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
             var url = Bootstrap.LoadOrCreate().UpdateChannelUrl;
             return new GitHubReleasesUpdateChecker(http, url,
                 sp.GetRequiredService<IUpdatePreferences>());
