@@ -57,12 +57,29 @@ werden direkt instanziiert, nicht über DI.
 
 ## 4 · Aktueller Funktionsstand
 
-- **Status-Tab:** Host-/Service-Livestatus (Polling, Auto-Refresh), Ampel-Punkte, Freitext-
-  Filter, „Nur Probleme". **Ack + Downtime direkt aus der Liste** (Toolbar-Button + Rechts-
-  klick): Zeile wählen → Dialog mit Pflicht-Kommentar; Downtime mit Dauer-Presets.
-  **Bulk-Ack/Downtime**: Ctrl/Shift-Klick markiert mehrere Services; ein Kommentar für
-  alle, iterative Ausführung mit Fortschritt „Ack 3/12: host/service" in der Statusleiste.
-  Einzelfehler brechen den Bulk nicht ab, werden geloggt und am Ende summiert.
+- **Status-Tab:** Host-/Service-Livestatus (Polling, Auto-Refresh), Ampel-Punkte,
+  Freitext-Filter (Host/Service/**Ausgabe**/**Alias**), „Nur Probleme". **Ack + Downtime
+  direkt aus der Liste** (Toolbar-Button + Rechtsklick): Zeile wählen → Dialog mit
+  Pflicht-Kommentar; Downtime mit Dauer-Presets. **Bulk-Ack/Downtime**: Ctrl/Shift-Klick
+  markiert mehrere Services; ein Kommentar für alle, iterative Ausführung mit Fortschritt
+  „Ack 3/12: host/service" in der Statusleiste. Einzelfehler brechen den Bulk nicht ab,
+  werden geloggt und am Ende summiert. Spalte **Age** (Zeit seit letzter Statusänderung)
+  statt „Letzter Check". **CSV-Export** der gefilterten Ansicht via `CsvExporter`
+  (Semikolon, UTF-8-BOM, RFC-4180-Quoting).
+- **Baumansicht** (Umschalter Tabelle ⇄ Baum, im Status-Tab): Hosts als oberste Knoten mit
+  **OS-Pictogramm** (`Assets/os/windows.png` bzw. Tux-Vektor, „?" bei unbekanntem OS),
+  Ampelpunkt, Problem-Zähler; aufgeklappt die Services mit Ausgabe. OS-Familie wird aus
+  der Check_MK-Agent-Ausgabe geparst (`OsDetection`) — kein Zusatzdienst nötig. Nur die
+  **Familie** (Windows/Linux), die exakte Version bräuchte die HW/SW-Inventur
+  (`os_version`). Kontextmenü im Baum ist knotenabhängig (Host vs. Service): Host-Details,
+  Ack, Downtime, Kommentar, Client aktualisieren.
+- **Tray & Notifications:** Minimieren legt die App ins **System-Tray** (nicht Taskleiste)
+  und schaltet Auto-Refresh ein (`TrayController`). Tray-Icon zeigt per Ampelfarbe den
+  schlechtesten Status im aktiven Filter, Tooltip mit Kurzfassung. `StatusChangeMonitor`
+  vergleicht Snapshots, `IToastNotifier` (Windows: `Shell_NotifyIcon`-Balloon; Linux:
+  `notify-send`) meldet Änderungen und Recovery **gebündelt** — nur im aktiven Filter,
+  keine Alarm-Sturm-Kaskade. Windows-Balloon ist compile-verifiziert, aber nicht produktiv
+  getestet.
 - **Hosts-Tab** (früher „Konfiguration"): Host-Liste mit Ordner/IP/Alias, „Änderungen aktivieren",
   **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
   `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert
@@ -71,15 +88,32 @@ werden direkt instanziiert, nicht über DI.
   laufen zentral, Fehlbedienung produziert Config-Änderungen); wieder einblenden
   über `%APPDATA%\Kroste\Checkmk\bootstrap.json` mit `"showHostCreation": true`.
 - **Host-Details** (`HostDetailWindow`): Doppelklick oder Rechtsklick auf eine Zeile
-  öffnet ein eigenes Fenster mit Host-State (Ampel), Config-Attributen (Ordner/IP/Alias),
-  Plugin-Output, Service-Aggregat (OK/WARN/CRIT/UNK) und der Service-Tabelle. Ack + Down-
-  time direkt auf einzelnen Services **und** auf dem kompletten Host („ganzer Host in
-  Wartung" ist damit erledigt). Mehrere Detail-Fenster können parallel offen sein.
+  öffnet ein eigenes Fenster mit Host-State (Ampel + **In-Wartung-** und
+  **Acknowledged-Badge**), Config-Attributen (Ordner/IP/Alias), Plugin-Output,
+  Service-Aggregat (OK/WARN/CRIT/UNK) und der Service-Tabelle. Ack + Downtime direkt
+  auf einzelnen Services **und** auf dem kompletten Host („ganzer Host in Wartung" ist
+  damit erledigt). Mehrere Detail-Fenster können parallel offen sein. **IP-Fallback**:
+  wenn Checkmk keine IP liefert, ermittelt `IpResolver` sie via Ping/DNS und markiert
+  die Herkunft im UI.
 - **Kommentare**: bestehende Kommentare (Host + Service) werden im Host-Detail-Fenster
   unten aufgelistet (Zeitstempel absteigend). Neue Kommentare per „Host-Kommentar…" bzw.
   „Kommentar…" auf dem markierten Service; Status-Tab hat Rechtsklick → „Kommentar…".
   Persistent-Flag im Dialog wählbar. Delete-Endpoint noch nicht implementiert (2.4/2.5-API
   hat konkurrierende Varianten — nachziehen sobald an Live-Server verifiziert).
+- **Client-Aktualisierung** (`AgentUpdater` + `AgentUpdateWindow` + `CredentialDialog`):
+  aus dem Kontextmenü (Zeile/Baum-Knoten) den Checkmk-Agent auf einem Zielhost
+  aktualisieren. Ablauf: `CredentialDialog` fragt Admin-Credentials → Remote-PowerShell
+  zum Ziel → **Installer per `Copy-Item -ToSession`** auf den Host kopiert (umgeht
+  Double-Hop) → editierbare **Skript-Vorlage** ausführen (Deinstall → Install → Register).
+  Agent-Share und Skript-Vorlage in den Settings pflegbar. Windows-only, WinRM
+  vorausgesetzt (in DMZ i. d. R. geblockt). **Fallen (aus Fixes gelernt):**
+  Skript-Ausführung über `powershell.exe -File <tmp.ps1>`, **nicht** `-Command -` via
+  STDIN (verschluckt mehrzeilige Skripte). Erfolg am **Exit-Code**, nicht an stderr
+  (native Tools wie `cmk-agent-ctl`/`msiexec` schreiben Infos auch nach stderr).
+  `cmk-agent-ctl register` braucht **`--trust-cert`**, sonst interaktive Cert-Abfrage
+  → `NativeCommandError`. Skript/Passwörter **niemals loggen** (Regression in v1.2.0
+  gefixt). `Start-Process msiexec -Wait` meldet Nicht-Null-Exits nicht automatisch —
+  für harte Fehlererkennung `-PassThru` + `$proc.ExitCode`-Prüfung in die Vorlage.
 - **Autoupdater (Phase 1):** Beim Start fragt `GitHubReleasesUpdateChecker` den
   `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/Kroste/Checkmk/releases/
   latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen
@@ -87,6 +121,8 @@ werden direkt instanziiert, nicht über DI.
   „Release-Seite öffnen"/„Später"/„Diese Version überspringen"). Skip-Version liegt in
   `%APPDATA%\Kroste\Checkmk\updates.json` bzw. `~/.config/Kroste/Checkmk/updates.json`.
   Kein Selbst-Ersetzen des Binary — Roadmap-Phase 2.
+  **Proxy-Fix (v1.2.1):** `HttpClient` nutzt `DefaultProxyCredentials`
+  (Negotiate/NTLM über den angemeldeten Windows-User) — sonst 407 am FortiProxy.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Hosts-Tab lassen sich per Ctrl+Klick mehrere Hosts
@@ -169,9 +205,7 @@ den Commit-Log an.
 4. ✅ Service Discovery für bestehende Hosts (Config-Tab: Host → `fix_all` → aktivieren).
 5. ✅ Host-Detailansicht (Doppelklick oder Rechtsklick → eigenes Fenster).
 6. ✅ Autoupdater (Phase 1): GitHub-Releases-Check + Statusleisten-Badge + Dialog.
-   Ausstehend als Phase 2: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
-   atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
-   GitHub auf einen internen Fileshare umgestellt wird.
+   Phase 2 (Selbst-Ersetzen + signierter Manifest) siehe Punkt 17.
 7. ✅ Bulk-Ack/Downtime (Status-Tab + Host-Detail: Ctrl/Shift-Klick auf Services →
    ein Kommentar, iterative Ausführung, Einzelfehler brechen den Bulk nicht ab).
 8. ✅ Kommentare (Anzeige im Host-Detail + Add auf Host/Service).
@@ -179,9 +213,26 @@ den Commit-Log an.
    abgedeckt" verworfen — statt eines eigenen Tabs legt jeder DB-Admin sich einen
    Favoriten „DB-Server" an (Regex `.*sql.*|.*ora.*` oder Include-Liste der Instanzen)
    und sieht seine DBs in Status/Konfig gefiltert.
-9. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
-   Binary"-Trade-off ab, sobald AD-Gruppe steht.
-10. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
+9. ✅ Baumansicht (Hosts → Services) mit OS-Pictogrammen (`OsDetection`).
+10. ✅ Tray + Status-Notifications (Windows `Shell_NotifyIcon`-Balloon, Linux `notify-send`).
+11. ✅ CSV-Export + Freitext-Filter über Ausgabe/Alias.
+12. ✅ IP-Fallback per Ping/DNS im Host-Detail, wenn Checkmk keine liefert.
+13. ✅ Client-Aktualisierung (Kontextmenü, Remote-PowerShell, Agent-Deinstall/Install/Register).
+14. **Client-Aktualisierung härten**: `Start-Process msiexec` in der Skript-Vorlage auf
+    `-PassThru` + `$proc.ExitCode`-Prüfung heben (aktuell werden Nicht-Null-Exits nicht
+    erkannt). Site-CA vorab in den Zertifikatsspeicher der Zielhosts pushen, dann
+    `--trust-cert` aus dem Register-Command raus.
+15. **Kommentare löschen** — sobald am Live-Server verifiziert ist, welche der 2.4/2.5-
+    Delete-Varianten funktioniert (`POST .../actions/delete/invoke` mit `delete_type`
+    vs. `DELETE /objects/comment/{id}`).
+16. **OS-Version** aus der Checkmk-HW/SW-Inventur (`os_version`) statt nur Familie
+    aus dem Agent-Output — braucht einen weiteren Endpunkt-Aufruf.
+17. **Autoupdater Phase 2**: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
+    atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
+    GitHub auf einen internen Fileshare umgestellt wird.
+18. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
+    Binary"-Trade-off ab, sobald AD-Gruppe steht.
+19. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
     AES-mit-machine-id ab, wenn ein Keyring-Daemon verfügbar ist).
 
 ## 9 · Deal
