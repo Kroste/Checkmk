@@ -1,34 +1,36 @@
 # Checkmk Cockpit — Benutzerhandbuch
 
-Ein Windows-Desktop-Tool für den täglichen Umgang mit **Checkmk 2.5** (REST-API v1),
+Ein Windows-Desktop-Tool für den **täglichen Umgang mit Checkmk 2.5** (REST-API v1),
 gebaut für den Fachbereich **5424 IT-Basis-Dienste**. Es holt die häufigen
 Admin-Handgriffe, die das Checkmk-Webinterface tief in Menüs vergräbt, an die
-Zeile, an der man das Problem sieht.
+Zeile, an der du das Problem siehst.
 
-Wenn du das Tool nur benutzen willst, ist diese Datei alles, was du brauchst.
-Technische Details (Architektur, API-Fallen, Roadmap) stehen in
-[`CLAUDE.md`](CLAUDE.md).
+Dieses Handbuch beschreibt alle Funktionen des Cockpits aus Anwendersicht. Wer
+sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
 ## Inhalt
 
-- [Installation](#installation)
-- [Erststart und Verbindung](#erststart-und-verbindung)
-- [Statusansicht — was läuft gerade](#statusansicht--was-läuft-gerade)
-- [Ack und Downtime](#ack-und-downtime)
-- [Bulk-Aktionen (mehrere Services gleichzeitig)](#bulk-aktionen-mehrere-services-gleichzeitig)
-- [Host-Details](#host-details)
-- [Host-Filter und Favoriten](#host-filter-und-favoriten)
-- [Hosts-Tab — Host-Liste, Service Discovery, Änderungen aktivieren](#hosts-tab--host-liste-service-discovery-änderungen-aktivieren)
-- [Updates](#updates)
-- [Wo liegen meine Daten](#wo-liegen-meine-daten)
-- [Wenn etwas nicht funktioniert](#wenn-etwas-nicht-funktioniert)
-- [Hilfe und Kontakt](#hilfe-und-kontakt)
+1. [Installation](#1-installation)
+2. [Ersteinrichtung](#2-ersteinrichtung)
+3. [Die Oberfläche](#3-die-oberfläche)
+4. [Die drei Alltags-Handgriffe](#4-die-drei-alltags-handgriffe)
+5. [Tabellen- und Baumansicht](#5-tabellen--und-baumansicht)
+6. [Host-Details](#6-host-details)
+7. [Filter und Favoriten](#7-filter-und-favoriten)
+8. [Tray und Notifications](#8-tray-und-notifications)
+9. [Hosts-Tab: Service Discovery und Änderungen aktivieren](#9-hosts-tab-service-discovery-und-änderungen-aktivieren)
+10. [Client-Aktualisierung (Agent-Update)](#10-client-aktualisierung-agent-update)
+11. [CSV-Export](#11-csv-export)
+12. [Updates](#12-updates)
+13. [Wo liegen meine Daten](#13-wo-liegen-meine-daten)
+14. [Wenn etwas nicht funktioniert](#14-wenn-etwas-nicht-funktioniert)
+15. [Hilfe und Kontakt](#15-hilfe-und-kontakt)
 
 ---
 
-## Installation
+## 1. Installation
 
 **Windows (empfohlen):**
 
@@ -38,19 +40,23 @@ Technische Details (Architektur, API-Fallen, Roadmap) stehen in
 3. `Checkmk.App.exe` starten.
 
 Das ZIP ist **self-contained** — es ist kein .NET-Runtime auf dem Rechner nötig,
-alles Nötige ist im Bundle. Etwa 90 MB.
+alles Nötige ist im Bundle. Rechnen etwa 130 MB.
 
 **Zugriffsvoraussetzung Windows-Verbindungsdatei:** Das Tool liest die
 Checkmk-Verbindungsdaten aus `\\Samba01\542$\Checkmk\settings.json`. Der Rechner
 muss diesen Pfad lesen können (die üblichen Fileshare-Rechte des Fachbereichs).
 
-**Linux:** Als AppImage oder tar.gz aus dem gleichen Release-Ordner. Linux ist
+**Linux (tar.gz oder AppImage):** Aus dem gleichen Release-Ordner. Linux ist
 Zweitplattform; die Verbindung liegt dort lokal unter
 `~/.config/Kroste/Checkmk/settings.json` (nicht auf dem Fileshare).
 
+**Hinter einem Proxy?** Der Update-Check nutzt automatisch die
+Windows-Standard-Anmeldedaten für den Proxy (Negotiate/NTLM). Am FortiProxy des
+Fachbereichs funktioniert das ohne Zusatzkonfiguration.
+
 ---
 
-## Erststart und Verbindung
+## 2. Ersteinrichtung
 
 ### Wenn die zentrale Verbindungsdatei schon vorhanden ist
 
@@ -65,10 +71,10 @@ Status-Tab.
 
    | Feld | Was da rein muss |
    |---|---|
-   | **Host** | Der DNS-Name deines Checkmk-Servers, z. B. `monitoring.lhp.intern`. |
+   | **Host** | Der DNS-Name des Checkmk-Servers, z. B. `monitoring.lhp.intern`. |
    | **Site** | Der Site-Name — das URL-Segment hinter dem Host, meist `prod` oder `main`. |
    | **Automation-User** | Ein **Automation-User**, kein GUI-Benutzer. Muss in Checkmk unter *Setup → Users* mit passenden Rechten angelegt sein. Default: `automation`. |
-   | **Automation-Secret** | Das Automation-Secret dieses Users (das lange Zufalls-String, nicht das GUI-Passwort). |
+   | **Automation-Secret** | Das Automation-Secret dieses Users (der lange Zufalls-String, **nicht** das GUI-Passwort). |
    | **HTTPS** | Fast immer ja. Nur ausschalten, wenn dein Server nur HTTP kann (Lab). |
    | **Zertifikatsfehler ignorieren (Lab)** | Nur setzen, wenn dein Server ein Selbstsigniertes hat. In Produktion: aus lassen. |
 
@@ -78,54 +84,58 @@ Status-Tab.
    `\\Samba01\542$\Checkmk\settings.json` abgelegt. Alle anderen Nutzer im
    Fachbereich sehen die Verbindung ab dem Moment.
 
-**Wichtig:** Seit Checkmk 2.4/2.5 wird kein `automation`-User mehr
-automatisch angelegt. Du musst ihn im Checkmk-Webinterface einmal einrichten
-und ihm mindestens die Rechte für die genutzten Endpunkte geben.
+**Wichtig:** Seit Checkmk 2.4/2.5 wird kein `automation`-User mehr automatisch
+angelegt. Du musst ihn im Checkmk-Webinterface einmal einrichten und ihm
+mindestens die Rechte für die genutzten Endpunkte geben.
 
-Unter dem Formular steht immer der aktuelle Speicherort — daran erkennst du,
-ob du gerade die zentrale Datei bearbeitest („Zentrale Datei: \\Samba01\...")
-oder eine lokale (Linux/erster Start ohne Fileshare-Zugriff).
-
----
-
-## Statusansicht — was läuft gerade
-
-Der **Status-Tab** ist die Startseite: alle überwachten Services und ihr
-aktueller Zustand.
-
-- **Ampelpunkte** links: 🟢 OK, 🟡 WARN, 🔴 CRIT, ⚫ UNKNOWN.
-- **Freitext-Filter** oben — tippt sich live durch Hostnamen und Service-Namen
-  (Contains, case-insensitive).
-- **„Nur Probleme"** blendet alle OK-Zeilen aus. Standard: an.
-- **„Auto"** + Sekundenrad rechts: das Tool aktualisiert sich alle N Sekunden
-  selbstständig. Default 30 s, minimal 5 s.
-- **„Aktualisieren"** holt einmal manuell nach.
-
-Ganz unten in der Statusleiste stehen die Aggregat-Zähler (Hosts UP/DOWN,
-Services OK/WARN/CRIT) und der Zeitpunkt der letzten Aktualisierung.
+Unter dem Formular steht immer der aktuelle Speicherort — daran erkennst du, ob
+du gerade die zentrale Datei bearbeitest („Zentrale Datei: \\Samba01\\…") oder
+eine lokale (Linux/erster Start ohne Fileshare-Zugriff).
 
 ---
 
-## Ack und Downtime
+## 3. Die Oberfläche
 
-Zwei Szenarien, die im Checkmk-Webinterface immer viele Klicks brauchen.
+Ganz oben die eigene Titelleiste mit **„Einstellungen"** und **„Über"**, dann
+drei Reiter:
+
+- **Status** — Live-Status aller überwachten Services (Startseite).
+- **Hosts** — Host-Liste im Setup, Service Discovery, Änderungen aktivieren.
+- Ein **Einstellungen-Dialog** öffnet die Verbindungsdaten.
+
+Am unteren Rand die blaue **Statusleiste** mit:
+
+- links die aktuelle Rückmeldung („Aktualisiert 14:32:07 — 87 Services, 14 Hosts")
+- Mitte, wenn zutreffend, ein gelber **Update-Badge** („Update auf 1.2.3
+  verfügbar") — Klick öffnet den Release-Notes-Dialog.
+- rechts die Verbindungsangabe (`https://monitoring.lhp.intern/prod (automation)`).
+
+Sobald du das Fenster minimierst, verschwindet die App **ins System-Tray** (nicht
+in die Taskleiste). Siehe [Tray und Notifications](#8-tray-und-notifications).
+
+---
+
+## 4. Die drei Alltags-Handgriffe
+
+Ack, Downtime und Kommentar — drei Aktionen, die im Webinterface je 4–6 Klicks
+kosten. Hier eine Zeile wählen und ein Menü öffnen.
 
 ### Acknowledge (Problem quittieren)
 
-Man kennt das Problem, kümmert sich (oder es ist bekannt harmlos), und will die
-Warnung stumm schalten:
+Du kennst das Problem, kümmerst dich (oder es ist bekannt harmlos), und willst
+die Warnung stumm schalten:
 
 1. Zeile im Status-Tab wählen (oder Rechtsklick).
 2. Toolbar-Button **„Acknowledge…"** oder Menüpunkt.
-3. Kommentar eingeben — der ist **Pflicht** (Checkmk-Vorgabe). Sinnvoll: Grund,
+3. Kommentar eingeben — **Pflicht** (Checkmk-Vorgabe). Sinnvoll: Grund,
    Ticket-Nummer, Deadline.
-4. **OK** — die Warnung ist quittiert, das Ampelsymbol bleibt aber (Farbe
-   heißt „State", Ack ist ein Flag). In der „Ack"-Spalte steht dann ein Haken.
+4. **OK** — die Warnung ist quittiert. In der „Ack"-Spalte steht ein Haken; die
+   Ampelfarbe bleibt (State ≠ Ack).
 
 ### Downtime (geplante Wartung)
 
-Man weiß, dass ein Service demnächst rot wird (Reboot, Deploy, geplante
-Netzwerkumbau), und will keine Alarme:
+Du weißt, dass ein Service demnächst rot wird (Reboot, Deploy, geplante
+Netzwerkumbau), und willst keine Alarme:
 
 1. Zeile wählen, **„Downtime…"** klicken.
 2. Kommentar eingeben (Pflicht).
@@ -133,73 +143,123 @@ Netzwerkumbau), und will keine Alarme:
    06:00" (praktisch für Overnight-Wartung).
 4. **OK** — Downtime läuft ab **jetzt** bis zum berechneten Ende.
 
----
+### Kommentar
 
-## Bulk-Aktionen (mehrere Services gleichzeitig)
+Kontext an Host oder Service hinterlassen — „bin dran, gehört Team X, siehe
+INC-4711":
 
-Wenn zehn Services gleichzeitig warnen (Cluster-Failover, Reboot, Netzwerk-Blip),
-ist es lästig, jeden einzeln zu acknowledgen. Deshalb:
+- **Status-Tab:** Zeile wählen → **Rechtsklick → „Kommentar…"**.
+- **Host-Detail-Fenster:** entweder **„Host-Kommentar…"** (in der Kopfleiste,
+  legt einen Kommentar am Host an) oder **„Kommentar…"** in der Aktions-Toolbar
+  (legt einen Kommentar am markierten Service an).
+
+Kommentar-Text eingeben (Pflicht) und wählen, ob der Kommentar **persistent**
+sein soll (überlebt einen Neustart des Monitorings). Bestehende Kommentare
+werden im Host-Detail-Fenster unten als Liste angezeigt (neueste oben, mit
+Autor + Zeitstempel).
+
+**Hinweis:** Kommentare löschen ist noch nicht implementiert — die Checkmk-2.4/
+2.5-REST-API hat konkurrierende Endpunkt-Varianten, das kommt nach einer
+Live-Server-Verifikation nach.
+
+### Bulk-Aktionen — mehrere Services gleichzeitig
+
+Zehn Services gleichzeitig warnen (Cluster-Failover, Reboot, Netzwerk-Blip)? Du
+willst nicht jeden einzeln bearbeiten:
 
 1. **Ctrl-Klick** oder **Shift-Klick** in der Service-Tabelle markiert mehrere
    Zeilen.
 2. **„Acknowledge…"** oder **„Downtime…"** öffnen den bekannten Dialog. Statt
-   „host / service" steht im Ziel jetzt z. B. **„7 Services auf 3 Hosts"**.
-3. Ein Kommentar gilt für alle. Bei Downtime gilt das gewählte Dauer-Preset für
-   alle.
-4. **OK** — das Tool arbeitet die Auswahl iterativ ab und zeigt den Fortschritt
-   in der Statusleiste: **„Ack 3/12: DBSQL01 / CPU load"**.
+   „host / service" steht im Ziel z. B. **„7 Services auf 3 Hosts"**.
+3. Ein Kommentar gilt für alle. Bei Downtime gilt das gewählte Preset für alle.
+4. **OK** — das Tool arbeitet die Auswahl iterativ ab, Fortschritt in der
+   Statusleiste: **„Ack 3/12: DBSQL01 / CPU load"**.
 
 Wenn einzelne Aktionen fehlschlagen, bricht der Bulk **nicht ab** — die Fehler
 werden gesammelt und am Ende gemeldet: **„Acknowledged: 10/12 — 2 Fehler
-(siehe Log)."** Details im NLog-Logfile.
+(siehe Log)."** Details im NLog-Logfile neben der Exe.
 
 ---
 
-## Host-Details
+## 5. Tabellen- und Baumansicht
+
+Der Status-Tab kann die Services entweder als flache Tabelle oder als **Baum
+(Hosts → Services)** zeigen. Umschalter oben in der Toolbar.
+
+**Baum:**
+
+- Jeder Host ist ein oberster Knoten mit **OS-Pictogramm** (Fenster für Windows,
+  Tux für Linux, „?" bei unbekanntem OS), Ampel und **Problem-Zähler**.
+- Aufgeklappt: die Services des Hosts mit Ausgabe.
+- **Rechtsklick** funktioniert kontextabhängig — auf einem Host-Knoten stehen
+  andere Aktionen zur Verfügung als auf einem Service-Knoten (u. a.
+  Host-Details, Ack, Downtime, Kommentar, Client aktualisieren).
+
+Der Baum ist besonders nützlich, wenn dich interessiert, wie sich Probleme über
+Hosts verteilen — und für die schnelle OS-Erkennung.
+
+---
+
+## 6. Host-Details
 
 Wenn du einen Host komplett anschauen willst (alle seine Services + Konfig),
 öffnet sich ein eigenes Fenster:
 
-- **Doppelklick** auf eine Zeile (im Status-Tab oder im Hosts-Tab), oder
+- **Doppelklick** auf eine Zeile (im Status-Tab, im Hosts-Tab oder im Baum),
+  oder
 - **Rechtsklick → „Host-Details…"**.
 
 Das Fenster zeigt oben:
-- **Host-State-Ampel** (UP/DOWN/UNREACH)
-- **Ordner-Pfad, IP-Adresse, Alias** aus der Config
-- **Plugin-Ausgabe** des Host-Checks (was der Host selbst meldet)
-- **Ack-Flag** des Hosts
 
-Rechts daneben zwei Buttons:
+- **Host-State-Ampel** (UP/DOWN/UNREACH)
+- **In-Wartung- und Acknowledged-Badge** direkt neben der Ampel (falls
+  zutreffend)
+- **Ordner-Pfad, IP-Adresse, Alias** aus der Config. Fehlt in Checkmk eine IP,
+  ermittelt das Tool sie per **Ping/DNS** und markiert die Herkunft.
+- **Plugin-Ausgabe** des Host-Checks
+
+Rechts daneben Buttons:
+
 - **„Host-Ack…"** — quittiert das **Host**-Problem (nur wenn Host DOWN/UNREACH ist)
 - **„Host-Downtime…"** — setzt den **ganzen Host** in Wartung. Alle Services
   darunter sind dann auch stumm.
+- **„Host-Kommentar…"** — Kommentar am Host anlegen.
 
-Darunter kommt die Service-Tabelle des Hosts mit Aggregat-Zählern
-(OK/WARN/CRIT/UNK). **Bulk-Ack und Bulk-Downtime funktionieren hier
-genauso** — Ctrl-Klick, „Ack…" oder „Downtime…".
+Darunter die Service-Tabelle des Hosts mit Aggregat-Zählern (OK/WARN/CRIT/UNK)
+und den bekannten Ack/Downtime/Kommentar-Aktionen. **Bulk-Ack und
+Bulk-Downtime funktionieren hier genauso** — Ctrl-Klick, „Ack…", „Downtime…".
+
+Ganz unten die Liste **bestehender Kommentare** (Zeitstempel absteigend, Autor +
+Ziel).
 
 Mehrere Detail-Fenster können parallel offen sein, z. B. für zwei DB-Server
 gleichzeitig.
 
 ---
 
-## Host-Filter und Favoriten
+## 7. Filter und Favoriten
 
-Wenn ihr über tausend Hosts habt, will keiner alle sehen. Deshalb gibt es
-speicherbare Filter — nennt sich hier **„Favoriten"**.
+Wenn ihr über tausend Hosts habt, will keiner alle sehen. Speicherbare Filter —
+hier **„Favoriten"** — beschränken die Sicht auf das, was für dich relevant ist.
 
-### Filter auswählen
+### Freitext-Filter (immer sichtbar)
 
-In der Toolbar (Status-Tab **und** Hosts-Tab) ist eine Combobox
+Oben im Status-Tab: einfaches Suchfeld. Sucht case-insensitive über **Host,
+Service, Ausgabe und Alias**. Ideal um schnell auf „CPU load" oder eine
+Ticket-Nr. in der Plugin-Ausgabe zu filtern.
+
+### Persistente Favoriten (Combobox)
+
+In der Toolbar (Status-Tab **und** Hosts-Tab) gibt es die Combobox
 **„Host-Filter:"**. Wählst du dort einen Favoriten, sind sofort in beiden Tabs
 nur noch die passenden Hosts sichtbar. Zurück auf alle: Auswahl leeren
 („(Alle Hosts)").
 
-### Favoriten aus einer Auswahl speichern
+### Favoriten aus einer Auswahl speichern (Hosts-Tab)
 
 Im **Hosts-Tab** die passenden Hosts per Ctrl-/Shift-Klick markieren, dann
 **„Auswahl als Favorit…"**. Namen eingeben („DB-Server", „Meine kritischen",
-…) und speichern. Der Favorit steht dann in der Combobox beider Tabs.
+…) und speichern. Der Favorit steht dann in beiden Tabs zur Auswahl.
 
 ### Favoriten verwalten
 
@@ -210,13 +270,13 @@ Favoriten. Rechts der Editor mit drei Feldern:
 - **Hostname-Regex** — .NET-Regex, case-insensitive. Beispiele:
   - `^db-` — alle Hosts, deren Name mit `db-` beginnt.
   - `sql|ora` — alle Hosts mit `sql` **oder** `ora` im Namen.
-  - `.*` — alle.
-- **Explizite Hostnamen** — eine feste Liste, ein Hostname pro Zeile. Wenn
-  hier etwas steht, wird das **Regex ignoriert** — es zählen exakt diese
-  Hostnamen.
+  - `.*sql.*|.*ora.*` — die klassische „alle DB-Server"-Regel.
+- **Explizite Hostnamen** — eine feste Liste, ein Hostname pro Zeile. Wenn hier
+  etwas steht, wird das **Regex ignoriert** — es zählen exakt diese Hostnamen.
 
 Buttons:
-- **„Übernehmen"** — Änderungen speichern (auf demselben ausgewählten Filter).
+
+- **„Übernehmen"** — Änderungen speichern (auf dem ausgewählten Filter).
 - **„Aktivieren"** — den gewählten Filter sofort aktiv setzen (analog zur
   Combobox in der Hauptleiste).
 - **„Filter deaktivieren"** — kein Filter mehr aktiv, alle Hosts sichtbar.
@@ -226,80 +286,173 @@ ist `%APPDATA%\Kroste\Checkmk\filter.json`.
 
 ---
 
-## Hosts-Tab — Host-Liste, Service Discovery, Änderungen aktivieren
+## 8. Tray und Notifications
 
-Der **Hosts-Tab** ist für Änderungen an der Checkmk-Setup-Seite (also nicht
-Live-Status, sondern was überhaupt überwacht wird).
+Minimieren legt die App **ins System-Tray** (nicht in die Taskleiste). Das
+Tray-Icon zeigt per Ampelfarbe den **schlechtesten Status im aktiven Filter**
+(also z. B. nur die DB-Server, wenn du diesen Favoriten aktiv hast). Tooltip mit
+Kurzfassung.
 
-### Host anlegen (standardmäßig ausgeblendet)
+Im Tray läuft der **Auto-Refresh** weiter (automatisch aktiviert beim
+Minimieren), und bei Statusänderungen bekommst du eine **Toast-Notification**:
 
-Das Anlege-Formular ist per Default **nicht sichtbar** — der Handgriff läuft
-im Fachbereich zentral, Fehlbedienung produziert Config-Änderungen. Zum
-Einblenden: `%APPDATA%\Kroste\Checkmk\bootstrap.json` öffnen und
-`"showHostCreation": true` ergänzen. Kein UI-Schalter, absichtlich.
+- **Windows:** moderne Toast-Benachrichtigung, landet im **Action Center** und
+  bleibt dort abrufbar. Beim ersten Mal legt das Tool automatisch einen
+  Startmenu-Eintrag „Checkmk Cockpit" an — das ist ein Windows-Requirement für
+  Toast-Notifications und passiert einmalig, ohne Nachfrage.
+- **Linux:** über `notify-send` (KDE, GNOME).
 
-Wenn das Formular sichtbar ist:
+Die Notifications sind **gebündelt** — wenn zehn Services gleichzeitig flippen,
+kriegst du eine Sammelmeldung („3 neue Probleme, 2 Recoveries") statt zehn
+einzelner Toasts. Und sie greifen **nur im aktiven Filter** — dein DB-Favorit
+alarmiert dich nicht bei Web-Server-Ausfällen.
 
-- **Hostname** *(Pflicht)* — der Name, unter dem der Host in Checkmk laufen
-  soll.
-- **Ordner** — **muss ein ID-Pfad sein**, nicht der Titel aus dem Webinterface.
-  Der Root-Ordner ist `/`. Ein DB-Ordner könnte `/datenbanken/db-mssql` heißen.
-  Wenn du unsicher bist, schau im Checkmk-Webinterface in die URL — hinter
-  `folder=` steht der ID-Pfad.
-- **IP-Adresse** — optional, aber ohne läuft der Ping-Check nicht.
-- **Alias** — optional, freier Anzeigename.
+Zurück aus dem Tray: Klick auf das Tray-Icon oder Rechtsklick → **„Anzeigen"**.
+Beenden über Rechtsklick → **„Beenden"**.
 
-**„Anlegen"** legt den Host im Setup an. **Das reicht aber noch nicht, damit
-er überwacht wird** — es fehlt noch die Service-Discovery (siehe unten).
+---
+
+## 9. Hosts-Tab: Service Discovery und Änderungen aktivieren
+
+Der **Hosts-Tab** ist die Sicht auf die Checkmk-Setup-Seite (nicht Live-Status,
+sondern was überhaupt überwacht wird).
+
+### Hosts-Liste
+
+Zeigt Hostname, Ordner, IP und Alias jedes konfigurierten Hosts. Die aktuelle
+Filter-Auswahl (siehe [Filter](#7-filter-und-favoriten)) greift auch hier.
+Doppelklick öffnet das **Host-Detail-Fenster**.
 
 ### Änderungen aktivieren
 
-Nach jeder Änderung im Setup (Host anlegen, Service Discovery, …) müssen die
-Änderungen aktiviert werden — genau wie im Webinterface. Der Button
-**„Änderungen aktivieren"** macht das mit einem Klick.
+Nach jeder Änderung im Setup (z. B. Service Discovery) müssen die Änderungen
+aktiviert werden — genau wie im Webinterface. Der Button **„Änderungen
+aktivieren"** macht das mit einem Klick.
 
 ### Service Discovery — bestehende Hosts ins Monitoring bringen
 
-Wenn ein Host in der Config existiert (z. B. weil er über eine
-Bulk-CSV-Anlage kam), aber keine überwachten Services hat, brauchst du eine
-Service-Discovery.
+Wenn ein Host in der Config existiert (z. B. weil er über eine Bulk-CSV-Anlage
+kam), aber keine überwachten Services hat, brauchst du eine Service-Discovery.
 
 1. Zeile in der Host-Liste anklicken.
 2. Toolbar-Button **„Services entdecken"** oder Rechtsklick →
    **„Services entdecken (fix_all + aktivieren)"**.
-3. Das Tool startet einen Hintergrund-Task auf dem Server (`fix_all`),
-   pollt bis fertig, aktiviert die Änderungen automatisch, und lädt die Liste
-   neu. In der Statusleiste steht der Fortschritt: „Service-Discovery läuft
-   für DBSQL01…" → „Discovery beendet…" → „Fertig — DBSQL01 ist im
-   Monitoring."
+3. Das Tool startet einen Hintergrund-Task auf dem Server (`fix_all`), pollt bis
+   fertig, aktiviert die Änderungen automatisch, und lädt die Liste neu.
+   Fortschritt in der Statusleiste: „Service-Discovery läuft für DBSQL01…" →
+   „Discovery beendet…" → „Fertig — DBSQL01 ist im Monitoring."
 
 Bei Hosts mit vielen Services kann das ein paar Sekunden dauern. Standard-Timeout
 ist 2 Minuten.
 
+### Host anlegen (standardmäßig ausgeblendet)
+
+Das Anlege-Formular ist per Default **nicht sichtbar** — der Handgriff läuft im
+Fachbereich zentral, Fehlbedienung produziert Config-Änderungen. Zum Einblenden:
+`%APPDATA%\Kroste\Checkmk\bootstrap.json` öffnen und `"showHostCreation": true`
+ergänzen. Kein UI-Schalter, absichtlich.
+
+Wenn das Formular sichtbar ist:
+
+- **Hostname** *(Pflicht)* — der Name, unter dem der Host in Checkmk laufen soll.
+- **Ordner** — **muss ein ID-Pfad sein**, nicht der Titel aus dem Webinterface.
+  Der Root-Ordner ist `/`. Ein DB-Ordner könnte `/datenbanken/db-mssql` heißen.
+  Unsicher? Im Checkmk-Webinterface in die URL schauen — hinter `folder=` steht
+  der ID-Pfad.
+- **IP-Adresse** — optional, aber ohne läuft der Ping-Check nicht.
+- **Alias** — optional, freier Anzeigename.
+
+**„Anlegen"** legt den Host im Setup an. **Das reicht aber noch nicht, damit er
+überwacht wird** — es fehlt noch die Service-Discovery.
+
 ---
 
-## Updates
+## 10. Client-Aktualisierung (Agent-Update)
+
+Aus dem Kontextmenü einer Zeile (oder eines Baum-Knotens): **„Client
+aktualisieren…"** startet die Aktualisierung des Checkmk-Agents auf dem
+Zielhost. **Windows-only, WinRM am Zielhost muss aktiv sein** (in der DMZ
+typischerweise geblockt).
+
+Ablauf:
+
+1. **Credentials-Dialog** — Admin-Credentials für die Remote-Session (dein
+   Domänen-Admin oder ein passender Service-Account).
+2. Der Installer wird per **`Copy-Item -ToSession`** auf den Host kopiert — das
+   umgeht das Double-Hop-Problem.
+3. Eine editierbare **Skript-Vorlage** läuft: Deinstall der alten Version →
+   Install → `cmk-agent-ctl register`.
+4. Fortschritt und Ausgabe im Fenster; Erfolg wird am Exit-Code festgemacht,
+   nicht an stderr (native Tools wie `msiexec` oder `cmk-agent-ctl` schreiben
+   Infos manchmal nach stderr).
+
+### Agent-Share und Skript-Vorlage anpassen
+
+In den Einstellungen findest du zwei Felder für dieses Feature:
+
+- **Agent-Share** — Pfad zum Installer-Paket auf dem Fileshare.
+- **Update-Skript-Vorlage** — der PowerShell-Code, der auf dem Zielhost läuft.
+  Kannst du beliebig anpassen (z. B. andere Register-Argumente, Retention-Logik).
+
+**Wichtige Details** (aus schmerzhaften Live-Tests gelernt):
+
+- Der Register-Befehl **braucht `--trust-cert`**, sonst hängt sich
+  `cmk-agent-ctl register` in einer interaktiven Zertifikats-Abfrage auf — die
+  in der Remote-Session nicht beantwortbar ist. `--trust-cert` steht in der
+  Default-Vorlage. Wer eine ältere Vorlage gespeichert hat, muss das **manuell
+  ergänzen**.
+- `Start-Process msiexec -Wait` meldet Nicht-Null-Exits **nicht automatisch**.
+  Wer harte Fehlererkennung braucht: `-PassThru` + Exit-Code-Prüfung in die
+  Vorlage einbauen.
+
+### Sicherheit
+
+Skript, Passwörter und temporäre Dateien werden **nicht** ins Logfile
+geschrieben. Wenn du beim Debuggen tiefer schauen musst, findest du die Skript-
+Ausgabe im Fenster selbst.
+
+---
+
+## 11. CSV-Export
+
+Rechtsklick oder Toolbar → **„Als CSV exportieren…"**. Exportiert die **aktuell
+gefilterte Ansicht** — also mit allen Filter-Einstellungen (Favorit, Freitext,
+„Nur Probleme").
+
+Format:
+
+- **Semikolon-getrennt** (Excel öffnet das direkt korrekt in Deutschland)
+- **UTF-8-BOM** (Umlaute stimmen)
+- **RFC-4180-konformes Quoting** (Semikolons, Anführungszeichen und
+  Zeilenumbrüche in Plugin-Outputs bleiben unversehrt)
+
+Nützlich für Reporting, Übergaben oder Auswertungen in Excel.
+
+---
+
+## 12. Updates
 
 Das Tool prüft **beim Start** einmal, ob es eine neuere Version auf GitHub gibt.
 Der Check läuft im Hintergrund und blockiert die App nicht — wenn kein Update
 verfügbar oder GitHub nicht erreichbar ist, merkst du gar nichts.
 
-Wenn eine neuere Version vorliegt, erscheint unten rechts in der Statusleiste
-ein gelbes Feld **„Update auf 1.2.3 verfügbar"**. Klick öffnet einen Dialog:
+Am Firmen-Proxy (Fortinet): der Update-Check nutzt automatisch die
+Windows-Anmeldedaten für die Proxy-Auth — funktioniert ohne Zusatzkonfiguration.
+
+Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update auf
+1.2.3 verfügbar"**. Klick öffnet einen Dialog:
 
 - **Release-Seite öffnen** — führt zum GitHub-Release, dort ist das ZIP.
   Aktuell **musst du das ZIP von Hand herunterladen, entpacken und die alte
-  Version ersetzen** — das Tool ersetzt sich noch nicht selbst
-  (Selbst-Update kommt in einer späteren Version).
-- **Später** — Dialog wird geschlossen, der Badge bleibt. Beim nächsten
-  App-Start wird wieder geprüft.
+  Version ersetzen** — das Tool ersetzt sich noch nicht selbst.
+- **Später** — Dialog geschlossen, Badge bleibt. Beim nächsten App-Start wird
+  wieder geprüft.
 - **Diese Version überspringen** — der Badge verschwindet und kommt erst
-  wieder, wenn eine **noch neuere** Version rauskommt. Nützlich, wenn du ein
-  Release absichtlich ignorieren willst.
+  wieder, wenn eine **noch neuere** Version rauskommt.
 
 ---
 
-## Wo liegen meine Daten
+## 13. Wo liegen meine Daten
 
 Alle Pfade auf einen Blick, damit du beim Support-Fall weißt, wo du hinschauen
 musst.
@@ -309,7 +462,7 @@ musst.
 | Was | Wo | Zentral oder lokal |
 |---|---|---|
 | Verbindung (Host/Site/User/Secret) | `\\Samba01\542$\Checkmk\settings.json` | zentral, verschlüsselt |
-| Update-Kanal-URL (überschreibbar) | `%APPDATA%\Kroste\Checkmk\bootstrap.json` | lokal |
+| Update-Kanal-URL, Fileshare-Pfad, `showHostCreation` | `%APPDATA%\Kroste\Checkmk\bootstrap.json` | lokal |
 | Übersprungene Update-Version | `%APPDATA%\Kroste\Checkmk\updates.json` | lokal |
 | Filter/Favoriten | `%APPDATA%\Kroste\Checkmk\filter.json` | lokal |
 | Logs | `logs\` neben `Checkmk.App.exe` | lokal |
@@ -322,76 +475,103 @@ musst.
 | Filter/Favoriten | `~/.config/Kroste/Checkmk/filter.json` |
 | Bootstrap/Updates | analog `~/.config/Kroste/Checkmk/` |
 
-**Wenn du die Verbindungsdatei auf einen anderen Pfad legen willst** (z. B.
-temporär auf ein anderes Share), editier `bootstrap.json`:
+### Bootstrap-Datei — Overrides für Sonderfälle
+
+`%APPDATA%\Kroste\Checkmk\bootstrap.json` (Windows) enthält Optionen, für die es
+bewusst **kein UI** gibt:
 
 ```json
 {
-  "sharedSettingsPath": "\\\\andersServer\\share\\Checkmk\\settings.json",
-  "updateChannelUrl": "https://api.github.com/repos/Kroste/Checkmk/releases/latest"
+  "sharedSettingsPath": "\\\\Samba01\\542$\\Checkmk\\settings.json",
+  "updateChannelUrl": "https://api.github.com/repos/Kroste/Checkmk/releases/latest",
+  "showHostCreation": false
 }
 ```
 
-Beim nächsten Start greift das. **Bewusst gibt es kein UI dafür** — es ist ein
-Deployment-Notfallgriff, kein Alltagsschalter.
+- **`sharedSettingsPath`** — anderer Fileshare-Pfad für die Verbindungsdatei.
+- **`updateChannelUrl`** — anderer Update-Kanal (z. B. später ein interner
+  Server statt GitHub).
+- **`showHostCreation`** — auf `true` setzen, wenn das „Host anlegen"-Formular
+  im Hosts-Tab sichtbar sein soll.
+
+Beim ersten Start wird die Datei mit Default-Werten angelegt und ist dann per
+Editor anpassbar.
 
 ---
 
-## Wenn etwas nicht funktioniert
+## 14. Wenn etwas nicht funktioniert
 
 ### „Nicht konfiguriert — bitte Verbindung in den Einstellungen setzen"
 
-Die zentrale `settings.json` existiert nicht oder ist leer. Prüfen:
+Die zentrale `settings.json` existiert nicht oder ist leer:
+
 - Kannst du `\\Samba01\542$\Checkmk\` im Explorer öffnen? Wenn nein →
   Fileshare-Zugriff mit dem Fachbereich klären.
 - Existiert die Datei dort? Wenn nein → Admin muss die Verbindung einmal
-  einrichten (siehe [Erststart](#erststart-und-verbindung)).
+  einrichten (siehe [Ersteinrichtung](#2-ersteinrichtung)).
 
 ### „Fehler: Wrong credentials" (HTTP 401) beim Testen
 
-- **Automation-Secret**, nicht das GUI-Passwort des Users verwendet? Das GUI-
-  Passwort funktioniert **nicht** für die REST-API.
+- **Automation-Secret**, nicht das GUI-Passwort des Users verwendet? Das
+  GUI-Passwort funktioniert **nicht** für die REST-API.
 - **Automation-User** existiert überhaupt in Checkmk? Seit 2.4/2.5 muss er
   manuell angelegt werden.
 - User hat mindestens die Rolle für die genutzten Endpunkte?
 
-### „These fields have problems: attributes" beim Host-Anlegen
-
-Sollte nicht mehr auftreten — das Tool sendet keine `null`-Werte im
-`attributes`-Block. Wenn's doch passiert: Log anschauen und Ticket öffnen.
-
 ### „Ordner nicht gefunden" beim Host-Anlegen
 
-Du hast wahrscheinlich den Titel aus der Breadcrumb genommen statt des
-ID-Pfads. Prüfe im Checkmk-Webinterface die URL — hinter `folder=` steht der
-ID-Pfad, den du hier eintragen musst.
+Wahrscheinlich der Titel aus der Breadcrumb genommen statt des ID-Pfads. Prüfe
+im Checkmk-Webinterface die URL — hinter `folder=` steht der ID-Pfad, den du
+hier eintragen musst.
 
 ### Zertifikatsfehler beim Verbinden
 
-Dein Checkmk-Server nutzt ein selbst-signiertes Zertifikat oder das Zertifikat
-ist nicht im Windows-Zertifikatspeicher. Für **Lab-Umgebungen**: In den
-Einstellungen den Haken **„Zertifikatsfehler ignorieren (Lab)"** setzen. Für
-**Produktion**: ein korrektes Zertifikat installieren und den Haken *nicht*
-setzen.
+Dein Checkmk-Server nutzt ein selbst-signiertes Zertifikat oder es ist nicht im
+Windows-Zertifikatspeicher. Für **Lab-Umgebungen**: In den Einstellungen den
+Haken **„Zertifikatsfehler ignorieren (Lab)"** setzen. Für **Produktion**: ein
+korrektes Zertifikat installieren.
 
 ### Der Update-Badge kommt nie, obwohl es eine neue Version gibt
 
-- Rechner hat keinen Internetzugang → GitHub API nicht erreichbar. Update-Check
-  wird still übersprungen.
-- Du hast die Version explizit übersprungen — `%APPDATA%\Kroste\Checkmk\
+- Rechner hat keinen Internetzugang → GitHub API nicht erreichbar (im Log als
+  Debug-Nachricht).
+- Proxy-Auth klappt nicht → das Tool nutzt die Windows-Anmeldedaten; bei
+  Kerberos-Problemen einmal Ab-/Anmelden.
+- Du hast die Version explizit übersprungen → `%APPDATA%\Kroste\Checkmk\
   updates.json` löschen, dann erscheint der Badge wieder.
+
+### Notifications erscheinen nicht (Windows)
+
+- Fokusassistent (Ruhezeiten) im Windows aktiv? Dann werden Toasts unterdrückt.
+- Das Cockpit sollte einen Eintrag „Checkmk Cockpit" im Startmenü haben — der
+  wird beim ersten Toast automatisch angelegt und ist ein Windows-Requirement.
+  Fehlt er, ist beim ersten Toast-Trigger etwas schiefgelaufen (Log prüfen).
+- Toast im Action Center suchen — dort landen sie, auch wenn das Popup zu
+  schnell verschwunden ist.
+
+### Client-Aktualisierung meldet „NativeCommandError" bei Register
+
+`cmk-agent-ctl register` will interaktiv das Zertifikat bestätigen. In der
+Remote-Session ist das nicht beantwortbar. **`--trust-cert` fehlt in deiner
+gespeicherten Skript-Vorlage** — direkt hinter `register` ergänzen.
+
+### Client-Aktualisierung meldet „Abgeschlossen" bei leerer Ausgabe
+
+Alte Version des Cockpits — der Fix ist ab v1.2.1 drin (Skript läuft jetzt
+über eine temporäre `.ps1` mit `-File`, nicht mehr über `-Command -` via STDIN).
+Update ziehen.
 
 ### Die App fühlt sich falsch an — was tun
 
 1. Ins Logfile schauen (`logs\` neben der Exe). Dort steht meistens, was
-   schiefgelaufen ist.
-2. Wenn's ein reproduzierbarer Bug ist: Issue auf GitHub aufmachen (siehe
-   unten), mit Logauszug (Passwörter und Secrets sind maskiert, kannst du
-   sorglos anhängen).
+   schiefgelaufen ist. Passwörter/Secrets sind maskiert — kannst du bedenkenlos
+   anhängen.
+2. Wenn's reproduzierbar ist: Issue auf GitHub (siehe unten) mit Logauszug und
+   ein paar Sätzen zum Kontext.
 
 ---
 
-## Hilfe und Kontakt
+## 15. Hilfe und Kontakt
 
 - **Fachbereich:** 5424 IT-Basis-Dienste
 - **GitHub-Repo:** <https://github.com/Kroste/Checkmk>
@@ -405,9 +585,14 @@ Damit du nicht danach suchst:
 
 - **Kein Checkmk-Setup** — das Tool spricht mit einem vorhandenen Checkmk 2.5,
   installiert oder konfiguriert aber nichts auf dem Server.
-- **Kein Ersatz für das Webinterface** — es deckt die häufigen
-  Alltagshandgriffe ab (Status, Ack, Downtime, Host-Details, Service
-  Discovery), nicht die selteneren Sachen (Rollen, Regeln, Notifications,
-  Reports). Für die bleibst du im Webinterface.
+- **Kein Ersatz für das Webinterface** — es deckt die häufigen Alltagshandgriffe
+  ab (Status, Ack, Downtime, Kommentare, Host-Details, Service Discovery,
+  Client-Aktualisierung), nicht die selteneren Sachen (Rollen, Regeln,
+  Notifications, Reports, Ereignisverwaltung).
 - **Kein automatisches Selbst-Update** — nur der Hinweis auf neue Versionen.
-  Der Download-und-Ersetzen-Schritt ist manuell.
+  Download-und-Ersetzen ist noch manuell.
+- **Kein Kommentare-Löschen** — kommt, sobald am Live-Server verifiziert ist,
+  welche der 2.4/2.5-API-Varianten passt.
+- **Kein DB-Health-Board als eigener Tab** — der Filter mit Include-Liste bzw.
+  Regex deckt das ab: Favorit „DB-Server" anlegen (`.*sql.*|.*ora.*` oder eine
+  Include-Liste deiner Instanzen), fertig.
