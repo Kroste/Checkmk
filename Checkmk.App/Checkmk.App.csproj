@@ -8,7 +8,11 @@
                                               ueber Microsoft.Toolkit.Uwp.Notifications).
          Der Directory.Build.props-Default TargetFramework net10.0 wird hier ueberschrieben. -->
     <TargetFramework></TargetFramework>
-    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <!-- Reihenfolge: Windows-TFM zuerst, damit ein `dotnet publish -r win-x64`
+         OHNE explizites `-f` per MSBuild-Default trotzdem den WinRT-Toast-Zweig
+         zieht. Ein Publish auf net10.0 (Linux) muss `-f net10.0` setzen — steht
+         in den VS-Code-Tasks und in der Release-YAML. -->
+    <TargetFrameworks>net10.0-windows10.0.19041.0;net10.0</TargetFrameworks>
     <!-- Cross-Compile fuer Windows-TFM auf Linux-Host (Bazzite-Devbox + CI) —
          auf Windows selbst wirkungslos. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

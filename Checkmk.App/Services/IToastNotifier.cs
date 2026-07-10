@@ -17,14 +17,30 @@ public interface IToastNotifier
 
 public static class ToastNotifierFactory
 {
+    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
     public static IToastNotifier Create()
     {
 #if WINDOWS10_0_19041_0_OR_GREATER
         if (OperatingSystem.IsWindows())
+        {
+            Log.Info("ToastNotifier: WindowsToastNotifier (WinRT-Toast, TFM net10.0-windows).");
             return new WindowsToastNotifier();
+        }
+#else
+        // Wenn dieser Zweig auf Windows aktiv wird, wurde die App gegen den
+        // generischen net10.0-TFM gebaut — dann fehlt der WinRT-Zugriff und
+        // wir fallen still auf Null zurueck. Log warnt das laut, damit man
+        // im Feld sofort sieht: "Toasts kommen nie durch, weil TFM falsch".
+        if (OperatingSystem.IsWindows())
+            Log.Warn("ToastNotifier: Windows-App wurde ohne WinRT-TFM gebaut (net10.0 statt net10.0-windows10.0.19041.0). Toasts sind deaktiviert.");
 #endif
         if (OperatingSystem.IsLinux())
+        {
+            Log.Info("ToastNotifier: LinuxToastNotifier (notify-send).");
             return new LinuxToastNotifier();
+        }
+        Log.Warn("ToastNotifier: NullToastNotifier (kein OS-Support).");
         return new NullToastNotifier();
     }
 }
@@ -32,7 +48,10 @@ public static class ToastNotifierFactory
 /// <summary>Kein OS-Support -> stiller Fallback (Tray-Signal bleibt).</summary>
 public sealed class NullToastNotifier : IToastNotifier
 {
-    public void Notify(string title, string body) { }
+    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
+    public void Notify(string title, string body)
+        => Log.Warn("NullToastNotifier.Notify aufgerufen — keine Toast-Ausgabe (Title={Title}).", title);
 }
 
 /// <summary>Linux: nutzt das Standard-CLI notify-send (KDE/GNOME, Bazzite vorhanden).</summary>
