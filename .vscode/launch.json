@@ -6,7 +6,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/Checkmk.App/bin/Debug/net10.0/Checkmk.App.dll",
+      "program": "${workspaceFolder}/Checkmk.App/bin/Debug/net10.0-windows10.0.19041.0/Checkmk.App.dll",
       "args": [],
       "cwd": "${workspaceFolder}/Checkmk.App",
       "console": "internalConsole",
