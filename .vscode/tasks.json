@@ -29,19 +29,6 @@
       "args": [
         "publish", "${workspaceFolder}/Checkmk.App/Checkmk.App.csproj",
         "-c", "Release", "-r", "win-x64", "--self-contained",
-        "-f", "net10.0-windows10.0.19041.0",
-        "-p:PublishSingleFile=true"
-      ],
-      "problemMatcher": "$msCompile"
-    },
-    {
-      "label": "publish-linux-x64",
-      "command": "dotnet",
-      "type": "process",
-      "args": [
-        "publish", "${workspaceFolder}/Checkmk.App/Checkmk.App.csproj",
-        "-c", "Release", "-r", "linux-x64", "--self-contained",
-        "-f", "net10.0",
         "-p:PublishSingleFile=true",
         "-p:IncludeNativeLibrariesForSelfExtract=true"
       ],

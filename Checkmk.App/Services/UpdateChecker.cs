@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using Checkmk.Core;
 using NLog;
 
 namespace Checkmk.App.Services;
@@ -72,7 +73,7 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
         if (release is null || string.IsNullOrEmpty(release.TagName))
             return null;
 
-        if (!TryParseTag(release.TagName, out var latest))
+        if (!SemVerTag.TryParse(release.TagName, out var latest))
         {
             Log.Debug("Konnte Release-Tag '{Tag}' nicht als Version parsen.", release.TagName);
             return null;
@@ -100,17 +101,6 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
             ReleaseNotes: release.Body ?? "",
             ReleasePageUrl: release.HtmlUrl ?? "",
             WindowsZipUrl: zip);
-    }
-
-    /// <summary>„v1.2.3" -> 1.2.3; „1.2.3+build.4" -> 1.2.3 (MinVer-Suffixe abschneiden).</summary>
-    public static bool TryParseTag(string tag, out Version version)
-    {
-        var s = tag.TrimStart('v', 'V');
-        var plus = s.IndexOf('+');
-        if (plus >= 0) s = s[..plus];
-        var dash = s.IndexOf('-');
-        if (dash >= 0) s = s[..dash];
-        return Version.TryParse(s, out version!);
     }
 
     // ---- GitHub API DTOs ----

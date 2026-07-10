@@ -42,13 +42,9 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 Das ZIP ist **self-contained** — es ist kein .NET-Runtime auf dem Rechner nötig,
 alles Nötige ist im Bundle. Rechnen etwa 130 MB.
 
-**Zugriffsvoraussetzung Windows-Verbindungsdatei:** Das Tool liest die
+**Zugriffsvoraussetzung Verbindungsdatei:** Das Tool liest die
 Checkmk-Verbindungsdaten aus `\\Samba01\542$\Checkmk\settings.json`. Der Rechner
 muss diesen Pfad lesen können (die üblichen Fileshare-Rechte des Fachbereichs).
-
-**Linux (tar.gz oder AppImage):** Aus dem gleichen Release-Ordner. Linux ist
-Zweitplattform; die Verbindung liegt dort lokal unter
-`~/.config/Kroste/Checkmk/settings.json` (nicht auf dem Fileshare).
 
 **Hinter einem Proxy?** Der Update-Check nutzt automatisch die
 Windows-Standard-Anmeldedaten für den Proxy (Negotiate/NTLM). Am FortiProxy des
@@ -88,9 +84,8 @@ Status-Tab.
 angelegt. Du musst ihn im Checkmk-Webinterface einmal einrichten und ihm
 mindestens die Rechte für die genutzten Endpunkte geben.
 
-Unter dem Formular steht immer der aktuelle Speicherort — daran erkennst du, ob
-du gerade die zentrale Datei bearbeitest („Zentrale Datei: \\Samba01\\…") oder
-eine lokale (Linux/erster Start ohne Fileshare-Zugriff).
+Unter dem Formular steht immer der aktuelle Speicherort — daran erkennst du, dass
+die zentrale Datei gerade genutzt wird („Zentrale Datei: \\Samba01\\…").
 
 ---
 
@@ -294,13 +289,16 @@ Tray-Icon zeigt per Ampelfarbe den **schlechtesten Status im aktiven Filter**
 Kurzfassung.
 
 Im Tray läuft der **Auto-Refresh** weiter (automatisch aktiviert beim
-Minimieren), und bei Statusänderungen bekommst du eine **Toast-Notification**:
+Minimieren), und bei Statusänderungen bekommst du eine **Toast-Notification** —
+moderne Windows-Toast, landet im **Action Center** und bleibt dort abrufbar.
+Beim ersten Mal legt das Tool automatisch einen Startmenü-Eintrag
+„Checkmk Cockpit" an — das ist ein Windows-Requirement für Toast-Notifications
+von unpackaged Apps und passiert einmalig, ohne Nachfrage.
 
-- **Windows:** moderne Toast-Benachrichtigung, landet im **Action Center** und
-  bleibt dort abrufbar. Beim ersten Mal legt das Tool automatisch einen
-  Startmenu-Eintrag „Checkmk Cockpit" an — das ist ein Windows-Requirement für
-  Toast-Notifications und passiert einmalig, ohne Nachfrage.
-- **Linux:** über `notify-send` (KDE, GNOME).
+**Wichtig:** Prüfe unter `Win+I` → System → Benachrichtigungen, dass
+**„Benachrichtigungen von anderen Apps und Absendern erlauben"** angeschaltet
+ist. Ist diese Sammel-Option aus, kommen keine Toasts durch, auch wenn die App
+sie sendet.
 
 Die Notifications sind **gebündelt** — wenn zehn Services gleichzeitig flippen,
 kriegst du eine Sammelmeldung („3 neue Probleme, 2 Recoveries") statt zehn
@@ -457,8 +455,6 @@ Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update au
 Alle Pfade auf einen Blick, damit du beim Support-Fall weißt, wo du hinschauen
 musst.
 
-### Windows
-
 | Was | Wo | Zentral oder lokal |
 |---|---|---|
 | Verbindung (Host/Site/User/Secret) | `\\Samba01\542$\Checkmk\settings.json` | zentral, verschlüsselt |
@@ -467,17 +463,9 @@ musst.
 | Filter/Favoriten | `%APPDATA%\Kroste\Checkmk\filter.json` | lokal |
 | Logs | `logs\` neben `Checkmk.App.exe` | lokal |
 
-### Linux
-
-| Was | Wo |
-|---|---|
-| Verbindung | `~/.config/Kroste/Checkmk/settings.json` (verschlüsselt, user-lokal) |
-| Filter/Favoriten | `~/.config/Kroste/Checkmk/filter.json` |
-| Bootstrap/Updates | analog `~/.config/Kroste/Checkmk/` |
-
 ### Bootstrap-Datei — Overrides für Sonderfälle
 
-`%APPDATA%\Kroste\Checkmk\bootstrap.json` (Windows) enthält Optionen, für die es
+`%APPDATA%\Kroste\Checkmk\bootstrap.json` enthält Optionen, für die es
 bewusst **kein UI** gibt:
 
 ```json

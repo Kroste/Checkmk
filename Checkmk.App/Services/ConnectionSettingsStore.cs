@@ -72,15 +72,11 @@ public interface IConnectionSettingsStore
 }
 
 /// <summary>
-/// Speichert die Verbindungskonfiguration:
-/// <list type="bullet">
-///   <item>Windows: zentral auf einem Fileshare — Default <c>\\Samba01\542$\Checkmk\settings.json</c>,
-///     ueberschreibbar via <c>%APPDATA%\Kroste\Checkmk\bootstrap.json</c>. Verschluesselung mit
-///     dem <see cref="SharedAesProtector"/>, damit mehrere Windows-Clients dieselbe Datei
-///     entschluesseln koennen.</item>
-///   <item>Linux/macOS: user-lokal unter <c>~/.config/Kroste/Checkmk/settings.json</c>,
-///     Verschluesselung wie in <see cref="SecretProtectorFactory.Create"/> definiert.</item>
-/// </list>
+/// Speichert die Verbindungskonfiguration zentral auf einem Fileshare — Default
+/// <c>\\Samba01\542$\Checkmk\settings.json</c>, ueberschreibbar via
+/// <c>%APPDATA%\Kroste\Checkmk\bootstrap.json</c>. Verschluesselung mit dem
+/// <see cref="SharedAesProtector"/>, damit mehrere Windows-Clients dieselbe
+/// Datei entschluesseln koennen.
 /// </summary>
 public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 {
@@ -158,15 +154,7 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
            && !string.IsNullOrWhiteSpace(s.Username)
            && !string.IsNullOrEmpty(s.ProtectedSecret);
 
-    private static string ResolvePath()
-    {
-        if (OperatingSystem.IsWindows())
-            return Bootstrap.LoadOrCreate().SharedSettingsPath;
-
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Kroste", "Checkmk", "settings.json");
-    }
+    private static string ResolvePath() => Bootstrap.LoadOrCreate().SharedSettingsPath;
 }
 
 /// <summary>

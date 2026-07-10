@@ -31,7 +31,7 @@ muss `dotnet build -c Release` sauber durchlaufen.
 - **Debuggen:** F5 nutzt `.vscode/launch.json` (Config „Checkmk.App (Debug)"), `preLaunchTask`
   ist `build`.
 - **Tasks** (`.vscode/tasks.json`): `build`, `test`, `publish-win-x64`, `clean-hard`
-  (löscht rekursiv alle `bin/`/`obj/` — plattformspezifisch für Windows/Linux/macOS).
+  (löscht rekursiv alle `bin/`/`obj/`).
 - **Bazzite:** `dotnet`/`code` laufen in der Distrobox `dotnet10` (Fedora, RPM-installiert,
   via `distrobox-export --app code`), `$HOME` ist zwischen Host und Container geteilt.
 
@@ -78,18 +78,13 @@ werden direkt instanziiert, nicht über DI.
   schlechtesten Status im aktiven Filter, Tooltip mit Kurzfassung. `StatusChangeMonitor`
   vergleicht Snapshots, `IToastNotifier` meldet Änderungen und Recovery **gebündelt** —
   nur im aktiven Filter, keine Alarm-Sturm-Kaskade.
-  - **Windows** (`net10.0-windows10.0.19041.0`): WinRT-Toast über
-    `Microsoft.Toolkit.Uwp.Notifications` (`ToastContentBuilder.Show`) —
-    Action-Center-kompatibel. `ToastNotificationManagerCompat` registriert bei erstem
-    Aufruf einen Startmenu-Shortcut mit AppUserModelID; ohne den verwirft Windows
-    unpackaged Toasts sofort. Vorgängerversion nutzte `Shell_NotifyIcon`-Balloon an
-    einem `NIS_HIDDEN`-Icon → Vista+ queued die Notification auf „Icon wird sichtbar",
-    was nie eintrat. Bug ist in v1.2.2 gefixt.
-  - **Linux:** `notify-send` (KDE/GNOME).
-- **Multi-Targeting:** Die App-Assembly hat zwei TFMs — `net10.0` (Linux/generisch) und
-  `net10.0-windows10.0.19041.0` (WinRT-Toast-Aktivierung). Publish/Release-Workflow
-  muss `-f <tfm>` explizit setzen. `EnableWindowsTargeting=true` erlaubt Cross-Compile
-  auf Linux-Host. Nur `IToastNotifier`-Wiring nutzt den Windows-TFM; sonst identisch.
+  WinRT-Toast über `Microsoft.Toolkit.Uwp.Notifications` (`ToastContentBuilder.Show`) —
+  Action-Center-kompatibel. `ToastNotificationManagerCompat` registriert AumID +
+  Startmenu-Shortcut + COM-Server; ein leerer `OnActivated`-Handler im
+  `WindowsToastNotifier`-Ctor erzwingt die Registrierung sofort, statt sie lazy
+  beim ersten `Show()`-Call laufen zu lassen. Nach jedem `Show()` wird
+  `Notifier.Setting` geloggt — Windows sagt uns direkt, ob es blockt
+  (Focus Assist, DisabledForApplication, GroupPolicy).
 - **Hosts-Tab** (früher „Konfiguration"): Host-Liste mit Ordner/IP/Alias, „Änderungen aktivieren",
   **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
   `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert
@@ -129,7 +124,7 @@ werden direkt instanziiert, nicht über DI.
   latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen
   gelben Badge in der Statusleiste. Klick öffnet den `UpdateDialog` (Release-Notes +
   „Release-Seite öffnen"/„Später"/„Diese Version überspringen"). Skip-Version liegt in
-  `%APPDATA%\Kroste\Checkmk\updates.json` bzw. `~/.config/Kroste/Checkmk/updates.json`.
+  `%APPDATA%\Kroste\Checkmk\updates.json`.
   Kein Selbst-Ersetzen des Binary — Roadmap-Phase 2.
   **Proxy-Fix (v1.2.1):** `HttpClient` nutzt `DefaultProxyCredentials`
   (Negotiate/NTLM über den angemeldeten Windows-User) — sonst 407 am FortiProxy.
@@ -138,22 +133,20 @@ werden direkt instanziiert, nicht über DI.
   **Include-Liste** von Hostnamen. Aus dem Hosts-Tab lassen sich per Ctrl+Klick mehrere Hosts
   markieren und mit „Auswahl als Favorit…" als benannte Liste speichern. Verwaltung
   (Anlegen/Bearbeiten/Löschen/Aktivieren) im `FilterManagerWindow`. Ablage user-lokal und
-  unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json` bzw. `~/.config/Kroste/Checkmk/
-  filter.json`. Anwendung ist rein clientside (bei ≤ ein paar tausend Hosts problemlos);
+  unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json`.
+  Anwendung ist rein clientside (bei ≤ ein paar tausend Hosts problemlos);
   Livestatus-Query-serverside kann später kommen, wenn nötig.
 - **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt via
-  `ISecretProtector` (`SecretProtector.cs`).
-  - **Windows: Ablage zentral** auf `\\Samba01\542$\Checkmk\settings.json` (Fachbereich 5424
-    IT-Basis-Dienste). Mehrere Clients teilen dieselbe Datei → Verschlüsselung mit
-    `SharedAesProtector` (AES-GCM, Schlüssel via PBKDF2 aus im Binary hinterlegter Passphrase).
-    Der Pfad ist per `%APPDATA%\Kroste\Checkmk\bootstrap.json` (`SharedSettingsPath`)
-    überschreibbar — beim ersten Start wird der Default reingeschrieben, danach von Hand
-    editierbar. Bewusst kein UI dafür.
-  - **Linux/macOS: user-lokal** unter `~/.config/Kroste/Checkmk/settings.json`, Verschlüsselung
-    per `LinuxMachineKeyProtector` (AES-GCM, Schlüssel aus `SHA256(machine-id ‖ user ‖ entropy)`).
-  - Sicherheitsgrenze Windows-Shared: schützt vor Zufallseinsicht auf dem Share (Klartext-
-    Vermeidung), **nicht** vor einem Angreifer mit App-Binary — der Key ist im Binary abgeleitet.
-    Für echte Multi-User-Isolation: DPAPI-NG mit AD-Gruppen-SID (Roadmap).
+  `ISecretProtector` (`SecretProtector.cs`). Ablage zentral auf
+  `\\Samba01\542$\Checkmk\settings.json` (Fachbereich 5424 IT-Basis-Dienste). Mehrere
+  Clients teilen dieselbe Datei → Verschlüsselung mit `SharedAesProtector` (AES-GCM,
+  Schlüssel via PBKDF2 aus im Binary hinterlegter Passphrase). Der Pfad ist per
+  `%APPDATA%\Kroste\Checkmk\bootstrap.json` (`SharedSettingsPath`) überschreibbar —
+  beim ersten Start wird der Default reingeschrieben, danach von Hand editierbar.
+  Bewusst kein UI dafür. Sicherheitsgrenze: schützt vor Zufallseinsicht auf dem
+  Share (Klartext-Vermeidung), **nicht** vor einem Angreifer mit App-Binary — der
+  Key ist im Binary abgeleitet. Für echte Multi-User-Isolation: DPAPI-NG mit
+  AD-Gruppen-SID (Roadmap).
 
 ## 5 · Checkmk-REST-API — nicht-offensichtliche Regeln
 
@@ -186,20 +179,19 @@ Diese Punkte kosten sonst zuverlässig Zeit:
 - **FluentAssertions auf v7 pinnen** (`[7.2.2,8.0.0)`). v8 = kommerzielle Xceed-Lizenz.
   Bei Dependabot/Renovate die Obergrenze prüfen — automatische Updates heben den Pin sonst aus
   (Major-Bumps für FluentAssertions per `ignore` ausschließen).
-- **`Tmds.DBus.Protocol`** (transitiv via `Avalonia.FreeDesktop` auf Linux): **exakt** auf die
-  von der eingesetzten Avalonia-Version geforderte Fassung pinnen — API-Breaks zwischen den
-  0.9x-Minor-Versionen führen sonst zu `MissingTypeException: Tmds.DBus.Protocol.Connection`
-  beim App-Start (nur Linux, nur zur Laufzeit, Compile ist grün). Aktuell: **0.92.0** für
-  Avalonia 12.0.5. Beim Avalonia-Update `nuspec` von `avalonia.freedesktop` prüfen. Die
-  Advisory GHSA-xrw6-gwf8-vvr9 betrifft nur < 0.20; 0.92 ist nicht verwundbar.
+- **`Microsoft.Toolkit.Uwp.Notifications`** zieht transitiv `System.Drawing.Common 4.7.0`
+  hinein, das mit `GHSA-rxg9-xrhp-64gj` (kritisch) blockiert `NU1904` unter
+  `TreatWarningsAsErrors`. Explizit auf **10.0.9** überschreiben.
 
 ## 7 · Projektstandard
 
 Flach (kein `src/`), `.slnx`, CPM (`Directory.Packages.props`), `Directory.Build.props`
 (net10, Nullable, `TreatWarningsAsErrors`, `RepositoryUrl github.com/Kroste/`), MinVer aus
 Git-Tags (`v*`), `.editorconfig` (file-scoped namespaces), NLog (Secrets vor dem Loggen
-maskieren), globaler Exception-Handler. CI + Release als GitHub Actions: Release erzeugt bei
-Tag `v*` Windows-ZIP, Linux-tar.gz und AppImage.
+maskieren), globaler Exception-Handler. **Single-TFM**: `Checkmk.App` und
+`Checkmk.Core.Tests` targeten `net10.0-windows10.0.19041.0` (WinRT-Toasts +
+DPAPI). `Checkmk.Core` bleibt `net10.0`. CI läuft auf `windows-latest`, Release
+erzeugt bei Tag `v*` ausschließlich das Windows-ZIP.
 
 **Release-Notes-Konvention:** Für ausführliche Notes eine Datei
 `RELEASE_NOTES/<tag>.md` im Repo anlegen (Beispiel: `RELEASE_NOTES/v1.0.0.md`).
@@ -224,7 +216,7 @@ den Commit-Log an.
    Favoriten „DB-Server" an (Regex `.*sql.*|.*ora.*` oder Include-Liste der Instanzen)
    und sieht seine DBs in Status/Konfig gefiltert.
 9. ✅ Baumansicht (Hosts → Services) mit OS-Pictogrammen (`OsDetection`).
-10. ✅ Tray + Status-Notifications (Windows `Shell_NotifyIcon`-Balloon, Linux `notify-send`).
+10. ✅ Tray + Status-Notifications (WinRT-Toast, Action-Center-kompatibel).
 11. ✅ CSV-Export + Freitext-Filter über Ausgabe/Alias.
 12. ✅ IP-Fallback per Ping/DNS im Host-Detail, wenn Checkmk keine liefert.
 13. ✅ Client-Aktualisierung (Kontextmenü, Remote-PowerShell, Agent-Deinstall/Install/Register).
@@ -242,8 +234,6 @@ den Commit-Log an.
     GitHub auf einen internen Fileshare umgestellt wird.
 18. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
     Binary"-Trade-off ab, sobald AD-Gruppe steht.
-19. **libsecret/SecretService via D-Bus** als optionaler Linux-Secret-Backend (löst
-    AES-mit-machine-id ab, wenn ein Keyring-Daemon verfügbar ist).
 
 ## 9 · Deal
 

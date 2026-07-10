@@ -7,7 +7,9 @@ on:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    # Windows-Runner, seit die App auf net10.0-windows single-target ist
+    # und die Tests App-Klassen referenzieren.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
         with:

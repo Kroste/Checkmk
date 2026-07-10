@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Windows-TFM, damit App-Klassen (HostFilterCollection etc.) referenzierbar sind.
+         Ueberschreibt den net10.0-Default aus Directory.Build.props. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <OutputType>Library</OutputType>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <ItemGroup>
