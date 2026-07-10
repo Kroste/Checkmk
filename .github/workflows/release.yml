@@ -75,9 +75,16 @@ jobs:
           echo "--- Release-Body ---"
           cat release-body.md
 
+      # Debug-Hilfe fuer den naechsten Release-Bug: was liegt wirklich in artifacts/?
+      - name: List downloaded artifacts
+        run: find artifacts -type f | sort
+
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: release-body.md
+          # Rekursiver Glob — actions/download-artifact hat zwischen Major-Versionen
+          # schon mal die Verzeichnisstruktur geaendert (mit/ohne <name>-Unterordner).
+          # `artifacts/**/*.zip` faengt beide Faelle.
           files: |
-            artifacts/windows/*
+            artifacts/**/*.zip
