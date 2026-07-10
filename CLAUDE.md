@@ -76,10 +76,20 @@ werden direkt instanziiert, nicht über DI.
 - **Tray & Notifications:** Minimieren legt die App ins **System-Tray** (nicht Taskleiste)
   und schaltet Auto-Refresh ein (`TrayController`). Tray-Icon zeigt per Ampelfarbe den
   schlechtesten Status im aktiven Filter, Tooltip mit Kurzfassung. `StatusChangeMonitor`
-  vergleicht Snapshots, `IToastNotifier` (Windows: `Shell_NotifyIcon`-Balloon; Linux:
-  `notify-send`) meldet Änderungen und Recovery **gebündelt** — nur im aktiven Filter,
-  keine Alarm-Sturm-Kaskade. Windows-Balloon ist compile-verifiziert, aber nicht produktiv
-  getestet.
+  vergleicht Snapshots, `IToastNotifier` meldet Änderungen und Recovery **gebündelt** —
+  nur im aktiven Filter, keine Alarm-Sturm-Kaskade.
+  - **Windows** (`net10.0-windows10.0.19041.0`): WinRT-Toast über
+    `Microsoft.Toolkit.Uwp.Notifications` (`ToastContentBuilder.Show`) —
+    Action-Center-kompatibel. `ToastNotificationManagerCompat` registriert bei erstem
+    Aufruf einen Startmenu-Shortcut mit AppUserModelID; ohne den verwirft Windows
+    unpackaged Toasts sofort. Vorgängerversion nutzte `Shell_NotifyIcon`-Balloon an
+    einem `NIS_HIDDEN`-Icon → Vista+ queued die Notification auf „Icon wird sichtbar",
+    was nie eintrat. Bug ist in v1.2.2 gefixt.
+  - **Linux:** `notify-send` (KDE/GNOME).
+- **Multi-Targeting:** Die App-Assembly hat zwei TFMs — `net10.0` (Linux/generisch) und
+  `net10.0-windows10.0.19041.0` (WinRT-Toast-Aktivierung). Publish/Release-Workflow
+  muss `-f <tfm>` explizit setzen. `EnableWindowsTargeting=true` erlaubt Cross-Compile
+  auf Linux-Host. Nur `IToastNotifier`-Wiring nutzt den Windows-TFM; sonst identisch.
 - **Hosts-Tab** (früher „Konfiguration"): Host-Liste mit Ordner/IP/Alias, „Änderungen aktivieren",
   **Service Discovery** (Toolbar-Button + Rechtsklick auf einer Zeile): startet
   `fix_all` als Hintergrund-Task auf dem Server, pollt bis `active=false`, aktiviert

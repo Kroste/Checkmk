@@ -1,6 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Multi-Targeting:
+         net10.0                          -> Linux/generisch (notify-send Toasts).
+         net10.0-windows10.0.19041.0      -> Windows, aktiviert WinRT-Zugriff
+                                              (Windows.UI.Notifications.ToastNotification
+                                              ueber Microsoft.Toolkit.Uwp.Notifications).
+         Der Directory.Build.props-Default TargetFramework net10.0 wird hier ueberschrieben. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <!-- Cross-Compile fuer Windows-TFM auf Linux-Host (Bazzite-Devbox + CI) —
+         auf Windows selbst wirkungslos. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <OutputType>WinExe</OutputType>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -28,6 +39,15 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <!-- Transitiv ueber Avalonia; explizit auf aktuelle Version angehoben (Security) -->
     <PackageReference Include="Tmds.DBus.Protocol" />
+  </ItemGroup>
+
+  <!-- Windows-only: WinRT-Toast via Toolkit-Wrapper.
+       ToastNotificationManagerCompat aus dem Paket registriert die AppUserModelID
+       automatisch fuer unpackaged Apps und laesst Notifications im Action Center leben. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
+    <!-- Ueberschreibt die anfaellige 4.7.0 aus Uwp.Notifications 7.1.3. -->
+    <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
 
   <ItemGroup>
