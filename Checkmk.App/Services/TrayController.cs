@@ -68,10 +68,19 @@ public sealed class TrayController
 
         var show = new NativeMenuItem("Anzeigen");
         show.Click += (_, _) => Restore();
+        var test = new NativeMenuItem("Test-Benachrichtigung");
+        test.Click += (_, _) =>
+        {
+            Log.Info("Test-Benachrichtigung ausgeloest ueber Tray-Menue.");
+            _toast.Notify("Checkmk Cockpit — Test",
+                "Wenn du diese Nachricht siehst, funktionieren Toasts. Zeitpunkt: "
+                + DateTime.Now.ToString("HH:mm:ss"));
+        };
         var exit = new NativeMenuItem("Beenden");
         exit.Click += (_, _) => (_app.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
 
         _trayIcon.Menu.Items.Add(show);
+        _trayIcon.Menu.Items.Add(test);
         _trayIcon.Menu.Items.Add(new NativeMenuItemSeparator());
         _trayIcon.Menu.Items.Add(exit);
         _trayIcon.Clicked += (_, _) => Restore();
@@ -134,13 +143,22 @@ public sealed class TrayController
         }
 
         var change = _monitor.Diff(services);
-        if (change.HasChanges && IsMinimizedToTray)
+        if (change.HasChanges)
         {
-            var title = $"Checkmk: {scope}";
-            var body = change.ToText();
-            if (change.FirstExample is { } ex)
-                body += $"\n{ex}";
-            _toast.Notify(title, body);
+            if (IsMinimizedToTray)
+            {
+                Log.Info("Statusaenderung erkannt (CRIT {C}, WARN {W}, OK {O}, UNK {U}) — sende Toast.",
+                    change.NewProblems, change.OtherChanges, change.Recoveries, 0);
+                var title = $"Checkmk: {scope}";
+                var body = change.ToText();
+                if (change.FirstExample is { } ex)
+                    body += $"\n{ex}";
+                _toast.Notify(title, body);
+            }
+            else
+            {
+                Log.Debug("Statusaenderung erkannt — aber Fenster ist nicht ins Tray minimiert, kein Toast.");
+            }
         }
     }
 }
