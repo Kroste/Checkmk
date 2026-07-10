@@ -5,6 +5,7 @@ using NLog;
 
 #if WINDOWS10_0_19041_0_OR_GREATER
 using Microsoft.Toolkit.Uwp.Notifications;
+using Windows.UI.Notifications;
 #endif
 
 namespace Checkmk.App.Services;
@@ -102,27 +103,42 @@ public sealed class LinuxToastNotifier : IToastNotifier
 /// <summary>
 /// Windows: WinRT-Toast-Notification via <see cref="ToastContentBuilder"/>.
 ///
-/// <para><b>Zwingend fuer unpackaged apps:</b> die AppUserModelID muss VOR dem
-/// ersten Show() gesetzt sein (via <c>SetCurrentProcessExplicitAppUserModelID</c>) —
-/// sonst verwirft Windows die Toasts <b>silent ohne Exception</b>. Bei
-/// self-contained Single-File-Publish gibt es zusaetzlich das Problem, dass
-/// der ToolkitCompat-Auto-Registrierer den Prozess-Pfad aus dem Bundle-Extract-
-/// Cache zieht — auch da hilft eine explizite AppID.</para>
+/// <para><b>Registrierungs-Choreografie:</b> Wir setzen die AppUserModelID
+/// <em>nicht</em> manuell. Der Toolkit-Wrapper macht das selbst — er leitet
+/// die AumID aus dem Prozesspfad ab, legt beim ersten Toast einen
+/// Startmenu-Shortcut mit exakt dieser AumID an und registriert einen
+/// COM-Server dazu. Anhand des Startmenu-Shortcuts erlaubt Windows dann
+/// Toasts fuer die AumID. Manuelles Setzen einer eigenen AumID (via
+/// <c>SetCurrentProcessExplicitAppUserModelID</c>) hat vorher genau dieses
+/// Match gebrochen — die Toasts trugen dann eine AumID, fuer die kein
+/// Shortcut existierte, Windows hat sie silent verworfen.</para>
+///
+/// <para><b>Erzwungene Registrierung:</b> Ein OnActivated-Handler beim
+/// Ctor triggert den Toolkit-Auto-Registrierer sofort, sonst laeuft er
+/// lazy beim ersten Show()-Call — was bei self-contained Single-File-
+/// Publish schon mal fehlgeschlagen ist.</para>
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed class WindowsToastNotifier : IToastNotifier
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-    // Stabile, human-lesbare AppID. Muss zur Startmenue-Verknuepfung passen,
-    // die ToastNotificationManagerCompat beim ersten Toast anlegt.
-    private const string AppUserModelId = "Kroste.CheckmkCockpit";
-
-    private bool _registrationAttempted;
-
     public WindowsToastNotifier()
     {
-        TryRegister();
+        try
+        {
+            // Anhaengen eines Handlers erzwingt die Toolkit-Registrierung:
+            // Startmenu-Shortcut mit AumID + COM-Server-Eintraege in HKCU.
+            // Der Handler selbst muss nichts tun — wir reagieren nicht auf
+            // Klicks im Toast.
+            ToastNotificationManagerCompat.OnActivated += args =>
+                Log.Debug("Toast-Activation empfangen: {Args}", args?.Argument);
+            Log.Info("ToastNotificationManagerCompat registriert (AumID/Startmenu/COM-Server).");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "ToastNotificationManagerCompat-Registrierung fehlgeschlagen — Toasts kommen evtl. nicht durch.");
+        }
     }
 
     public void Notify(string title, string body)
@@ -138,6 +154,11 @@ public sealed class WindowsToastNotifier : IToastNotifier
                     toast.ExpirationTime = DateTimeOffset.Now.AddHours(1);
                 });
             Log.Info("Toast an Windows uebergeben (Titel: {Title}).", title);
+
+            // Extra-Diagnose: Windows-eigene Sicht auf die letzten Notifications.
+            // Wenn hier "Failed=X" auftaucht, verwirft Windows aktiv (z. B. wegen
+            // Focus Assist, deaktivierte Kanal-Notifications, oder AumID-Mismatch).
+            LogNotifierState();
         }
         catch (Exception ex)
         {
@@ -145,26 +166,19 @@ public sealed class WindowsToastNotifier : IToastNotifier
         }
     }
 
-    private void TryRegister()
+    private static void LogNotifierState()
     {
-        if (_registrationAttempted) return;
-        _registrationAttempted = true;
         try
         {
-            // Muss VOR dem ersten Toast-Aufruf laufen — sonst verwirft Windows
-            // die Toasts silent, weil kein aktives AppUserModelID existiert.
-            SetCurrentProcessExplicitAppUserModelID(AppUserModelId);
-            Log.Info("AppUserModelID gesetzt: {AppId}", AppUserModelId);
+            var notifier = ToastNotificationManagerCompat.CreateToastNotifier();
+            Log.Info("Notifier-Setting: {Setting} (Enabled=Toasts erlaubt; DisabledForApplication=Nutzer hat's fuer die App aus; DisabledByGroupPolicy/User; DisabledByManifest).",
+                notifier.Setting);
         }
         catch (Exception ex)
         {
-            Log.Warn(ex, "AppUserModelID konnte nicht gesetzt werden — Toasts kommen evtl. nicht durch.");
+            Log.Debug(ex, "CreateToastNotifier() zur Diagnose fehlgeschlagen.");
         }
     }
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
-    private static extern void SetCurrentProcessExplicitAppUserModelID(
-        [MarshalAs(UnmanagedType.LPWStr)] string appID);
 }
 
 #endif
