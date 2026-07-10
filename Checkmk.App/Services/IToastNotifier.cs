@@ -21,26 +21,44 @@ public static class ToastNotifierFactory
 
     public static IToastNotifier Create()
     {
+        // Zentrale Diagnose — wir haben schon mal ein "NullToastNotifier"-Log
+        // bekommen, ohne dass klar war was daran schuld ist. Deshalb JETZT immer
+        // beide Achsen loggen: was der Runtime denkt (OS) UND was compile-time
+        // an Code drin ist (Windows-TFM ja/nein).
+        var runtimeOs = RuntimeInformation.OSDescription;
+        var fx = RuntimeInformation.FrameworkDescription;
+        var isWin = OperatingSystem.IsWindows();
+        var isLinux = OperatingSystem.IsLinux();
 #if WINDOWS10_0_19041_0_OR_GREATER
-        if (OperatingSystem.IsWindows())
+        const string compileTfm = "net10.0-windows10.0.19041.0 (WinRT-Toast-Code IST im Binary)";
+        const bool winRtCompiled = true;
+#else
+        const string compileTfm = "net10.0 (WinRT-Toast-Code NICHT im Binary)";
+        const bool winRtCompiled = false;
+#endif
+        Log.Info("ToastNotifier-Diagnose: Runtime='{Os}' Framework='{Fx}' CompileTFM='{Tfm}' IsWindows={IsWindows} IsLinux={IsLinux}",
+            runtimeOs, fx, compileTfm, isWin, isLinux);
+
+#if WINDOWS10_0_19041_0_OR_GREATER
+        if (isWin)
         {
-            Log.Info("ToastNotifier: WindowsToastNotifier (WinRT-Toast, TFM net10.0-windows).");
+            Log.Info("ToastNotifier gewaehlt: WindowsToastNotifier.");
             return new WindowsToastNotifier();
         }
-#else
-        // Wenn dieser Zweig auf Windows aktiv wird, wurde die App gegen den
-        // generischen net10.0-TFM gebaut — dann fehlt der WinRT-Zugriff und
-        // wir fallen still auf Null zurueck. Log warnt das laut, damit man
-        // im Feld sofort sieht: "Toasts kommen nie durch, weil TFM falsch".
-        if (OperatingSystem.IsWindows())
-            Log.Warn("ToastNotifier: Windows-App wurde ohne WinRT-TFM gebaut (net10.0 statt net10.0-windows10.0.19041.0). Toasts sind deaktiviert.");
 #endif
-        if (OperatingSystem.IsLinux())
+        if (isWin && !winRtCompiled)
         {
-            Log.Info("ToastNotifier: LinuxToastNotifier (notify-send).");
+            Log.Error("ToastNotifier gewaehlt: NullToastNotifier — auf Windows, aber Binary wurde OHNE WinRT-TFM gebaut. "
+                    + "Bitte mit '-f net10.0-windows10.0.19041.0' publishen; die publish-win-x64-Task in .vscode/tasks.json hat das schon drin.");
+            return new NullToastNotifier();
+        }
+        if (isLinux)
+        {
+            Log.Info("ToastNotifier gewaehlt: LinuxToastNotifier (notify-send).");
             return new LinuxToastNotifier();
         }
-        Log.Warn("ToastNotifier: NullToastNotifier (kein OS-Support).");
+        Log.Warn("ToastNotifier gewaehlt: NullToastNotifier — unbekanntes OS (Runtime meldet '{Os}'). Weder Windows noch Linux erkannt.",
+            runtimeOs);
         return new NullToastNotifier();
     }
 }
