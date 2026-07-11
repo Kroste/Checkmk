@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Checkmk.App.ViewModels"
+             x:Class="Checkmk.App.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,*" Margin="4">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="4">
+      <TextBlock Grid.Column="0" Text="Dashboard — Favoriten-Übersicht"
+                 FontWeight="SemiBold" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Aktualisieren" Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+    </Grid>
+
+    <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="#AAAAAA"
+               Margin="8,0,8,8" FontSize="12" />
+
+    <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Tiles}" Margin="4">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:DashboardTile">
+            <Border Width="230" Margin="6" Padding="12" CornerRadius="6"
+                    Background="#252526"
+                    BorderBrush="{Binding WorstState, Converter={StaticResource StateToBrush}}"
+                    BorderThickness="0,0,0,4"
+                    PointerPressed="OnTilePressed"
+                    Cursor="Hand">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding FavoriteName}" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding HostsTotal, StringFormat='{}{0} Hosts'}"
+                           Foreground="#AAAAAA" FontSize="11" />
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                  <TextBlock Text="{Binding ServicesCrit, StringFormat='CRIT: {0}'}"
+                             Foreground="#EF5350" />
+                  <TextBlock Text="{Binding ServicesWarn, StringFormat='WARN: {0}'}"
+                             Foreground="#FFCA28" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="{Binding ServicesOk, StringFormat='OK: {0}'}"
+                             Foreground="#66BB6A" />
+                  <TextBlock Text="{Binding ServicesUnknown, StringFormat='UNK: {0}'}"
+                             Foreground="#AAAAAA" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

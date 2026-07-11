@@ -16,6 +16,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
 
     public StatusViewModel Status { get; }
     public ConfigViewModel Config { get; }
+    public DashboardViewModel Dashboard { get; }
 
     [ObservableProperty]
     private string _connectionInfo = "Nicht verbunden";
@@ -40,6 +41,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(
         StatusViewModel status,
         ConfigViewModel config,
+        DashboardViewModel dashboard,
         IConnectionSettingsStore store,
         ICheckmkClientProvider clients,
         IUpdateChecker updateChecker,
@@ -47,6 +49,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     {
         Status = status;
         Config = config;
+        Dashboard = dashboard;
         _store = store;
         _clients = clients;
         _updateChecker = updateChecker;
@@ -66,6 +69,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
             await Status.RefreshCommand.ExecuteAsync(null);
             await Config.RefreshHostsCommand.ExecuteAsync(null);
+            await Dashboard.RefreshCommand.ExecuteAsync(null);
         }
         else
         {
@@ -121,6 +125,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
             await Status.RefreshCommand.ExecuteAsync(null);
             await Config.RefreshHostsCommand.ExecuteAsync(null);
+            await Dashboard.RefreshCommand.ExecuteAsync(null);
         }
     }
 

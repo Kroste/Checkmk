@@ -43,6 +43,13 @@ public partial class App : Application
                     vm.SkipCurrentUpdate();
             };
 
+            // Dashboard-Kachel-Klick: Filter aktivieren + Tab-Wechsel zu Status.
+            vm.Dashboard.TileClicked += (_, filter) =>
+            {
+                vm.Status.Filters.Active = filter;
+                window.SelectMainTab(0);
+            };
+
             window.DataContext = vm;
             window.Opened += async (_, _) => await vm.InitializeAsync();
             desktop.MainWindow = window;

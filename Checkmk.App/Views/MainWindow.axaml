@@ -37,12 +37,15 @@
       </Border>
 
       <!-- Inhalt -->
-      <TabControl Grid.Row="1" Margin="8">
+      <TabControl Name="MainTabs" Grid.Row="1" Margin="8">
         <TabItem Header="Status">
           <views:StatusView DataContext="{Binding Status}" />
         </TabItem>
         <TabItem Header="Hosts">
           <views:ConfigView DataContext="{Binding Config}" />
+        </TabItem>
+        <TabItem Header="Dashboard">
+          <views:DashboardView DataContext="{Binding Dashboard}" />
         </TabItem>
       </TabControl>
 

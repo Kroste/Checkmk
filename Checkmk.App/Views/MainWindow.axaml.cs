@@ -16,6 +16,14 @@ public partial class MainWindow : ChromeWindow
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
     }
 
+    /// <summary>Wird von aussen (App.axaml.cs) genutzt, um beim Dashboard-Klick
+    /// zurueck in den Status-Tab zu springen.</summary>
+    public void SelectMainTab(int index)
+    {
+        var tabs = this.FindControl<TabControl>("MainTabs");
+        if (tabs is not null) tabs.SelectedIndex = index;
+    }
+
     /// <summary>
     /// Alltags-Hotkeys. Tunnel-Routing damit sie die aktive TextBox nicht ueberschreiben —
     /// wir prueft ExplicitHandled-Flag und lassen die TextBox ihre eigene Tastaturbelegung
