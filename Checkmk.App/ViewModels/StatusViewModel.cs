@@ -66,6 +66,12 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private int _servicesCrit;
 
+    /// <summary>„Filter: DB-Server · 47 Services" / „Filter: — · 33000 Services".
+    /// Kurze Sicht in der Statusleiste, damit auf einen Blick klar ist, worauf
+    /// sich die Zahlen aktuell beziehen.</summary>
+    [ObservableProperty]
+    private string _filterInfo = "";
+
     private readonly IStatusViewStateStore _stateStore;
     private bool _loadingState;
 
@@ -181,6 +187,8 @@ public sealed partial class StatusViewModel : ViewModelBase
 
             StatusMessage = $"Aktualisiert {DateTime.Now:HH:mm:ss} — "
                           + $"{services.Count} Services, {hosts.Count} Hosts.";
+            var scope = Filters.Active is { } f ? f.Name : "—";
+            FilterInfo = $"Filter: {scope} · {services.Count} Services";
         }
         catch (Exception ex)
         {
