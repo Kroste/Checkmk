@@ -62,6 +62,21 @@ public partial class StatusView : UserControl
             settings.AgentShare, settings.AgentUpdateScript).ShowDialog(owner);
     }
 
+    /// <summary>Wird aus dem MainWindow-Hotkey-Handler aufgerufen (Ctrl+K/D/A).</summary>
+    internal async void TriggerHotkeyAction(ServiceHotkeyAction action)
+    {
+        var mode = action switch
+        {
+            ServiceHotkeyAction.Acknowledge => ServiceActionMode.Acknowledge,
+            ServiceHotkeyAction.Downtime => ServiceActionMode.Downtime,
+            _ => (ServiceActionMode?)null
+        };
+        if (mode is not null)
+            await ShowActionAsync(mode.Value);
+        else if (action == ServiceHotkeyAction.Comment)
+            OnCommentClick(null, new RoutedEventArgs());
+    }
+
     private void OnOpenInWebClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;

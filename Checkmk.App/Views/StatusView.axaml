@@ -10,8 +10,8 @@
     <!-- Toolbar -->
     <Grid Grid.Row="0" RowDefinitions="Auto,Auto" Margin="4,4,4,8">
       <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
-        <TextBox Grid.Column="0" Text="{Binding FilterText}"
-                 PlaceholderText="Freitext-Filter (Host/Service/Ausgabe, case-insensitive Contains)…" />
+        <TextBox Name="FilterTextBox" Grid.Column="0" Text="{Binding FilterText}"
+                 PlaceholderText="Freitext-Filter (Host/Service/Ausgabe, case-insensitive Contains)… — Ctrl+F fokussiert, Esc leert" />
         <Button Grid.Column="1" Content="Acknowledge…" Click="OnAcknowledgeClick"
                 IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <Button Grid.Column="2" Content="Downtime…" Click="OnDowntimeClick"
