@@ -32,18 +32,22 @@ public sealed class ConnectionSettings
         "$ErrorActionPreference = 'Stop'\n" +
         "\n" +
         "# 1) Vorhandenen Checkmk-Agent deinstallieren (falls vorhanden)\n" +
+        "#    msiexec meldet Fehler nur via ExitCode — Start-Process -Wait ohne -PassThru\n" +
+        "#    verschluckt sie. Deshalb -PassThru und ExitCode explizit pruefen.\n" +
         "$keys = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'," +
         "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'\n" +
         "Get-ItemProperty $keys -ErrorAction SilentlyContinue |\n" +
         "  Where-Object { $_.DisplayName -like 'Checkmk Agent*' } |\n" +
         "  ForEach-Object {\n" +
         "    Write-Output \"Deinstalliere $($_.DisplayName)\"\n" +
-        "    Start-Process msiexec.exe -ArgumentList \"/x $($_.PSChildName) /qn /norestart\" -Wait\n" +
+        "    $p = Start-Process msiexec.exe -ArgumentList \"/x $($_.PSChildName) /qn /norestart\" -Wait -PassThru\n" +
+        "    if ($p.ExitCode -ne 0) { throw \"msiexec /x fehlgeschlagen (ExitCode $($p.ExitCode))\" }\n" +
         "  }\n" +
         "\n" +
         "# 2) Aktuellen Client installieren (wurde nach {installer} kopiert)\n" +
         "Write-Output 'Installiere neuen Agent'\n" +
-        "Start-Process msiexec.exe -ArgumentList \"/i `\"{installer}`\" /qn /norestart\" -Wait\n" +
+        "$p = Start-Process msiexec.exe -ArgumentList \"/i `\"{installer}`\" /qn /norestart\" -Wait -PassThru\n" +
+        "if ($p.ExitCode -ne 0) { throw \"msiexec /i fehlgeschlagen (ExitCode $($p.ExitCode))\" }\n" +
         "\n" +
         "# 3) Registrieren (--trust-cert: Server-Zertifikat ohne interaktive Rueckfrage vertrauen)\n" +
         "Write-Output 'Registriere Agent-Controller'\n" +
