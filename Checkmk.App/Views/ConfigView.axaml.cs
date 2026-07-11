@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Checkmk.App;
 using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
@@ -12,6 +13,25 @@ namespace Checkmk.App.Views;
 public partial class ConfigView : UserControl
 {
     public ConfigView() => AvaloniaXamlLoader.Load(this);
+
+    private void OnRdpClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedHostName() is { } h) RemoteTools.StartRdp(h);
+    }
+
+    private void OnPingClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedHostName() is { } h) RemoteTools.StartPing(h);
+    }
+
+    private void OnOpenHostInWebClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedHostName() is { } h)
+            App.Services!.GetRequiredService<CheckmkWebLinker>().OpenHostView(h);
+    }
+
+    private string? SelectedHostName()
+        => DataContext is ConfigViewModel vm ? vm.SelectedHost?.Id : null;
 
     private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {

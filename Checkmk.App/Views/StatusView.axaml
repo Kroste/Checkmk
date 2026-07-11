@@ -67,6 +67,9 @@
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
           <Separator />
+          <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
+          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
+          <Separator />
           <MenuItem Header="Client aktualisieren…" Click="OnUpdateClientClick" />
         </ContextMenu>
       </DataGrid.ContextMenu>
@@ -105,6 +108,9 @@
           <MenuItem Header="Kommentar…" Click="OnCommentClick" />
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
+          <Separator />
+          <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
+          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
           <Separator />
           <MenuItem Header="Client aktualisieren…" Click="OnUpdateClientClick" />
         </ContextMenu>

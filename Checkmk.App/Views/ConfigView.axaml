@@ -69,6 +69,10 @@
                     Command="{Binding DiscoverServicesCommand}" />
           <Separator />
           <MenuItem Header="Auswahl als Favorit…" Click="OnSaveSelectionAsFavoriteClick" />
+          <Separator />
+          <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
+          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
+          <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenHostInWebClick" />
         </ContextMenu>
       </DataGrid.ContextMenu>
       <DataGrid.Columns>

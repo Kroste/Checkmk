@@ -70,6 +70,18 @@ public partial class StatusView : UserControl
         web.OpenServiceView(svc.HostName, svc.Description);
     }
 
+    private void OnRdpClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        RemoteTools.StartRdp(vm.SelectedService.HostName);
+    }
+
+    private void OnPingClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        RemoteTools.StartPing(vm.SelectedService.HostName);
+    }
+
     private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm) return;
