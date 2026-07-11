@@ -22,6 +22,22 @@ public partial class ConfigView : UserControl
             App.Services!.GetRequiredService<RemoteTools>().StartRdp(h);
     }
 
+    private void OnSshClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedHostName() is { } h)
+            App.Services!.GetRequiredService<RemoteTools>().StartSsh(h, null);
+    }
+
+    private void OnRemoteShellClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedHostName() is not { } h) return;
+        // Config-Tab hat keine Live-OS-Info — wir konsultieren den StatusVM,
+        // dessen _osByHost aus den Check_MK-Agent-Service-Ausgaben gebaut ist.
+        var status = App.Services!.GetRequiredService<ViewModels.StatusViewModel>();
+        var os = status.OsFor(h);
+        App.Services!.GetRequiredService<RemoteTools>().StartRemoteShell(h, os, null);
+    }
+
     private void OnPingClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedHostName() is { } h)

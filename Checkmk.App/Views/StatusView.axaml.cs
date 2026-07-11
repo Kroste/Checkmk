@@ -113,6 +113,21 @@ public partial class StatusView : UserControl
         App.Services!.GetRequiredService<RemoteTools>().StartRdp(vm.SelectedService.HostName);
     }
 
+    private void OnSshClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        // Kein User-Argument in Commit B — wird in Commit C aus SshCredentialStore geholt.
+        App.Services!.GetRequiredService<RemoteTools>().StartSsh(vm.SelectedService.HostName, null);
+    }
+
+    private void OnRemoteShellClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        var host = vm.SelectedService.HostName;
+        var os = vm.OsFor(host);
+        App.Services!.GetRequiredService<RemoteTools>().StartRemoteShell(host, os, null);
+    }
+
     private void OnPingClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;

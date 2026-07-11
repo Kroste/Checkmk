@@ -57,4 +57,42 @@ public sealed class RemoteTools
             Log.Warn(ex, "ping konnte nicht gestartet werden (Host={Host}).", fqdn);
         }
     }
+
+    /// <summary>Oeffnet eine SSH-Session per Standard-Windows-OpenSSH-Client.
+    /// Wenn <paramref name="user"/> leer ist, waehlt SSH den lokalen Windows-User
+    /// als Login-Namen (SSH-Standardverhalten).</summary>
+    public void StartSsh(string host, string? user)
+    {
+        var fqdn = _context.FqdnFor(host);
+        if (string.IsNullOrWhiteSpace(fqdn)) return;
+        var target = string.IsNullOrWhiteSpace(user) ? fqdn : $"{user}@{fqdn}";
+        try
+        {
+            // cmd /k statt /c: Fenster bleibt offen, User kann per Rechtsklick
+            // das Passwort aus dem Clipboard einfuegen (siehe RemoteTools+Ssh
+            // in Commit C).
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/k ssh {target}",
+                UseShellExecute = true
+            });
+            Log.Info("SSH-Session geoeffnet: {Target}", target);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "ssh konnte nicht gestartet werden (Target={Target}).", target);
+        }
+    }
+
+    /// <summary>Waehlt anhand der OS-Familie: Windows -> RDP, Linux/Unbekannt -> SSH.
+    /// Fuer Unbekannt: der User wollte explizit SSH als Fallback (bei einer nicht
+    /// ueberwachten Netzwerk-Appliance ist SSH die wahrscheinlichere Wahl).</summary>
+    public void StartRemoteShell(string host, OsFamily os, string? sshUser)
+    {
+        if (os == OsFamily.Windows)
+            StartRdp(host);
+        else
+            StartSsh(host, sshUser);
+    }
 }

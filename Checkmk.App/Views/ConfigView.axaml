@@ -71,7 +71,9 @@
           <MenuItem Header="Auswahl als Favorit…" Click="OnSaveSelectionAsFavoriteClick" />
           <MenuItem Header="Auswahl zu Favorit hinzufügen…" Click="OnAddToFavoriteClick" />
           <Separator />
+          <MenuItem Header="Remote-Shell öffnen (auto: RDP/SSH)" Click="OnRemoteShellClick" />
           <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
+          <MenuItem Header="SSH öffnen" Click="OnSshClick" />
           <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenHostInWebClick" />
         </ContextMenu>

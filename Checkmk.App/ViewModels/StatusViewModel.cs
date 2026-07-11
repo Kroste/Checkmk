@@ -17,6 +17,10 @@ public sealed partial class StatusViewModel : ViewModelBase
     private List<ServiceStatus> _allServices = [];
     private Dictionary<string, OsFamily> _osByHost = [];
 
+    /// <summary>OS-Familie fuer einen Host, sofern aus dem Check_MK-Agent-
+    /// Service-Output erkannt. Sonst Unknown.</summary>
+    public OsFamily OsFor(string host) => _osByHost.GetValueOrDefault(host, OsFamily.Unknown);
+
     public HostFilterCollection Filters { get; }
 
     public ObservableCollection<ServiceStatus> Services { get; } = [];
