@@ -234,6 +234,12 @@ den Commit-Log an.
     GitHub auf einen internen Fileshare umgestellt wird.
 18. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
     Binary"-Trade-off ab, sobald AD-Gruppe steht.
+19. **Zweite Checkmk-Instanz (Schulen)**: Fachbereich betreibt zusätzlich einen zweiten
+    Checkmk-Server (u. a. für Schulen). Wahrscheinlich nur eine andere Site am gleichen
+    Host — muss verifiziert werden. Ansatz: mehrere benannte **Verbindungsprofile** in
+    `settings.json` statt einer harten Verbindung, plus Umschalter in der Toolbar
+    („Profil: Produktion" ⇄ „Profil: Schulen"). Persistenz analog zur bestehenden
+    Struktur.
 
 ## 9 · Deal
 
