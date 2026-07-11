@@ -8,6 +8,7 @@
     <conv:StateToBrushConverter x:Key="StateToBrush" />
     <conv:OsToBrushConverter x:Key="OsToBrush" />
     <conv:OsToIconConverter x:Key="OsToIcon" />
+    <conv:BoolToHealthBrushConverter x:Key="BoolToHealthBrush" />
   </Application.Resources>
 
   <Application.Styles>

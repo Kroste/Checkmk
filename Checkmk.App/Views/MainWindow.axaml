@@ -48,19 +48,23 @@
 
       <!-- Statusleiste -->
       <Border Grid.Row="2" Background="#123E6B">
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="10,0">
-          <TextBlock Grid.Column="0" Text="{Binding Status.StatusMessage}"
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="10,0">
+          <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5"
+                  VerticalAlignment="Center" Margin="0,0,8,0"
+                  Background="{Binding Status.IsBackendHealthy, Converter={StaticResource BoolToHealthBrush}}"
+                  ToolTip.Tip="Backend-Verbindung: grün = letzter Refresh erfolgreich, rot = Fehler." />
+          <TextBlock Grid.Column="1" Text="{Binding Status.StatusMessage}"
                      VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis" />
-          <TextBlock Grid.Column="1" Text="{Binding Status.FilterInfo}"
+          <TextBlock Grid.Column="2" Text="{Binding Status.FilterInfo}"
                      VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0"
                      Foreground="#B5D0EA" />
-          <Button Grid.Column="2" Content="{Binding UpdateBadge}"
+          <Button Grid.Column="3" Content="{Binding UpdateBadge}"
                   Command="{Binding OpenUpdateCommand}"
                   IsVisible="{Binding HasUpdate}"
                   Background="#F9A825" Foreground="#000000"
                   Padding="10,2" Margin="8,0,10,0" FontSize="12" FontWeight="SemiBold"
                   ToolTip.Tip="Klicken für Release-Notes und Download-Link." />
-          <TextBlock Grid.Column="3" Text="{Binding ConnectionInfo}"
+          <TextBlock Grid.Column="4" Text="{Binding ConnectionInfo}"
                      VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0" />
         </Grid>
       </Border>

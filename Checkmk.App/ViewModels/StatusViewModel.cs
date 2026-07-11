@@ -77,6 +77,12 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private string _filterInfo = "";
 
+    /// <summary>true wenn der letzte Refresh erfolgreich war. In der Statusleiste
+    /// als gruener/roter Punkt sichtbar — schnelle Unterscheidung „Cockpit hakt"
+    /// vs. „Checkmk-Backend hakt".</summary>
+    [ObservableProperty]
+    private bool _isBackendHealthy;
+
     private readonly IStatusViewStateStore _stateStore;
     private bool _loadingState;
 
@@ -197,11 +203,13 @@ public sealed partial class StatusViewModel : ViewModelBase
                           + $"{services.Count} Services, {hosts.Count} Hosts.";
             var scope = Filters.Active is { } f ? f.Name : "—";
             FilterInfo = $"Filter: {scope} · {services.Count} Services";
+            IsBackendHealthy = true;
         }
         catch (Exception ex)
         {
             Log.Warn(ex, "Status-Refresh fehlgeschlagen.");
             StatusMessage = $"Fehler: {ex.Message}";
+            IsBackendHealthy = false;
         }
         finally
         {
