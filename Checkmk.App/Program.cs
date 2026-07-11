@@ -51,6 +51,7 @@ internal static class Program
         services.AddSingleton<IToastNotifier, WindowsToastNotifier>();
         services.AddSingleton<IHostFilterStore, HostFilterStore>();
         services.AddSingleton<HostFilterCollection>();
+        services.AddSingleton<IStatusViewStateStore, StatusViewStateStore>();
         services.AddSingleton<IUpdatePreferences, UpdatePreferences>();
         services.AddSingleton<IUpdateChecker>(sp =>
         {

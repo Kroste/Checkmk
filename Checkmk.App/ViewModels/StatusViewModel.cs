@@ -66,12 +66,32 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private int _servicesCrit;
 
-    public StatusViewModel(ICheckmkClientProvider clients, HostFilterCollection filters)
+    private readonly IStatusViewStateStore _stateStore;
+    private bool _loadingState;
+
+    public StatusViewModel(ICheckmkClientProvider clients, HostFilterCollection filters,
+        IStatusViewStateStore stateStore)
     {
         _clients = clients;
         Filters = filters;
+        _stateStore = stateStore;
+
+        // UI-Praeferenzen aus letzter Sitzung wieder herstellen, BEVOR die
+        // Property-Change-Handler aktiv werden. _loadingState verhindert, dass die
+        // Load-Zuweisungen ihrerseits ein Save triggern.
+        _loadingState = true;
+        var s = _stateStore.Load();
+        TreeView = s.TreeView;
+        FilterText = s.FilterText;
+        OnlyProblems = s.OnlyProblems;
+        AutoRefresh = s.AutoRefresh;
+        RefreshSeconds = s.RefreshSeconds;
+        _loadingState = false;
+
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(RefreshSeconds) };
         _timer.Tick += async (_, _) => await RefreshAsync();
+        if (AutoRefresh) _timer.Start();
+
         Filters.PropertyChanged += async (_, e) =>
         {
             // Filter-Wechsel triggert einen neuen Server-Call — sonst blieben in
@@ -82,17 +102,35 @@ public sealed partial class StatusViewModel : ViewModelBase
         };
     }
 
-    partial void OnFilterTextChanged(string value) => ApplyFilter();
-    partial void OnOnlyProblemsChanged(bool value) => ApplyFilter();
+    private void PersistState()
+    {
+        if (_loadingState) return;
+        _stateStore.Save(new StatusViewState
+        {
+            TreeView = TreeView,
+            FilterText = FilterText,
+            OnlyProblems = OnlyProblems,
+            AutoRefresh = AutoRefresh,
+            RefreshSeconds = RefreshSeconds
+        });
+    }
+
+    partial void OnFilterTextChanged(string value) { ApplyFilter(); PersistState(); }
+    partial void OnOnlyProblemsChanged(bool value) { ApplyFilter(); PersistState(); }
+    partial void OnTreeViewChanged(bool value) => PersistState();
 
     partial void OnAutoRefreshChanged(bool value)
     {
         if (value) _timer.Start();
         else _timer.Stop();
+        PersistState();
     }
 
     partial void OnRefreshSecondsChanged(int value)
-        => _timer.Interval = TimeSpan.FromSeconds(Math.Max(5, value));
+    {
+        _timer.Interval = TimeSpan.FromSeconds(Math.Max(5, value));
+        PersistState();
+    }
 
     [RelayCommand]
     private async Task RefreshAsync()
