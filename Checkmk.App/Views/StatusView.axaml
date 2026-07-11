@@ -9,7 +9,7 @@
 
     <!-- Toolbar -->
     <Grid Grid.Row="0" RowDefinitions="Auto,Auto" Margin="4,4,4,8">
-      <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
         <TextBox Name="FilterTextBox" Grid.Column="0" Text="{Binding FilterText}"
                  PlaceholderText="Freitext-Filter (Host/Service/Ausgabe, case-insensitive Contains)… — Ctrl+F fokussiert, Esc leert" />
         <Button Grid.Column="1" Content="Acknowledge…" Click="OnAcknowledgeClick"
@@ -18,11 +18,14 @@
                 IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <CheckBox Grid.Column="3" Content="Nur Probleme" IsChecked="{Binding OnlyProblems}"
                   VerticalAlignment="Center" />
-        <CheckBox Grid.Column="4" Content="Auto" IsChecked="{Binding AutoRefresh}"
+        <CheckBox Grid.Column="4" Content="Nur offen" IsChecked="{Binding OnlyOpen}"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="Blendet Ack'd und in Wartung befindliche Services aus — die tatsächliche Arbeitsliste." />
+        <CheckBox Grid.Column="5" Content="Auto" IsChecked="{Binding AutoRefresh}"
                   VerticalAlignment="Center" />
-        <NumericUpDown Grid.Column="5" Value="{Binding RefreshSeconds}" Minimum="5" Maximum="600"
+        <NumericUpDown Grid.Column="6" Value="{Binding RefreshSeconds}" Minimum="5" Maximum="600"
                        Increment="5" Width="110" FormatString="0's'" />
-        <Button Grid.Column="6" Content="Aktualisieren" Command="{Binding RefreshCommand}"
+        <Button Grid.Column="7" Content="Aktualisieren" Command="{Binding RefreshCommand}"
                 IsEnabled="{Binding !IsBusy}" />
       </Grid>
       <Grid Grid.Row="1" ColumnDefinitions="Auto,240,Auto,*,Auto,Auto" ColumnSpacing="8" Margin="0,6,0,0">

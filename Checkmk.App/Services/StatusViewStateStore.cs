@@ -12,6 +12,7 @@ public sealed class StatusViewState
     public bool TreeView { get; set; }
     public string FilterText { get; set; } = "";
     public bool OnlyProblems { get; set; } = true;
+    public bool OnlyOpen { get; set; }
     public bool AutoRefresh { get; set; }
     public int RefreshSeconds { get; set; } = 30;
 }

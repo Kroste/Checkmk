@@ -45,6 +45,11 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private bool _onlyProblems = true;
 
+    /// <summary>Blendet zusaetzlich Ack'd + in Wartung befindliche Services aus —
+    /// zeigt die tatsaechliche Arbeitsliste fuer die Morgen-Runde.</summary>
+    [ObservableProperty]
+    private bool _onlyOpen;
+
     [ObservableProperty]
     private bool _autoRefresh;
 
@@ -90,6 +95,7 @@ public sealed partial class StatusViewModel : ViewModelBase
         TreeView = s.TreeView;
         FilterText = s.FilterText;
         OnlyProblems = s.OnlyProblems;
+        OnlyOpen = s.OnlyOpen;
         AutoRefresh = s.AutoRefresh;
         RefreshSeconds = s.RefreshSeconds;
         _loadingState = false;
@@ -116,6 +122,7 @@ public sealed partial class StatusViewModel : ViewModelBase
             TreeView = TreeView,
             FilterText = FilterText,
             OnlyProblems = OnlyProblems,
+            OnlyOpen = OnlyOpen,
             AutoRefresh = AutoRefresh,
             RefreshSeconds = RefreshSeconds
         });
@@ -123,6 +130,7 @@ public sealed partial class StatusViewModel : ViewModelBase
 
     partial void OnFilterTextChanged(string value) { ApplyFilter(); PersistState(); }
     partial void OnOnlyProblemsChanged(bool value) { ApplyFilter(); PersistState(); }
+    partial void OnOnlyOpenChanged(bool value) { ApplyFilter(); PersistState(); }
     partial void OnTreeViewChanged(bool value) => PersistState();
 
     partial void OnAutoRefreshChanged(bool value)
@@ -344,6 +352,9 @@ public sealed partial class StatusViewModel : ViewModelBase
         if (OnlyProblems)
             q = q.Where(s => s.ServiceState != ServiceState.Ok);
 
+        if (OnlyOpen)
+            q = q.Where(s => !s.IsAcknowledged && !s.InDowntime);
+
         if (!string.IsNullOrWhiteSpace(FilterText))
         {
             var f = FilterText.Trim();
@@ -386,16 +397,18 @@ public sealed partial class StatusViewModel : ViewModelBase
         foreach (var group in q.GroupBy(s => s.HostName).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
             var all = group.ToList();
-            var hasProblems = all.Any(s => s.ServiceState != ServiceState.Ok);
 
-            if (OnlyProblems && !hasProblems)
+            IEnumerable<ServiceStatus> children = all;
+            if (OnlyProblems)
+                children = children.Where(s => s.ServiceState != ServiceState.Ok);
+            if (OnlyOpen)
+                children = children.Where(s => !s.IsAcknowledged && !s.InDowntime);
+
+            var materialized = children.ToList();
+            if ((OnlyProblems || OnlyOpen) && materialized.Count == 0)
                 continue;
 
-            IEnumerable<ServiceStatus> children = OnlyProblems
-                ? all.Where(s => s.ServiceState != ServiceState.Ok)
-                : all;
-
-            children = children.OrderByDescending(s => s.State).ThenBy(s => s.Description);
+            children = materialized.OrderByDescending(s => s.State).ThenBy(s => s.Description);
 
             HostTree.Add(new HostNodeViewModel(
                 group.Key,
