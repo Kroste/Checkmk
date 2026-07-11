@@ -9,6 +9,7 @@
     <conv:OsToBrushConverter x:Key="OsToBrush" />
     <conv:OsToIconConverter x:Key="OsToIcon" />
     <conv:BoolToHealthBrushConverter x:Key="BoolToHealthBrush" />
+    <conv:AgeToBrushConverter x:Key="AgeToBrush" />
   </Application.Resources>
 
   <Application.Styles>

@@ -94,7 +94,15 @@
         <DataGridTextColumn Header="Ausgabe" Binding="{Binding PluginOutput}" Width="*" />
         <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="50" />
         <DataGridCheckBoxColumn Header="DT" Binding="{Binding InDowntime}" Width="50" />
-        <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="90" />
+        <DataGridTemplateColumn Header="Age" Width="90" SortMemberPath="LastStateChange">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="models:ServiceStatus">
+              <TextBlock Text="{Binding Age}"
+                         Foreground="{Binding LastStateChange, Converter={StaticResource AgeToBrush}}"
+                         VerticalAlignment="Center" Margin="6,0" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
       </DataGrid.Columns>
     </DataGrid>
 
