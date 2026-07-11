@@ -1,0 +1,30 @@
+<controls:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Checkmk.App.Controls"
+        x:Class="Checkmk.App.Views.FavoritePickerDialog"
+        Width="440" Height="240"
+        Title="Favorit auswählen"
+        WindowStartupLocation="CenterOwner">
+
+  <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
+    <Grid RowDefinitions="40,*,Auto">
+
+      <Border Grid.Row="0" Background="#252526" PointerPressed="OnTitleBarPressed">
+        <TextBlock Text="Favorit auswählen" FontWeight="SemiBold"
+                   VerticalAlignment="Center" Margin="12,0" />
+      </Border>
+
+      <StackPanel Grid.Row="1" Margin="16" Spacing="10">
+        <TextBlock Name="PromptText" Foreground="#AAAAAA" TextWrapping="Wrap" />
+        <ComboBox Name="FavoriteBox" HorizontalAlignment="Stretch"
+                  PlaceholderText="Favorit wählen" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="OK" Click="OnOkClick" Background="#123E6B" IsDefault="True" />
+        <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</controls:ChromeWindow>

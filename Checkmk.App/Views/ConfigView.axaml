@@ -69,6 +69,7 @@
                     Command="{Binding DiscoverServicesCommand}" />
           <Separator />
           <MenuItem Header="Auswahl als Favorit…" Click="OnSaveSelectionAsFavoriteClick" />
+          <MenuItem Header="Auswahl zu Favorit hinzufügen…" Click="OnAddToFavoriteClick" />
           <Separator />
           <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
           <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />

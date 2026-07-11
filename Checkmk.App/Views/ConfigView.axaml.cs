@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -84,5 +86,47 @@ public partial class ConfigView : UserControl
             Name = name.Trim(),
             ExplicitHosts = hostNames
         });
+    }
+
+    private async void OnAddToFavoriteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ConfigViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var grid = this.FindControl<DataGrid>("HostGrid");
+        if (grid is null || grid.SelectedItems.Count == 0) return;
+
+        var hostNames = grid.SelectedItems
+            .OfType<CheckmkObject<HostConfigExtensions>>()
+            .Select(h => h.Id ?? "")
+            .Where(id => id.Length > 0)
+            .ToList();
+        if (hostNames.Count == 0) return;
+
+        // Nur Favoriten mit ExplicitHosts anbieten — Regex-Favoriten kann man
+        // nicht sinnvoll um eine Liste erweitern.
+        var candidates = vm.Filters.Filters
+            .Where(f => f.ExplicitHosts is { Count: > 0 })
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return; // keine passenden Favoriten -> stille NoOp
+        }
+
+        var dialog = new FavoritePickerDialog(
+            $"{hostNames.Count} Host(s) zu welchem Favoriten hinzufügen?",
+            candidates);
+        var chosen = await dialog.ShowDialog<Models.HostFilter?>(owner);
+        if (chosen is null) return;
+
+        var before = chosen.ExplicitHosts.Count;
+        foreach (var h in hostNames)
+        {
+            if (!chosen.ExplicitHosts.Any(x => string.Equals(x, h, StringComparison.OrdinalIgnoreCase)))
+                chosen.ExplicitHosts.Add(h);
+        }
+        var added = chosen.ExplicitHosts.Count - before;
+        vm.Filters.Update();
+        vm.StatusMessage = $"{added} Host(s) zu Favorit „{chosen.Name}“ hinzugefuegt.";
     }
 }
