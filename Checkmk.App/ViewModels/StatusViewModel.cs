@@ -105,22 +105,25 @@ public sealed partial class StatusViewModel : ViewModelBase
         Filters = filters;
         _stateStore = stateStore;
 
-        // UI-Praeferenzen aus letzter Sitzung wieder herstellen, BEVOR die
-        // Property-Change-Handler aktiv werden. _loadingState verhindert, dass die
-        // Load-Zuweisungen ihrerseits ein Save triggern.
+        // Timer VOR dem State-Load anlegen — sonst greifen die generierten
+        // Property-Setter fuer AutoRefresh/RefreshSeconds im OnAutoRefreshChanged/
+        // OnRefreshSecondsChanged auf _timer zu, waehrend das Feld noch null ist
+        // (NullReferenceException beim Start, wenn statusview.json AutoRefresh=true
+        // gespeichert hatte).
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _timer.Tick += async (_, _) => await RefreshAsync();
+
+        // UI-Praeferenzen aus letzter Sitzung wieder herstellen. _loadingState
+        // verhindert, dass die Load-Zuweisungen ihrerseits ein Save triggern.
         _loadingState = true;
         var s = _stateStore.Load();
         TreeView = s.TreeView;
         FilterText = s.FilterText;
         OnlyProblems = s.OnlyProblems;
         OnlyOpen = s.OnlyOpen;
-        AutoRefresh = s.AutoRefresh;
-        RefreshSeconds = s.RefreshSeconds;
+        RefreshSeconds = s.RefreshSeconds;   // setzt _timer.Interval
+        AutoRefresh = s.AutoRefresh;         // startet/stoppt _timer
         _loadingState = false;
-
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(RefreshSeconds) };
-        _timer.Tick += async (_, _) => await RefreshAsync();
-        if (AutoRefresh) _timer.Start();
 
         Filters.PropertyChanged += async (_, e) =>
         {
