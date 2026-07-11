@@ -220,13 +220,12 @@ den Commit-Log an.
 11. ✅ CSV-Export + Freitext-Filter über Ausgabe/Alias.
 12. ✅ IP-Fallback per Ping/DNS im Host-Detail, wenn Checkmk keine liefert.
 13. ✅ Client-Aktualisierung (Kontextmenü, Remote-PowerShell, Agent-Deinstall/Install/Register).
-14. **Client-Aktualisierung härten**: `Start-Process msiexec` in der Skript-Vorlage auf
-    `-PassThru` + `$proc.ExitCode`-Prüfung heben (aktuell werden Nicht-Null-Exits nicht
-    erkannt). Site-CA vorab in den Zertifikatsspeicher der Zielhosts pushen, dann
-    `--trust-cert` aus dem Register-Command raus.
-15. **Kommentare löschen** — sobald am Live-Server verifiziert ist, welche der 2.4/2.5-
-    Delete-Varianten funktioniert (`POST .../actions/delete/invoke` mit `delete_type`
-    vs. `DELETE /objects/comment/{id}`).
+14. ✅ **Client-Aktualisierung härten**: `Start-Process msiexec` in der Skript-Vorlage nutzt
+    jetzt `-PassThru` + `$proc.ExitCode`-Prüfung (Nicht-Null-Exits werfen). Site-CA-Push
+    und Entfernen von `--trust-cert` bleibt offen — braucht AD-Rollout und ist eigener Arbeitspunkt.
+15. ✅ **Kommentare löschen** — `DeleteCommentAsync` mit Dual-Fallback:
+    `POST /domain-types/comment/actions/delete/invoke` (`delete_type: "by_id"`) und bei
+    404/405 `DELETE /objects/comment/{id}`. Roter ✕-Button an jedem Kommentar im Host-Detail.
 16. **OS-Version** aus der Checkmk-HW/SW-Inventur (`os_version`) statt nur Familie
     aus dem Agent-Output — braucht einen weiteren Endpunkt-Aufruf.
 17. **Autoupdater Phase 2**: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
