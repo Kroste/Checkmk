@@ -53,6 +53,9 @@ internal static class Program
         services.AddSingleton<HostFilterCollection>();
         services.AddSingleton<IStatusViewStateStore, StatusViewStateStore>();
         services.AddSingleton<CheckmkWebLinker>();
+        services.AddSingleton<IHostDomainStore, HostDomainStore>();
+        services.AddSingleton<HostContext>();
+        services.AddSingleton<RemoteTools>();
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<IUpdatePreferences, UpdatePreferences>();
         services.AddSingleton<IUpdateChecker>(sp =>

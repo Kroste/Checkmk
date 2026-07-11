@@ -166,10 +166,21 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 internal sealed class Bootstrap
 {
     private const string DefaultWindowsSharedPath = @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\settings.json";
+    private const string DefaultSharedHostsPath = @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\hosts.json";
     private const string DefaultUpdateChannelUrl =
         "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
+    private const string DefaultDomain = "lhp.intern";
 
     public string SharedSettingsPath { get; set; } = DefaultWindowsSharedPath;
+
+    /// <summary>Zentrale, unverschluesselte Host-Metadaten-Datei (Domain je Host, spaeter
+    /// evtl. weitere Notizen). Alle Cockpit-Nutzer teilen dieselbe Zuordnung.</summary>
+    public string SharedHostsPath { get; set; } = DefaultSharedHostsPath;
+
+    /// <summary>Default-Domain fuer Hosts ohne explizite Zuordnung. Wird an den
+    /// Hostnamen angehaengt, wenn Ping/RDP/SSH einen FQDN brauchen.</summary>
+    public string HostDefaultDomain { get; set; } = DefaultDomain;
+
     public string UpdateChannelUrl { get; set; } = DefaultUpdateChannelUrl;
 
     /// <summary>

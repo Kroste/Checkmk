@@ -18,12 +18,14 @@ public partial class ConfigView : UserControl
 
     private void OnRdpClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedHostName() is { } h) RemoteTools.StartRdp(h);
+        if (SelectedHostName() is { } h)
+            App.Services!.GetRequiredService<RemoteTools>().StartRdp(h);
     }
 
     private void OnPingClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedHostName() is { } h) RemoteTools.StartPing(h);
+        if (SelectedHostName() is { } h)
+            App.Services!.GetRequiredService<RemoteTools>().StartPing(h);
     }
 
     private void OnOpenHostInWebClick(object? sender, RoutedEventArgs e)

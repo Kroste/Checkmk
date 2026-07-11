@@ -5,52 +5,56 @@ using NLog;
 namespace Checkmk.App.Services;
 
 /// <summary>
-/// Startet die Windows-Standard-Remote-Tools zum markierten Host:
-/// <c>mstsc /v:host</c> und <c>cmd /k ping -t host</c>. Fuer den Admin-
-/// Alltag deutlich schneller als „Host kopieren, Programm starten, einfuegen".
+/// Startet die Windows-Standard-Remote-Tools zum markierten Host — jeweils gegen
+/// den <b>FQDN</b>, weil DMZ-Hosts nur unter <c>host.dmz.lhp.intern</c>
+/// erreichbar sind. Die Domain kommt aus <see cref="HostContext"/>.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public static class RemoteTools
+public sealed class RemoteTools
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-    public static void StartRdp(string host)
+    private readonly HostContext _context;
+
+    public RemoteTools(HostContext context) => _context = context;
+
+    public void StartRdp(string host)
     {
-        if (string.IsNullOrWhiteSpace(host)) return;
+        var fqdn = _context.FqdnFor(host);
+        if (string.IsNullOrWhiteSpace(fqdn)) return;
         try
         {
             Process.Start(new ProcessStartInfo
             {
                 FileName = "mstsc.exe",
-                Arguments = $"/v:{host}",
+                Arguments = $"/v:{fqdn}",
                 UseShellExecute = true
             });
-            Log.Info("RDP-Verbindung geoeffnet: {Host}", host);
+            Log.Info("RDP-Verbindung geoeffnet: {Fqdn}", fqdn);
         }
         catch (Exception ex)
         {
-            Log.Warn(ex, "mstsc konnte nicht gestartet werden (Host={Host}).", host);
+            Log.Warn(ex, "mstsc konnte nicht gestartet werden (Host={Host}).", fqdn);
         }
     }
 
-    public static void StartPing(string host)
+    public void StartPing(string host)
     {
-        if (string.IsNullOrWhiteSpace(host)) return;
+        var fqdn = _context.FqdnFor(host);
+        if (string.IsNullOrWhiteSpace(fqdn)) return;
         try
         {
-            // cmd /k statt /c, damit das Fenster offen bleibt und der Nutzer
-            // die Ausgabe lesen kann.
             Process.Start(new ProcessStartInfo
             {
                 FileName = "cmd.exe",
-                Arguments = $"/k ping -t {host}",
+                Arguments = $"/k ping -t {fqdn}",
                 UseShellExecute = true
             });
-            Log.Info("Ping-Fenster geoeffnet: {Host}", host);
+            Log.Info("Ping-Fenster geoeffnet: {Fqdn}", fqdn);
         }
         catch (Exception ex)
         {
-            Log.Warn(ex, "ping konnte nicht gestartet werden (Host={Host}).", host);
+            Log.Warn(ex, "ping konnte nicht gestartet werden (Host={Host}).", fqdn);
         }
     }
 }
