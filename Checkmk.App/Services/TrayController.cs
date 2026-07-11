@@ -30,10 +30,15 @@ public sealed class TrayController
     private readonly WindowIcon _iconUnknown;
 
     private TrayIcon _trayIcon = null!;
+    private NativeMenuItem _snoozeStatusItem = null!;
     private string? _lastFilterName;
     private bool _restoreInProgress;
 
     public bool IsMinimizedToTray { get; private set; }
+
+    /// <summary>Wenn gesetzt: bis dahin keine Notifications ausgeben. Aendert nichts
+    /// am Tray-Icon (der Ampelstatus bleibt sichtbar).</summary>
+    public DateTimeOffset? SnoozedUntil { get; private set; }
 
     public TrayController(Application app, Window window, StatusViewModel status, IToastNotifier toast)
     {
@@ -76,16 +81,52 @@ public sealed class TrayController
                 "Wenn du diese Nachricht siehst, funktionieren Toasts. Zeitpunkt: "
                 + DateTime.Now.ToString("HH:mm:ss"));
         };
+        var snooze30 = new NativeMenuItem("Snooze 30 Min");
+        snooze30.Click += (_, _) => Snooze(TimeSpan.FromMinutes(30));
+        var snooze2h = new NativeMenuItem("Snooze 2 Std");
+        snooze2h.Click += (_, _) => Snooze(TimeSpan.FromHours(2));
+        var snoozeMorning = new NativeMenuItem("Snooze bis morgen 06:00");
+        snoozeMorning.Click += (_, _) => Snooze(NextMorningSix() - DateTimeOffset.Now);
+        _snoozeStatusItem = new NativeMenuItem("Snooze aufheben") { IsVisible = false };
+        _snoozeStatusItem.Click += (_, _) => CancelSnooze();
+
         var exit = new NativeMenuItem("Beenden");
         exit.Click += (_, _) => (_app.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
 
         _trayIcon.Menu.Items.Add(show);
         _trayIcon.Menu.Items.Add(test);
         _trayIcon.Menu.Items.Add(new NativeMenuItemSeparator());
+        _trayIcon.Menu.Items.Add(snooze30);
+        _trayIcon.Menu.Items.Add(snooze2h);
+        _trayIcon.Menu.Items.Add(snoozeMorning);
+        _trayIcon.Menu.Items.Add(_snoozeStatusItem);
+        _trayIcon.Menu.Items.Add(new NativeMenuItemSeparator());
         _trayIcon.Menu.Items.Add(exit);
         _trayIcon.Clicked += (_, _) => Restore();
 
         TrayIcon.SetIcons(_app, new TrayIcons { _trayIcon });
+    }
+
+    private void Snooze(TimeSpan duration)
+    {
+        SnoozedUntil = DateTimeOffset.Now.Add(duration);
+        _snoozeStatusItem.Header = $"Snooze aufheben (aktiv bis {SnoozedUntil:HH:mm})";
+        _snoozeStatusItem.IsVisible = true;
+        Log.Info("Notifications ge-snoozed bis {Until}.", SnoozedUntil);
+    }
+
+    private void CancelSnooze()
+    {
+        SnoozedUntil = null;
+        _snoozeStatusItem.IsVisible = false;
+        Log.Info("Snooze manuell aufgehoben.");
+    }
+
+    private static DateTimeOffset NextMorningSix()
+    {
+        var now = DateTimeOffset.Now;
+        var six = new DateTimeOffset(now.Year, now.Month, now.Day, 6, 0, 0, now.Offset);
+        return now.Hour < 6 ? six : six.AddDays(1);
     }
 
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -142,10 +183,18 @@ public sealed class TrayController
             _lastFilterName = filterName;
         }
 
+        // Snooze abgelaufen -> stillschweigend aufraeumen.
+        if (SnoozedUntil is { } until && until <= DateTimeOffset.Now)
+            CancelSnooze();
+
         var change = _monitor.Diff(services);
         if (change.HasChanges)
         {
-            if (IsMinimizedToTray)
+            if (SnoozedUntil is not null)
+            {
+                Log.Debug("Statusaenderung erkannt — aber Snooze aktiv bis {Until}, kein Toast.", SnoozedUntil);
+            }
+            else if (IsMinimizedToTray)
             {
                 Log.Info("Statusaenderung erkannt (CRIT {C}, WARN {W}, OK {O}, UNK {U}) — sende Toast.",
                     change.NewProblems, change.OtherChanges, change.Recoveries, 0);
