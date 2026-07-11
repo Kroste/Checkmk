@@ -281,6 +281,27 @@ public sealed partial class HostDetailViewModel : ViewModelBase
         finally { IsBusy = false; }
     }
 
+    /// <summary>Loescht einen einzelnen Kommentar (Host- oder Service-Kommentar).</summary>
+    public async Task PerformDeleteCommentAsync(string commentId)
+    {
+        var client = _clients.Current;
+        if (client is null || string.IsNullOrWhiteSpace(commentId)) return;
+
+        try
+        {
+            IsBusy = true;
+            await client.DeleteCommentAsync(commentId);
+            StatusMessage = "Kommentar gelöscht.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Kommentar {Id} loeschen fehlgeschlagen.", commentId);
+            StatusMessage = $"Fehler: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>Legt einen neuen Kommentar auf dem Host oder einem gewaehlten Service an.</summary>
     public async Task PerformAddCommentAsync(string comment, bool persistent, bool onSelectedService)
     {

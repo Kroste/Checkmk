@@ -152,7 +152,7 @@
             <ItemsControl ItemsSource="{Binding Comments}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:CompileBindings="False">
-                  <Grid ColumnDefinitions="180,*,Auto" ColumnSpacing="8" Margin="0,2">
+                  <Grid ColumnDefinitions="180,*,Auto,Auto" ColumnSpacing="8" Margin="0,2">
                     <TextBlock Grid.Column="0"
                                Text="{Binding Extensions.ServiceDescription, FallbackValue='(Host)'}"
                                Foreground="#123E6B" VerticalAlignment="Center"
@@ -165,6 +165,11 @@
                       <TextBlock Text="{Binding Extensions.EntryTime, StringFormat='{}{0:dd.MM. HH:mm}'}"
                                  Foreground="#888888" FontSize="11" />
                     </StackPanel>
+                    <Button Grid.Column="3" Content="✕" Tag="{Binding Id}"
+                            Click="OnDeleteCommentClick"
+                            Padding="6,2" MinWidth="0" FontSize="11"
+                            Background="#3A2323" Foreground="#EF9A9A"
+                            ToolTip.Tip="Kommentar löschen" />
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

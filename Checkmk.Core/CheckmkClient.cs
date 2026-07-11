@@ -293,10 +293,49 @@ public sealed class CheckmkClient
         await EnsureSuccessAsync(resp, ct);
     }
 
-    // Delete-Endpoint fuer Kommentare bewusst ausgelassen — 2.4/2.5 hat mehrere
-    // konkurrierende Varianten (POST .../actions/delete/invoke mit "delete_type",
-    // vs. DELETE /objects/comment/{id}). Erst am Live-Server verifizieren,
-    // dann nachziehen.
+    /// <summary>
+    /// Loescht einen Kommentar. Checkmk 2.4/2.5 haben zwei konkurrierende Varianten;
+    /// wir probieren beide in der Reihenfolge Doku-Empfehlung → REST-Konvention:
+    /// zuerst <c>POST /domain-types/comment/actions/delete/invoke</c> mit
+    /// <c>{delete_type:"by_id", comment_id:[id]}</c>, bei 404/405 Fallback auf
+    /// <c>DELETE /objects/comment/{id}</c>. Andere 4xx/5xx werden direkt hochgereicht.
+    /// </summary>
+    public async Task DeleteCommentAsync(string commentId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(commentId))
+            throw new ArgumentException("commentId darf nicht leer sein", nameof(commentId));
+
+        // Variante A: POST domain-types/comment/actions/delete/invoke
+        // 2.5-Standard laut REST-API-Doku. comment_id wird als Array uebergeben.
+        var payload = new
+        {
+            delete_type = "by_id",
+            comment_id = new[] { commentId }
+        };
+        using (var resp = await _http.PostAsJsonAsync(
+            "domain-types/comment/actions/delete/invoke", payload, JsonOpts, ct))
+        {
+            if (resp.IsSuccessStatusCode)
+                return;
+
+            // Nur bei "Endpoint gibt's nicht" auf DELETE zurueckfallen.
+            // 400 (falsche Payload) oder 403 (Rechte) sind echte Fehler.
+            var status = (int)resp.StatusCode;
+            if (status != 404 && status != 405)
+            {
+                await EnsureSuccessAsync(resp, ct);
+                return;
+            }
+
+            Log.Debug("POST comment/actions/delete/invoke gab {Status} zurueck — versuche DELETE-Fallback", status);
+        }
+
+        // Variante B: DELETE objects/comment/{id} — REST-konventioneller Fallback.
+        using var delReq = new HttpRequestMessage(HttpMethod.Delete, $"objects/comment/{Uri.EscapeDataString(commentId)}");
+        delReq.Headers.TryAddWithoutValidation("If-Match", "*");
+        using var delResp = await _http.SendAsync(delReq, ct);
+        await EnsureSuccessAsync(delResp, ct);
+    }
 
     // ---------------------------------------------------------------------
     // Service Discovery

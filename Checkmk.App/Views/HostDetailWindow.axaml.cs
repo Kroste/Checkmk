@@ -46,6 +46,13 @@ public partial class HostDetailWindow : ChromeWindow
     private async void OnServiceCommentClick(object? sender, RoutedEventArgs e)
         => await ShowCommentDialogAsync(onSelectedService: true);
 
+    private async void OnDeleteCommentClick(object? sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        if (sender is not Button { Tag: string id } || string.IsNullOrEmpty(id)) return;
+        await _vm.PerformDeleteCommentAsync(id);
+    }
+
     private void OnOpenServiceInWebClick(object? sender, RoutedEventArgs e)
     {
         if (_vm?.SelectedService is null) return;
