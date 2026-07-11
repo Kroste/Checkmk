@@ -75,6 +75,8 @@
           <MenuItem Header="SSH öffnen" Click="OnSshClick" />
           <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
           <Separator />
+          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick" />
+          <Separator />
           <MenuItem Header="Client aktualisieren…" Click="OnUpdateClientClick" />
         </ContextMenu>
       </DataGrid.ContextMenu>
@@ -126,6 +128,8 @@
           <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
           <MenuItem Header="SSH öffnen" Click="OnSshClick" />
           <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
+          <Separator />
+          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick" />
           <Separator />
           <MenuItem Header="Client aktualisieren…" Click="OnUpdateClientClick" />
         </ContextMenu>

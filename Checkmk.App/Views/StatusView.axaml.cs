@@ -99,6 +99,17 @@ public partial class StatusView : UserControl
             OnCommentClick(null, new RoutedEventArgs());
     }
 
+    private async void OnHostSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        var dialog = new HostSettingsDialog(
+            vm.SelectedService.HostName,
+            App.Services!.GetRequiredService<IHostDomainStore>(),
+            App.Services!.GetRequiredService<ISshCredentialStore>());
+        await dialog.ShowDialog<bool>(owner);
+    }
+
     private void OnOpenInWebClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;

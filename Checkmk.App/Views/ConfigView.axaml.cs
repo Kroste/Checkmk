@@ -50,6 +50,17 @@ public partial class ConfigView : UserControl
             App.Services!.GetRequiredService<CheckmkWebLinker>().OpenHostView(h);
     }
 
+    private async void OnHostSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedHostName() is not { } host) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        var dialog = new HostSettingsDialog(
+            host,
+            App.Services!.GetRequiredService<IHostDomainStore>(),
+            App.Services!.GetRequiredService<ISshCredentialStore>());
+        await dialog.ShowDialog<bool>(owner);
+    }
+
     private string? SelectedHostName()
         => DataContext is ConfigViewModel vm ? vm.SelectedHost?.Id : null;
 

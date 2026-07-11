@@ -76,6 +76,8 @@
           <MenuItem Header="SSH öffnen" Click="OnSshClick" />
           <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenHostInWebClick" />
+          <Separator />
+          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick" />
         </ContextMenu>
       </DataGrid.ContextMenu>
       <DataGrid.Columns>
