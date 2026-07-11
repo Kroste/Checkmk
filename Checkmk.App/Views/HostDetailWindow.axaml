@@ -81,6 +81,7 @@
             <Button Content="Host-Ack…" Click="OnHostAckClick" />
             <Button Content="Host-Downtime…" Click="OnHostDowntimeClick" />
             <Button Content="Host-Kommentar…" Click="OnHostCommentClick" />
+            <Button Content="Im Web öffnen" Click="OnOpenHostInWebClick" />
           </StackPanel>
         </Grid>
       </Border>
@@ -117,6 +118,8 @@
             <MenuItem Header="Acknowledge…" Click="OnServiceAckClick" />
             <MenuItem Header="Downtime…" Click="OnServiceDowntimeClick" />
             <MenuItem Header="Kommentar…" Click="OnServiceCommentClick" />
+            <Separator />
+            <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenServiceInWebClick" />
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>

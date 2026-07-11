@@ -62,6 +62,14 @@ public partial class StatusView : UserControl
             settings.AgentShare, settings.AgentUpdateScript).ShowDialog(owner);
     }
 
+    private void OnOpenInWebClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        var svc = vm.SelectedService;
+        var web = App.Services!.GetRequiredService<CheckmkWebLinker>();
+        web.OpenServiceView(svc.HostName, svc.Description);
+    }
+
     private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm) return;

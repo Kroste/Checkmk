@@ -3,9 +3,12 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Checkmk.App;
 using Checkmk.App.Controls;
+using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
 
@@ -42,6 +45,20 @@ public partial class HostDetailWindow : ChromeWindow
 
     private async void OnServiceCommentClick(object? sender, RoutedEventArgs e)
         => await ShowCommentDialogAsync(onSelectedService: true);
+
+    private void OnOpenServiceInWebClick(object? sender, RoutedEventArgs e)
+    {
+        if (_vm?.SelectedService is null) return;
+        var web = App.Services!.GetRequiredService<CheckmkWebLinker>();
+        web.OpenServiceView(_vm.SelectedService.HostName, _vm.SelectedService.Description);
+    }
+
+    private void OnOpenHostInWebClick(object? sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var web = App.Services!.GetRequiredService<CheckmkWebLinker>();
+        web.OpenHostView(_vm.HostName);
+    }
 
     private async System.Threading.Tasks.Task ShowCommentDialogAsync(bool onSelectedService)
     {

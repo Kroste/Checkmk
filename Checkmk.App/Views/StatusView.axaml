@@ -65,6 +65,8 @@
           <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
           <MenuItem Header="Kommentar…" Click="OnCommentClick" />
           <Separator />
+          <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
+          <Separator />
           <MenuItem Header="Client aktualisieren…" Click="OnUpdateClientClick" />
         </ContextMenu>
       </DataGrid.ContextMenu>
@@ -101,6 +103,8 @@
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
           <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
           <MenuItem Header="Kommentar…" Click="OnCommentClick" />
+          <Separator />
+          <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
           <Separator />
           <MenuItem Header="Client aktualisieren…" Click="OnUpdateClientClick" />
         </ContextMenu>
