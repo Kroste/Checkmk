@@ -172,6 +172,59 @@ public class CommentDeserializationTests
     }
 }
 
+public class LivestatusHostFilterTests
+{
+    [Fact]
+    public void Single_host_becomes_equality_query()
+    {
+        var f = new LivestatusHostFilter { IncludeHosts = new[] { "DB01" } };
+        var json = f.ToJson();
+        json.Should().Contain("\"op\":\"=\"");
+        json.Should().Contain("\"left\":\"host_name\"");
+        json.Should().Contain("\"right\":\"DB01\"");
+    }
+
+    [Fact]
+    public void Multiple_hosts_become_or_expression()
+    {
+        var f = new LivestatusHostFilter { IncludeHosts = new[] { "DB01", "DB02", "DB03" } };
+        var json = f.ToJson();
+        json.Should().Contain("\"op\":\"or\"");
+        json.Should().Contain("\"expr\":");
+        json.Should().Contain("DB01");
+        json.Should().Contain("DB02");
+        json.Should().Contain("DB03");
+    }
+
+    [Fact]
+    public void Regex_becomes_case_insensitive_match()
+    {
+        var f = new LivestatusHostFilter { HostNameRegex = ".*sql.*" };
+        var json = f.ToJson();
+        json.Should().Contain("\"op\":\"~~\"");
+        json.Should().Contain("\"left\":\"host_name\"");
+        json.Should().Contain("\".*sql.*\"");
+    }
+
+    [Fact]
+    public void Include_list_wins_over_regex()
+    {
+        var f = new LivestatusHostFilter
+        {
+            IncludeHosts = new[] { "explicit" },
+            HostNameRegex = "irrelevant"
+        };
+        f.ToJson().Should().NotContain("irrelevant");
+    }
+
+    [Fact]
+    public void Empty_filter_produces_no_query()
+    {
+        new LivestatusHostFilter().ToJson().Should().BeNull();
+        new LivestatusHostFilter().IsEmpty.Should().BeTrue();
+    }
+}
+
 public class HostAttributesSerializationTests
 {
     // Muss identisch zu CheckmkClient.JsonOpts sein.

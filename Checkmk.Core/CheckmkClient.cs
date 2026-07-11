@@ -78,11 +78,23 @@ public sealed class CheckmkClient
             $"objects/host_config/{Uri.EscapeDataString(hostName)}"
             + $"?effective_attributes={effectiveAttributes.ToString().ToLowerInvariant()}", ct);
 
-    /// <summary>Live-Status aller Hosts (Monitoring/Livestatus).</summary>
-    public async Task<IReadOnlyList<HostStatus>> GetHostStatusesAsync(CancellationToken ct = default)
+    /// <summary>Live-Status aller Hosts (Monitoring/Livestatus), optional
+    /// serverseitig gefiltert (Regex oder Include-Liste).</summary>
+    public async Task<IReadOnlyList<HostStatus>> GetHostStatusesAsync(
+        LivestatusHostFilter? filter = null, CancellationToken ct = default)
     {
         var cols = new[] { "name", "state", "plugin_output", "acknowledged", "scheduled_downtime_depth" };
         var url = "domain-types/host/collections/all?" + ColumnsQuery(cols, hostNameCol: "name");
+
+        if (filter?.ToJson() is { } queryJson)
+        {
+            // Livestatus-Query auf host-Endpunkt: das Feld heisst hier "name", nicht "host_name".
+            // Wir bauen deshalb eine zweite JSON-Struktur, die "left":"host_name" durch
+            // "left":"name" ersetzt — ohne den User-Filter nachbauen zu muessen.
+            queryJson = queryJson.Replace("\"host_name\"", "\"name\"");
+            url += "&query=" + Uri.EscapeDataString(queryJson);
+        }
+
         var result = await GetAsync<CheckmkCollection<HostStatusEnvelope>>(url, ct);
         return result.Value.Select(v => v.Extensions).ToList();
     }
@@ -103,11 +115,25 @@ public sealed class CheckmkClient
     }
 
     /// <summary>
-    /// Live-Status von Services. Optional auf einen Host gefiltert
-    /// (Livestatus-Query ueber host_name).
+    /// Live-Status von Services. Optional auf einen einzelnen Host gefiltert
+    /// (Livestatus-Query ueber host_name = X).
+    /// </summary>
+    public Task<IReadOnlyList<ServiceStatus>> GetServiceStatusesAsync(
+        string? hostName = null, CancellationToken ct = default)
+    {
+        var filter = string.IsNullOrWhiteSpace(hostName)
+            ? null
+            : new LivestatusHostFilter { IncludeHosts = new[] { hostName } };
+        return GetServiceStatusesAsync(filter, ct);
+    }
+
+    /// <summary>
+    /// Live-Status von Services mit serverseitig-filternder Livestatus-Query
+    /// (Regex oder Include-Liste auf host_name). Reduziert bei grossen
+    /// Installationen die Antwortgroesse drastisch.
     /// </summary>
     public async Task<IReadOnlyList<ServiceStatus>> GetServiceStatusesAsync(
-        string? hostName = null, CancellationToken ct = default)
+        LivestatusHostFilter? filter, CancellationToken ct = default)
     {
         var cols = new[]
         {
@@ -116,16 +142,8 @@ public sealed class CheckmkClient
         };
         var url = "domain-types/service/collections/all?" + ColumnsQuery(cols);
 
-        if (!string.IsNullOrWhiteSpace(hostName))
-        {
-            var query = JsonSerializer.Serialize(new
-            {
-                op = "=",
-                left = "host_name",
-                right = hostName
-            });
-            url += "&query=" + Uri.EscapeDataString(query);
-        }
+        if (filter?.ToJson() is { } queryJson)
+            url += "&query=" + Uri.EscapeDataString(queryJson);
 
         var result = await GetAsync<CheckmkCollection<ServiceStatusEnvelope>>(url, ct);
         return result.Value.Select(v => v.Extensions).ToList();

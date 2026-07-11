@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Checkmk.Core.Models;
 
 namespace Checkmk.App.Models;
 
@@ -35,6 +36,20 @@ public sealed class HostFilter
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Bildet den Filter auf einen <see cref="LivestatusHostFilter"/> ab, den der
+    /// Client als serverseitigen Livestatus-Query verschickt. Rueckgabe <c>null</c>
+    /// wenn der Filter effektiv „alle Hosts" bedeutet (kein Regex, keine Include-Liste).
+    /// </summary>
+    public LivestatusHostFilter? ToLivestatus()
+    {
+        if (ExplicitHosts.Count > 0)
+            return new LivestatusHostFilter { IncludeHosts = ExplicitHosts };
+        if (!string.IsNullOrWhiteSpace(HostNameRegex))
+            return new LivestatusHostFilter { HostNameRegex = HostNameRegex };
+        return null;
     }
 
     public override string ToString() => Name;

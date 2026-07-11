@@ -72,10 +72,13 @@ public sealed partial class StatusViewModel : ViewModelBase
         Filters = filters;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(RefreshSeconds) };
         _timer.Tick += async (_, _) => await RefreshAsync();
-        Filters.PropertyChanged += (_, e) =>
+        Filters.PropertyChanged += async (_, e) =>
         {
+            // Filter-Wechsel triggert einen neuen Server-Call — sonst blieben in
+            // _allServices die Services der VORHERIGEN Filter-Menge, und die
+            // clientseitige ApplyFilter()-Filterung liefe ins Leere.
             if (e.PropertyName == nameof(HostFilterCollection.Active))
-                ApplyFilter();
+                await RefreshAsync();
         };
     }
 
@@ -106,8 +109,15 @@ public sealed partial class StatusViewModel : ViewModelBase
             IsBusy = true;
             StatusMessage = "Aktualisiere…";
 
-            var hosts = await client.GetHostStatusesAsync();
-            var services = await client.GetServiceStatusesAsync();
+            // Serverseitig filtern — bei grossen Installationen (Zehntausende Checks)
+            // spart das ein Vielfaches an Netzwerklast. Regex/Include-Liste geht
+            // direkt in die Livestatus-Query, Freitext + „Nur Probleme" bleiben
+            // clientside (das sind reine Ansichtsfilter, keine Beschraenkung des
+            // Datensatzes).
+            var livestatusFilter = Filters.Active?.ToLivestatus();
+
+            var hosts = await client.GetHostStatusesAsync(livestatusFilter);
+            var services = await client.GetServiceStatusesAsync(livestatusFilter);
 
             HostsUp = hosts.Count(h => h.HostState == HostState.Up);
             HostsDown = hosts.Count(h => h.HostState != HostState.Up);
@@ -127,13 +137,9 @@ public sealed partial class StatusViewModel : ViewModelBase
 
             ApplyFilter();
 
-            // Fuer Tray/Notifications: Services beschraenkt auf den AKTIVEN Filter
-            // (nicht Freitext/Nur-Probleme — das sind reine Ansichtsfilter).
-            var active = Filters.Active;
-            IReadOnlyList<ServiceStatus> scoped = active is null
-                ? _allServices
-                : _allServices.Where(s => active.Matches(s.HostName)).ToList();
-            Refreshed?.Invoke(scoped, active?.Name);
+            // Fuer Tray/Notifications: die Services sind bereits auf den aktiven
+            // Filter beschraenkt (serverseitig gefiltert oben) — direkt weiterreichen.
+            Refreshed?.Invoke(_allServices, Filters.Active?.Name);
 
             StatusMessage = $"Aktualisiert {DateTime.Now:HH:mm:ss} — "
                           + $"{services.Count} Services, {hosts.Count} Hosts.";
