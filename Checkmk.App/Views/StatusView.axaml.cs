@@ -16,7 +16,29 @@ namespace Checkmk.App.Views;
 
 public partial class StatusView : UserControl
 {
-    public StatusView() => AvaloniaXamlLoader.Load(this);
+    public StatusView()
+    {
+        AvaloniaXamlLoader.Load(this);
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is StatusViewModel vm)
+                vm.NewCriticalAppeared += OnNewCritical;
+        };
+    }
+
+    private void OnNewCritical(ServiceStatus svc)
+    {
+        var grid = this.FindControl<DataGrid>("ServiceGrid");
+        if (grid is null) return;
+        // Auto-Scroll + Selection als Highlight. ScrollIntoView greift auf die
+        // Row-Container-Ebene, danach markiert SelectedItem die Zeile im Standard-
+        // Selection-Farbschema — sichtbar ohne Custom-Style.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            grid.ScrollIntoView(svc, null);
+            grid.SelectedItem = svc;
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
 
     private async void OnAcknowledgeClick(object? sender, RoutedEventArgs e)
         => await ShowActionAsync(ServiceActionMode.Acknowledge);

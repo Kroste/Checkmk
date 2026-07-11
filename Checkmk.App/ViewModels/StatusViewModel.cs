@@ -36,6 +36,14 @@ public sealed partial class StatusViewModel : ViewModelBase
     /// Fuer Tray-Signal und Notifications.</summary>
     public event Action<IReadOnlyList<ServiceStatus>, string?>? Refreshed;
 
+    /// <summary>Wird gefeuert, wenn ein Service seit dem letzten Refresh NEU CRIT ist.
+    /// Der Handler kann z. B. im Grid dorthin scrollen und die Zeile hervorheben.</summary>
+    public event Action<ServiceStatus>? NewCriticalAppeared;
+
+    private HashSet<string> _previousCrits = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string CritKey(ServiceStatus s) => s.HostName + "\0" + s.Description;
+
     [ObservableProperty]
     private ServiceStatus? _selectedService;
 
@@ -204,6 +212,24 @@ public sealed partial class StatusViewModel : ViewModelBase
             var scope = Filters.Active is { } f ? f.Name : "—";
             FilterInfo = $"Filter: {scope} · {services.Count} Services";
             IsBackendHealthy = true;
+
+            // Neue CRITs seit dem letzten Refresh erkennen und den juengsten
+            // per Event melden — StatusView scrollt dorthin.
+            var currentCrits = _allServices
+                .Where(s => s.ServiceState == ServiceState.Critical)
+                .Select(CritKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (_previousCrits.Count > 0)
+            {
+                var freshCrit = _allServices
+                    .Where(s => s.ServiceState == ServiceState.Critical
+                             && !_previousCrits.Contains(CritKey(s)))
+                    .OrderByDescending(s => s.LastStateChangeUnix)
+                    .FirstOrDefault();
+                if (freshCrit is not null)
+                    NewCriticalAppeared?.Invoke(freshCrit);
+            }
+            _previousCrits = currentCrits;
         }
         catch (Exception ex)
         {
