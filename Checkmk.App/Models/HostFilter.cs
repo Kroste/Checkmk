@@ -13,6 +13,11 @@ namespace Checkmk.App.Models;
 /// </summary>
 public sealed class HostFilter
 {
+    // Harter Cap gegen catastrophic backtracking bei bloed geschriebenen Regexes
+    // ( ".*.*", "(a+)+", ...). 100 ms sind viel fuer einen einzelnen Hostnamen,
+    // aber schuetzen zuverlaessig vor UI-Freezes.
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(100);
+
     public string Name { get; set; } = "";
     public string? HostNameRegex { get; set; }
     public List<string> ExplicitHosts { get; set; } = new();
@@ -26,11 +31,17 @@ public sealed class HostFilter
         {
             try
             {
-                return Regex.IsMatch(hostName, HostNameRegex, RegexOptions.IgnoreCase);
+                return Regex.IsMatch(hostName, HostNameRegex, RegexOptions.IgnoreCase, RegexTimeout);
             }
             catch (ArgumentException)
             {
                 // ungueltiges Regex → matched nichts, damit der Anwender es visuell sofort merkt
+                return false;
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // Der Regex ist zwar syntaktisch gueltig, hat aber catastrophic backtracking.
+                // Wir behandeln ihn wie "matched nichts", damit die App nicht einfriert.
                 return false;
             }
         }

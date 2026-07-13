@@ -41,6 +41,9 @@
             <TextBlock Text="Hostname-Regex (case-insensitive, leer = Regel inaktiv)"
                        Foreground="#AAAAAA" FontSize="12" />
             <TextBox Text="{Binding EditRegex}" PlaceholderText="^db-.*|.*sql.*$" />
+            <TextBlock Text="{Binding ValidationMessage}" Foreground="#EF5350" FontSize="12"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding ValidationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
           <StackPanel Spacing="3">
             <TextBlock Text="Explizite Hostnamen (eine je Zeile — wenn gesetzt, überschreibt das Regex)"

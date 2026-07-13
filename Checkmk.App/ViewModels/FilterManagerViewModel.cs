@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using Checkmk.App.Models;
 using Checkmk.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,6 +21,9 @@ public sealed partial class FilterManagerViewModel : ObservableObject
     [ObservableProperty] private string _editName = "";
     [ObservableProperty] private string _editRegex = "";
     [ObservableProperty] private string _editExplicitHosts = "";
+
+    /// <summary>Fehlermeldung fuer den Editor (v. a. Regex-Validierung).</summary>
+    [ObservableProperty] private string _validationMessage = "";
 
     public FilterManagerViewModel(HostFilterCollection collection)
     {
@@ -55,13 +59,32 @@ public sealed partial class FilterManagerViewModel : ObservableObject
     {
         if (Selected is null) return;
 
+        var regex = string.IsNullOrWhiteSpace(EditRegex) ? null : EditRegex.Trim();
+
+        // Regex VOR dem Speichern validieren — ein kaputter Ausdruck wuerde sonst
+        // erst zur Refresh-Zeit auffallen (und ist dann persistent in filter.json,
+        // wodurch jeder Auto-Refresh die Ausnahme wiederholt).
+        if (regex is not null)
+        {
+            try
+            {
+                _ = new Regex(regex, RegexOptions.IgnoreCase);
+            }
+            catch (ArgumentException ex)
+            {
+                ValidationMessage = $"Regex ungültig: {ex.Message}";
+                return;
+            }
+        }
+        ValidationMessage = "";
+
         // Referenz sichern: Das RemoveAt unten leert die two-way-gebundene ListBox-Auswahl
         // und schreibt Selected=null zurueck. Ohne diese lokale Kopie wuerde danach ein
         // null in die Filter-Liste eingefuegt (-> NRE beim naechsten Laden/Matchen).
         var item = Selected;
 
         item.Name = string.IsNullOrWhiteSpace(EditName) ? "unbenannt" : EditName.Trim();
-        item.HostNameRegex = string.IsNullOrWhiteSpace(EditRegex) ? null : EditRegex.Trim();
+        item.HostNameRegex = regex;
         item.ExplicitHosts = EditExplicitHosts
             .Split(['\n', '\r', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
@@ -92,6 +115,7 @@ public sealed partial class FilterManagerViewModel : ObservableObject
 
     private void LoadFromSelected()
     {
+        ValidationMessage = "";
         if (Selected is null)
         {
             EditName = "";
