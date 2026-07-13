@@ -152,6 +152,76 @@ public partial class StatusView : UserControl
         await new FilterManagerWindow(vm.Filters).ShowDialog(owner);
     }
 
+    private async void OnSaveHostsAsFavoriteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var hosts = GetTargetHostNames();
+        if (hosts.Count == 0) return;
+
+        var dialog = new NameInputDialog(
+            title: "Favorit speichern",
+            prompt: $"{hosts.Count} Host(s) als Favorit speichern unter Namen:",
+            defaultValue: hosts.Count == 1 ? hosts[0] : "");
+        var name = await dialog.ShowDialog<string?>(owner);
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        vm.Filters.Add(new Models.HostFilter
+        {
+            Name = name.Trim(),
+            ExplicitHosts = hosts.ToList()
+        });
+        vm.StatusMessage = $"Favorit „{name.Trim()}“ mit {hosts.Count} Host(s) gespeichert.";
+    }
+
+    private async void OnAddHostsToFavoriteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var hosts = GetTargetHostNames();
+        if (hosts.Count == 0) return;
+
+        var candidates = vm.Filters.Filters
+            .Where(f => f.ExplicitHosts is { Count: > 0 })
+            .ToList();
+
+        // Kein passender Favorit vorhanden -> gleich neuen anlegen, damit die
+        // Aktion nicht ins Leere laeuft (User hat rechtsgeklickt und erwartet
+        // *irgendein* Ergebnis).
+        if (candidates.Count == 0)
+        {
+            OnSaveHostsAsFavoriteClick(sender, e);
+            return;
+        }
+
+        var dialog = new FavoritePickerDialog(
+            $"{hosts.Count} Host(s) zu welchem Favoriten hinzufügen?",
+            candidates);
+        var chosen = await dialog.ShowDialog<Models.HostFilter?>(owner);
+        if (chosen is null) return;
+
+        var before = chosen.ExplicitHosts.Count;
+        foreach (var h in hosts)
+        {
+            if (!chosen.ExplicitHosts.Any(x => string.Equals(x, h, System.StringComparison.OrdinalIgnoreCase)))
+                chosen.ExplicitHosts.Add(h);
+        }
+        var added = chosen.ExplicitHosts.Count - before;
+        vm.Filters.Update();
+        vm.StatusMessage = $"{added} Host(s) zu Favorit „{chosen.Name}“ hinzugefuegt.";
+    }
+
+    private List<string> GetTargetHostNames()
+    {
+        return GetTargetServices()
+            .Select(s => s.HostName)
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Distinct(System.StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private async void OnExportCsvClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not StatusViewModel vm) return;
