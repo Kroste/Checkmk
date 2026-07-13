@@ -245,62 +245,124 @@ internal sealed class Bootstrap
     /// </summary>
     public bool ShowHostCreation { get; set; }
 
-    private static string BootstrapFile => Path.Combine(
+    // App-Konfiguration wird zentral geteilt — im Idealfall ein Wert pro Feld,
+    // alle Cockpit-User profitieren. User-Secrets (settings.json, ssh-creds)
+    // liegen weiterhin pro Nutzer.
+    private const string CentralBootstrapPath =
+        @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\bootstrap.json";
+
+    private static string LocalBootstrapPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Kroste", "Checkmk", "bootstrap.json");
 
     public static Bootstrap LoadOrCreate()
     {
-        var path = BootstrapFile;
-        if (File.Exists(path))
+        // 1) Zentraler Pfad hat Vorrang.
+        if (TryLoad(CentralBootstrapPath, out var central))
         {
-            try
-            {
-                var json = File.ReadAllText(path);
-                var loaded = JsonSerializer.Deserialize<Bootstrap>(json);
-                if (loaded != null && !string.IsNullOrWhiteSpace(loaded.SharedSettingsPath))
-                {
-                    // Wer aus v1.0-v1.4 upgradet hat noch den Samba-Pfad drin.
-                    // Neuer Default ist lokal — Anmeldedaten gehoeren pro Nutzer.
-                    if (string.Equals(loaded.SharedSettingsPath,
-                            LegacySambaSettingsPath, StringComparison.OrdinalIgnoreCase))
-                    {
-                        loaded.SharedSettingsPath = DefaultLocalSettingsPath;
-                        try
-                        {
-                            File.WriteAllText(path, JsonSerializer.Serialize(loaded,
-                                new JsonSerializerOptions { WriteIndented = true }));
-                        }
-                        catch { /* Migration ist best-effort */ }
-                    }
-
-                    // Neue Property nachziehen, falls die Datei aus einer aelteren
-                    // Version stammt (JSON hatte das Feld gar nicht -> deserializer
-                    // liess es null bzw. leer).
-                    if (loaded.HostOsAttributeKeys is null || loaded.HostOsAttributeKeys.Count == 0)
-                        loaded.HostOsAttributeKeys = new Bootstrap().HostOsAttributeKeys;
-
-                    return loaded;
-                }
-            }
-            catch
-            {
-                // fall through to default
-            }
+            NormalizeAndPatchInPlace(central, CentralBootstrapPath);
+            return central;
         }
 
+        // 2) Sonst versuchen wir den lokalen Legacy-Pfad — und migrieren einmalig
+        //    nach zentral, damit alle User denselben Konfigstand haben.
+        if (TryLoad(LocalBootstrapPath, out var local))
+        {
+            NormalizeAndPatchInPlace(local, LocalBootstrapPath);
+            TryMigrateToCentral(local);
+            return local;
+        }
+
+        // 3) Nichts vorhanden -> Default schreiben (bevorzugt zentral, Fallback lokal).
         var b = new Bootstrap();
+        if (!TryWrite(CentralBootstrapPath, b))
+            TryWrite(LocalBootstrapPath, b);
+        return b;
+    }
+
+    private static bool TryLoad(string path, out Bootstrap result)
+    {
+        result = null!;
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path,
-                JsonSerializer.Serialize(b, new JsonSerializerOptions { WriteIndented = true }));
+            if (!File.Exists(path)) return false;
+            var json = File.ReadAllText(path);
+            var loaded = JsonSerializer.Deserialize<Bootstrap>(json);
+            if (loaded is null || string.IsNullOrWhiteSpace(loaded.SharedSettingsPath))
+                return false;
+            result = loaded;
+            return true;
         }
         catch
         {
-            // Wenn wir das Bootstrap-File nicht schreiben koennen, ist das nicht kritisch —
-            // der Default gilt trotzdem.
+            return false;
         }
-        return b;
+    }
+
+    private static void NormalizeAndPatchInPlace(Bootstrap loaded, string sourcePath)
+    {
+        var dirty = false;
+
+        // Wer aus v1.0-v1.4 upgradet hat noch den Samba-Pfad in SharedSettingsPath drin.
+        // Anmeldedaten gehoeren pro Nutzer — Default zurueck auf lokal.
+        if (string.Equals(loaded.SharedSettingsPath,
+                LegacySambaSettingsPath, StringComparison.OrdinalIgnoreCase))
+        {
+            loaded.SharedSettingsPath = DefaultLocalSettingsPath;
+            dirty = true;
+        }
+
+        // Neue Properties nachziehen, falls die Datei aus einer aelteren Version stammt
+        // (JSON hatte das Feld nicht -> Deserializer liess es null/leer).
+        if (loaded.HostOsAttributeKeys is null || loaded.HostOsAttributeKeys.Count == 0)
+        {
+            loaded.HostOsAttributeKeys = new Bootstrap().HostOsAttributeKeys;
+            dirty = true;
+        }
+
+        if (dirty)
+        {
+            try
+            {
+                File.WriteAllText(sourcePath, JsonSerializer.Serialize(loaded,
+                    new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { /* Best-effort */ }
+        }
+    }
+
+    private static void TryMigrateToCentral(Bootstrap b)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(CentralBootstrapPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            // Nur schreiben wenn zentral wirklich noch nicht existiert — sonst haben
+            // wir vielleicht gerade eine neuere zentrale Version ueberholt.
+            if (!File.Exists(CentralBootstrapPath))
+            {
+                File.WriteAllText(CentralBootstrapPath, JsonSerializer.Serialize(b,
+                    new JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
+        catch { /* Migration ist best-effort; lokale Datei bleibt Fallback */ }
+    }
+
+    private static bool TryWrite(string path, Bootstrap b)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            File.WriteAllText(path, JsonSerializer.Serialize(b,
+                new JsonSerializerOptions { WriteIndented = true }));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
