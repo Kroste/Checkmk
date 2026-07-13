@@ -6,12 +6,16 @@ namespace Checkmk.App.Services;
 
 /// <summary>
 /// Zentraler Live-State fuer Host-Filter — Singleton, den beide Tabs (Status + Konfig) beobachten.
-/// Aenderungen an <see cref="Active"/>, <see cref="Add"/>, <see cref="Remove"/>, <see cref="Update"/>
-/// persistieren automatisch in den <see cref="IHostFilterStore"/>.
+/// Filter sind **pro Site** organisiert: beim Site-Wechsel wird die Collection
+/// neu geladen. Aenderungen an <see cref="Active"/>, <see cref="Add"/>,
+/// <see cref="Remove"/>, <see cref="Update"/> persistieren automatisch in den
+/// <see cref="IHostFilterStore"/> unter der aktuellen Site.
 /// </summary>
 public sealed class HostFilterCollection : ObservableObject
 {
     private readonly IHostFilterStore _store;
+    private readonly IConnectionSettingsStore _settings;
+    private string _currentSite;
 
     public ObservableCollection<HostFilter> Filters { get; } = new();
 
@@ -26,20 +30,39 @@ public sealed class HostFilterCollection : ObservableObject
         }
     }
 
-    public HostFilterCollection(IHostFilterStore store)
+    public HostFilterCollection(IHostFilterStore store, IConnectionSettingsStore settings)
     {
         _store = store;
-        var s = _store.Load();
+        _settings = settings;
+        _currentSite = _settings.Load().Site;
+        LoadFiltersForCurrentSite();
+    }
+
+    private void LoadFiltersForCurrentSite()
+    {
+        var s = _store.Load(_currentSite);
+        Filters.Clear();
         foreach (var f in s.Filters)
         {
-            // Defensiv: eine mit der alten Apply()-Version geschriebene filter.json kann
-            // einen null-Eintrag enthalten. Ueberspringen -> Datei heilt beim naechsten Save.
+            // Defensiv: alte filter.json kann einen null-Eintrag enthalten.
             if (f is not null)
                 Filters.Add(f);
         }
         _active = string.IsNullOrEmpty(s.ActiveFilterName)
             ? null
             : Filters.FirstOrDefault(f => f.Name == s.ActiveFilterName);
+        OnPropertyChanged(nameof(Active));
+    }
+
+    /// <summary>Wechselt das Filter-Set auf die neue Site. Persistiert erst die aktuelle
+    /// Site, laedt dann die neue.</summary>
+    public void SwitchSite(string newSite)
+    {
+        if (string.Equals(_currentSite, newSite, StringComparison.OrdinalIgnoreCase))
+            return;
+        Persist();
+        _currentSite = newSite;
+        LoadFiltersForCurrentSite();
     }
 
     public void Add(HostFilter f)
@@ -61,7 +84,7 @@ public sealed class HostFilterCollection : ObservableObject
     public void Update() => Persist();
 
     private void Persist()
-        => _store.Save(new HostFilterState
+        => _store.Save(_currentSite, new HostFilterState
         {
             Filters = Filters.ToList(),
             ActiveFilterName = _active?.Name

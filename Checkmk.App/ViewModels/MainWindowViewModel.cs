@@ -147,6 +147,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase
                 return;
             }
             _clients.Configure(settings, secret);
+
+            // Filter-Set fuer die neue Site laden — vor dem Refresh, damit die
+            // Views sofort die richtigen Favoriten sehen.
+            Status.Filters.SwitchSite(newSite);
+
             var scheme = settings.UseHttps ? "https" : "http";
             ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
             StatusMessage = $"Site gewechselt auf {newSite} — lade Daten…";
