@@ -13,13 +13,20 @@ public sealed partial class StatusViewModel : ViewModelBase
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly ICheckmkClientProvider _clients;
+    private readonly IHostOsCache _osCache;
     private readonly DispatcherTimer _timer;
     private List<ServiceStatus> _allServices = [];
     private Dictionary<string, OsFamily> _osByHost = [];
 
-    /// <summary>OS-Familie fuer einen Host, sofern aus dem Check_MK-Agent-
-    /// Service-Output erkannt. Sonst Unknown.</summary>
-    public OsFamily OsFor(string host) => _osByHost.GetValueOrDefault(host, OsFamily.Unknown);
+    /// <summary>OS-Familie fuer einen Host. Bevorzugt das Custom-Attribute
+    /// aus <see cref="IHostOsCache"/> (z. B. "Operation System" vom Folder
+    /// vererbt); Fallback ist der Parse aus der Check_MK-Agent-Service-Ausgabe.</summary>
+    public OsFamily OsFor(string host)
+    {
+        var fromCache = _osCache.OsFor(host);
+        if (fromCache != OsFamily.Unknown) return fromCache;
+        return _osByHost.GetValueOrDefault(host, OsFamily.Unknown);
+    }
 
     public HostFilterCollection Filters { get; }
 
@@ -99,11 +106,12 @@ public sealed partial class StatusViewModel : ViewModelBase
     private bool _loadingState;
 
     public StatusViewModel(ICheckmkClientProvider clients, HostFilterCollection filters,
-        IStatusViewStateStore stateStore)
+        IStatusViewStateStore stateStore, IHostOsCache osCache)
     {
         _clients = clients;
         Filters = filters;
         _stateStore = stateStore;
+        _osCache = osCache;
 
         // Timer VOR dem State-Load anlegen — sonst greifen die generierten
         // Property-Setter fuer AutoRefresh/RefreshSeconds im OnAutoRefreshChanged/
@@ -453,7 +461,7 @@ public sealed partial class StatusViewModel : ViewModelBase
 
             HostTree.Add(new HostNodeViewModel(
                 group.Key,
-                _osByHost.GetValueOrDefault(group.Key, OsFamily.Unknown),
+                OsFor(group.Key),
                 children));
         }
     }

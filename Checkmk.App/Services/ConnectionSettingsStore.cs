@@ -224,6 +224,20 @@ internal sealed class Bootstrap
     public string UpdateChannelUrl { get; set; } = DefaultUpdateChannelUrl;
 
     /// <summary>
+    /// Interne Attribut-Keys, unter denen die OS-Familie im Host-Config-Dict
+    /// gesucht wird (Custom Host Attribute oder Host-Tag). Erster Treffer gewinnt.
+    /// Wenn dein Attribut anders heisst, hier den Key ergaenzen — die App logged
+    /// bei jedem Refresh die tatsaechlich gesehenen Keys unter Debug.
+    /// </summary>
+    public List<string> HostOsAttributeKeys { get; set; } =
+    [
+        "tag_operation_system",
+        "operation_system",
+        "operating_system",
+        "os_family"
+    ];
+
+    /// <summary>
     /// Blendet das „Host anlegen"-Formular im Konfig-Tab ein. Default false —
     /// bewusst versteckt, weil Setup-Handgriffe im Fachbereich zentral erfolgen und
     /// eine Fehlbedienung Config-Aenderungen produziert. Bei Bedarf per JSON auf true
@@ -259,6 +273,13 @@ internal sealed class Bootstrap
                         }
                         catch { /* Migration ist best-effort */ }
                     }
+
+                    // Neue Property nachziehen, falls die Datei aus einer aelteren
+                    // Version stammt (JSON hatte das Feld gar nicht -> deserializer
+                    // liess es null bzw. leer).
+                    if (loaded.HostOsAttributeKeys is null || loaded.HostOsAttributeKeys.Count == 0)
+                        loaded.HostOsAttributeKeys = new Bootstrap().HostOsAttributeKeys;
+
                     return loaded;
                 }
             }

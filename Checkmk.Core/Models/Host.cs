@@ -32,6 +32,14 @@ public sealed record HostAttributes
     /// <summary>Frei belegbare Labels (tag_* etc.).</summary>
     [JsonPropertyName("labels")]
     public Dictionary<string, string>? Labels { get; init; }
+
+    /// <summary>
+    /// Catch-all fuer nicht explizit gemappte Attribute — Host-Tag-Gruppen
+    /// (<c>tag_*</c>), Custom Host Attributes, etc. Nur befuellt, wenn die
+    /// Antwort mit <c>effective_attributes=true</c> geholt wurde.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? AdditionalProperties { get; init; }
 }
 
 /// <summary>

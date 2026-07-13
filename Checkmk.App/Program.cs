@@ -54,6 +54,7 @@ internal static class Program
         services.AddSingleton<IStatusViewStateStore, StatusViewStateStore>();
         services.AddSingleton<CheckmkWebLinker>();
         services.AddSingleton<IHostDomainStore, HostDomainStore>();
+        services.AddSingleton<IHostOsCache, HostOsCache>();
         services.AddSingleton<HostContext>();
         services.AddSingleton<ISshCredentialStore, SshCredentialStore>();
         services.AddSingleton<RemoteTools>();

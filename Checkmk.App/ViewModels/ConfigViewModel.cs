@@ -13,6 +13,7 @@ public sealed partial class ConfigViewModel : ViewModelBase
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly ICheckmkClientProvider _clients;
+    private readonly IHostOsCache _osCache;
     private List<CheckmkObject<HostConfigExtensions>> _allHosts = [];
 
     public HostFilterCollection Filters { get; }
@@ -38,10 +39,11 @@ public sealed partial class ConfigViewModel : ViewModelBase
     [ObservableProperty]
     private string _newHostAlias = "";
 
-    public ConfigViewModel(ICheckmkClientProvider clients, HostFilterCollection filters)
+    public ConfigViewModel(ICheckmkClientProvider clients, HostFilterCollection filters, IHostOsCache osCache)
     {
         _clients = clients;
         Filters = filters;
+        _osCache = osCache;
         Filters.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(HostFilterCollection.Active))
@@ -58,8 +60,11 @@ public sealed partial class ConfigViewModel : ViewModelBase
         try
         {
             IsBusy = true;
-            var hosts = await client.GetHostConfigsAsync();
+            // effective_attributes=true: sonst kommen vererbte Custom Attributes
+            // (z. B. "Operation System" auf Folder-Ebene gesetzt) nicht durch.
+            var hosts = await client.GetHostConfigsAsync(effectiveAttributes: true);
             _allHosts = hosts.OrderBy(h => h.Id).ToList();
+            _osCache.ApplyFromHostConfigs(_allHosts);
             ApplyFilter();
             StatusMessage = Filters.Active is { } f
                 ? $"{Hosts.Count} von {hosts.Count} Hosts (Filter: {f.Name})."
