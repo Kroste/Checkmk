@@ -42,14 +42,22 @@ public sealed class CheckmkClient
         _http = http;
         _http.BaseAddress = options.BaseUri;
         _http.Timeout = options.Timeout;
-        _http.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", $"{options.Username} {options.Secret}");
+        _http.DefaultRequestHeaders.Authorization = BuildAuthHeader(options);
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         // Secret niemals im Klartext loggen.
-        Log.Debug("CheckmkClient initialisiert fuer {BaseUri} (User={User}, Secret={Secret})",
-            options.BaseUri, options.Username, Mask(options.Secret));
+        Log.Debug("CheckmkClient initialisiert fuer {BaseUri} (User={User}, AuthMode={Mode}, Secret={Secret})",
+            options.BaseUri, options.Username, options.AuthMode, Mask(options.Secret));
     }
+
+    private static AuthenticationHeaderValue BuildAuthHeader(CheckmkOptions options) =>
+        options.AuthMode switch
+        {
+            CheckmkAuthMode.UserBasic => new AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(
+                    System.Text.Encoding.UTF8.GetBytes($"{options.Username}:{options.Secret}"))),
+            _ => new AuthenticationHeaderValue("Bearer", $"{options.Username} {options.Secret}")
+        };
 
     // ---------------------------------------------------------------------
     // Read: Version / Setup / Livestatus

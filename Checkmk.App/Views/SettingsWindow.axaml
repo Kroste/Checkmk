@@ -34,12 +34,25 @@
                      Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
         <StackPanel Spacing="3">
-          <TextBlock Text="Automation-User" />
-          <TextBox Text="{Binding Username}" PlaceholderText="automation" />
+          <TextBlock Text="Anmeldemethode" />
+          <StackPanel Orientation="Horizontal" Spacing="20">
+            <RadioButton GroupName="AuthMode" Content="Windows/LDAP (empfohlen)"
+                         IsChecked="{Binding IsUserBasic, Mode=TwoWay}" />
+            <RadioButton GroupName="AuthMode" Content="Automation-User (Legacy)"
+                         IsChecked="{Binding IsAutomationBearer, Mode=TwoWay}" />
+          </StackPanel>
         </StackPanel>
         <StackPanel Spacing="3">
-          <TextBlock Text="Automation-Secret" />
+          <TextBlock Text="{Binding UsernameLabel}" />
+          <TextBox Text="{Binding Username}" />
+          <TextBlock Text="{Binding UsernameHint}" Foreground="#707070"
+                     FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Spacing="3">
+          <TextBlock Text="{Binding SecretLabel}" />
           <TextBox Text="{Binding Secret}" PasswordChar="•" />
+          <TextBlock Text="{Binding SecretHint}" Foreground="#707070"
+                     FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="20">
           <CheckBox Content="HTTPS" IsChecked="{Binding UseHttps}" />

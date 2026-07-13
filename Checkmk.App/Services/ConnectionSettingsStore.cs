@@ -10,9 +10,17 @@ public sealed class ConnectionSettings
 {
     public string Host { get; set; } = "";
     public string Site { get; set; } = "";
-    public string Username { get; set; } = "automation";
+    public string Username { get; set; } = Environment.UserName;
     public bool UseHttps { get; set; } = true;
     public bool IgnoreCertificateErrors { get; set; }
+
+    /// <summary>
+    /// Windows-/LDAP-Anmeldung (Basic-Auth, empfohlen) vs. klassischer Automation-User
+    /// (Bearer). Default ist Bearer aus Backward-Compat mit bestehenden Installs
+    /// (deren settings.json das Feld nicht kennt). Bei User-Anmeldung zeigt der
+    /// Checkmk-Audit-Log den echten Namen bei Ack/Downtime.
+    /// </summary>
+    public CheckmkAuthMode AuthMode { get; set; } = CheckmkAuthMode.AutomationBearer;
 
     /// <summary>
     /// Zusätzliche Sites am selben Checkmk-Server (Host/User/Secret identisch,
@@ -70,7 +78,8 @@ public sealed class ConnectionSettings
         Username = Username,
         Secret = plainSecret,
         UseHttps = UseHttps,
-        IgnoreCertificateErrors = IgnoreCertificateErrors
+        IgnoreCertificateErrors = IgnoreCertificateErrors,
+        AuthMode = AuthMode
     };
 }
 

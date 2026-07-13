@@ -1,4 +1,5 @@
 using Checkmk.App.Services;
+using Checkmk.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLog;
@@ -14,7 +15,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty] private string _host = "";
     [ObservableProperty] private string _site = "";
-    [ObservableProperty] private string _username = "automation";
+    [ObservableProperty] private string _username = "";
     [ObservableProperty] private string _secret = "";
     [ObservableProperty] private bool _useHttps = true;
     [ObservableProperty] private bool _ignoreCertificateErrors;
@@ -23,6 +24,37 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     /// <summary>Weitere Sites am selben Server (kommasepariert) — z. B. "LHP-Prod, Schul_IT".</summary>
     [ObservableProperty] private string _knownSitesCsv = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsUserBasic))]
+    [NotifyPropertyChangedFor(nameof(IsAutomationBearer))]
+    [NotifyPropertyChangedFor(nameof(UsernameLabel))]
+    [NotifyPropertyChangedFor(nameof(SecretLabel))]
+    [NotifyPropertyChangedFor(nameof(UsernameHint))]
+    [NotifyPropertyChangedFor(nameof(SecretHint))]
+    private CheckmkAuthMode _authMode;
+
+    /// <summary>Two-way-bindable Convenience fuer die RadioButtons.</summary>
+    public bool IsUserBasic
+    {
+        get => AuthMode == CheckmkAuthMode.UserBasic;
+        set { if (value) AuthMode = CheckmkAuthMode.UserBasic; }
+    }
+
+    public bool IsAutomationBearer
+    {
+        get => AuthMode == CheckmkAuthMode.AutomationBearer;
+        set { if (value) AuthMode = CheckmkAuthMode.AutomationBearer; }
+    }
+
+    public string UsernameLabel => IsUserBasic ? "Windows-/LDAP-Anmeldename" : "Automation-User";
+    public string SecretLabel => IsUserBasic ? "Windows-Passwort (LDAP)" : "Automation-Secret";
+    public string UsernameHint => IsUserBasic
+        ? $"Default: dein Windows-User ({Environment.UserName}). Damit taucht dein Name in Checkmks Audit-Log auf."
+        : "Dedizierter Automation-User (nicht personengebunden).";
+    public string SecretHint => IsUserBasic
+        ? "Dein AD-Passwort (nicht das GUI-Passwort eines Automation-Users). Wird DPAPI-verschlüsselt lokal gespeichert."
+        : "Automation-Secret aus der User-Verwaltung in Checkmk — nicht das GUI-Passwort.";
 
     public string StorageLocationLabel { get; }
 
@@ -39,7 +71,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
         var s = _store.Load();
         Host = s.Host;
         Site = s.Site;
-        Username = s.Username;
+        AuthMode = s.AuthMode;
+        // Bei erstmaliger Einrichtung (kein User gespeichert) Windows-User vorbelegen.
+        Username = string.IsNullOrWhiteSpace(s.Username) ? Environment.UserName : s.Username;
         UseHttps = s.UseHttps;
         IgnoreCertificateErrors = s.IgnoreCertificateErrors;
         Secret = _store.LoadSecret(s) ?? "";
@@ -91,6 +125,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Host = Host.Trim(),
         Site = Site.Trim(),
         Username = Username.Trim(),
+        AuthMode = AuthMode,
         UseHttps = UseHttps,
         IgnoreCertificateErrors = IgnoreCertificateErrors,
         AgentShare = AgentShare.Trim(),

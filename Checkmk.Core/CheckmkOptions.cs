@@ -1,10 +1,29 @@
 namespace Checkmk.Core;
 
 /// <summary>
+/// Wie der Cockpit sich gegen die REST-API authentifiziert.
+/// </summary>
+public enum CheckmkAuthMode
+{
+    /// <summary>Klassisches Checkmk-Bearer-Format "Bearer {user} {secret}" — braucht
+    /// einen dedizierten Automation-User mit Automation-Secret (nicht das GUI-Passwort).
+    /// Der Audit-Log zeigt den Automation-User als Actor.</summary>
+    AutomationBearer,
+
+    /// <summary>HTTP-Basic-Auth mit Windows-/LDAP-Anmeldename und -Passwort. Jeder
+    /// Nutzer meldet sich mit seinem echten Account an — Ack/Downtime im Audit-Log
+    /// zeigen den tatsaechlichen Namen. Voraussetzung: der User darf REST-API
+    /// benutzen (Checkmk Setup -> Users -> "REST API access").</summary>
+    UserBasic
+}
+
+/// <summary>
 /// Verbindungs- und Authentifizierungsparameter fuer eine Checkmk-Site.
 /// </summary>
 public sealed class CheckmkOptions
 {
+    public CheckmkAuthMode AuthMode { get; set; } = CheckmkAuthMode.AutomationBearer;
+
     /// <summary>Hostname oder IP des Checkmk-Servers, z. B. "monitoring.lhp.intern".</summary>
     public required string Host { get; set; }
 
