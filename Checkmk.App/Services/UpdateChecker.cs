@@ -51,14 +51,32 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
 
     public async Task<UpdateInfo?> CheckAsync(CancellationToken ct = default)
     {
-        var currentAsm = Assembly.GetExecutingAssembly().GetName().Version;
-        if (currentAsm is null)
+        // MinVer setzt AssemblyVersion default nur auf Major.0.0.0 (z. B. 1.0.0.0
+        // fuer Tag v1.4.0). Vergleich damit meldet immer ein Update. Deshalb den
+        // InformationalVersion-Attribut nehmen — den setzt MinVer auf die
+        // vollstaendige SemVer inkl. Metadaten (z. B. "1.4.0+abcdef").
+        var informational = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        Version? current = null;
+        if (!string.IsNullOrWhiteSpace(informational) &&
+            SemVerTag.TryParse(informational, out var infoVer))
         {
-            Log.Debug("Keine Assembly-Version — Update-Check uebersprungen.");
+            current = infoVer;
+        }
+        else
+        {
+            var currentAsm = Assembly.GetExecutingAssembly().GetName().Version;
+            if (currentAsm is not null)
+            {
+                current = new Version(currentAsm.Major, currentAsm.Minor,
+                    Math.Max(0, currentAsm.Build), Math.Max(0, currentAsm.Revision));
+            }
+        }
+        if (current is null)
+        {
+            Log.Debug("Keine App-Version ermittelt — Update-Check uebersprungen.");
             return null;
         }
-        var current = new Version(currentAsm.Major, currentAsm.Minor,
-            Math.Max(0, currentAsm.Build), Math.Max(0, currentAsm.Revision));
 
         GitHubRelease? release;
         try
@@ -79,11 +97,11 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
             return null;
         }
 
-        if (latest <= current)
+        if (Normalize(latest) <= Normalize(current))
             return null;
 
         var skipped = _prefs.LoadSkippedVersion();
-        if (skipped is not null && skipped >= latest)
+        if (skipped is not null && Normalize(skipped) >= Normalize(latest))
         {
             Log.Debug("Neuere Version {Latest} verfuegbar, aber vom User uebersprungen.", latest);
             return null;
@@ -102,6 +120,12 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
             ReleasePageUrl: release.HtmlUrl ?? "",
             WindowsZipUrl: zip);
     }
+
+    // Version.CompareTo unterscheidet zwischen "1.4.0" (Revision=-1) und "1.4.0.0"
+    // (Revision=0). Beide auf 4 Segmente normalisieren, damit der Vergleich zaehlt,
+    // was der User sieht (Major.Minor.Patch).
+    private static Version Normalize(Version v) =>
+        new(v.Major, v.Minor, Math.Max(0, v.Build), Math.Max(0, v.Revision));
 
     // ---- GitHub API DTOs ----
     private sealed record GitHubRelease(
