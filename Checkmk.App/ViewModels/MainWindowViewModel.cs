@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using Checkmk.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,7 +22,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     public ConfigViewModel Config { get; }
     public DashboardViewModel Dashboard { get; }
 
-    public ObservableCollection<string> KnownSites { get; } = [];
+    // Kein ObservableCollection + Clear/Add, weil Avalonias ComboBox unter
+    // TwoWay-SelectedItem-Binding beim Zwischenzustand "Collection ist leer"
+    // die Selection fallen laesst und den Refresh danach nicht sauber re-synced.
+    // Stattdessen ersetzen wir die Liste als ganzes — ItemsSource re-bindet.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSiteSwitcherVisible))]
+    private IReadOnlyList<string> _knownSites = [];
 
     [ObservableProperty]
     private string? _activeSite;
@@ -108,18 +113,23 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _suppressSiteSwitch = true;
         try
         {
-            KnownSites.Clear();
-            foreach (var s in settings.KnownSites.Where(s => !string.IsNullOrWhiteSpace(s)))
-                KnownSites.Add(s);
-            // Stelle sicher, dass die aktuelle Site in der Liste ist — sonst wird sie
-            // in der ComboBox als "kein Item gewaehlt" angezeigt.
+            var list = settings.KnownSites
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .ToList();
+
+            // Stelle sicher, dass die aktuelle Site in der Liste ist — sonst hat die
+            // ComboBox kein selected item. Vergleich case-insensitive, damit "LHP" und
+            // "lhp" nicht doppelt erscheinen.
             if (!string.IsNullOrWhiteSpace(settings.Site) &&
-                !KnownSites.Any(s => string.Equals(s, settings.Site, StringComparison.Ordinal)))
+                !list.Any(s => string.Equals(s, settings.Site, StringComparison.OrdinalIgnoreCase)))
             {
-                KnownSites.Insert(0, settings.Site);
+                list.Insert(0, settings.Site);
             }
+
+            // Reihenfolge wichtig: erst die Liste ersetzen (ItemsSource re-bindet),
+            // dann ActiveSite setzen (SelectedItem findet ein passendes Item).
+            KnownSites = list;
             ActiveSite = settings.Site;
-            OnPropertyChanged(nameof(IsSiteSwitcherVisible));
         }
         finally { _suppressSiteSwitch = false; }
     }
