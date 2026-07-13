@@ -37,26 +37,30 @@ public sealed class HostFilterStore : IHostFilterStore
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
     private readonly string _path;
-    private HostFilterDoc _doc;
+    private readonly IConnectionSettingsStore _settings;
 
     public string FilePath => _path;
 
     public HostFilterStore(IConnectionSettingsStore settings)
     {
+        _settings = settings;
         var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Kroste", "Checkmk");
         Directory.CreateDirectory(dir);
         _path = Path.Combine(dir, "filter.json");
-
-        _doc = LoadOrMigrate(settings.Load().Site);
     }
 
     public HostFilterState Load(string site)
     {
         if (string.IsNullOrWhiteSpace(site))
             return new HostFilterState();
-        return _doc.Sites.TryGetValue(site, out var state) ? state : new HostFilterState();
+
+        // Immer frisch von disk lesen — kein In-Memory-Cache. Verhindert, dass eine
+        // waehrend der Session veraltete _doc-Instanz beim naechsten Site-Wechsel
+        // andere Sites "verliert".
+        var doc = ReadDocFromDisk();
+        return doc.Sites.TryGetValue(site, out var state) ? state : new HostFilterState();
     }
 
     public void Save(string site, HostFilterState state)
@@ -67,11 +71,17 @@ public sealed class HostFilterStore : IHostFilterStore
             return;
         }
 
-        _doc.Sites[site] = state;
+        // Read-Modify-Write: die aktuelle Datei laden, nur den Site-Eintrag ersetzen,
+        // zurueckschreiben. So bleiben Site-Eintraege, die dieser Prozess in dieser
+        // Session gar nicht geladen hat, garantiert erhalten.
+        var doc = ReadDocFromDisk();
+        doc.Sites[site] = state;
 
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(_doc, JsonOpts));
+            File.WriteAllText(_path, JsonSerializer.Serialize(doc, JsonOpts));
+            Log.Debug("Filter-Save {Site}: {Count} Filter, Sites in Datei: [{All}]",
+                site, state.Filters.Count, string.Join(", ", doc.Sites.Keys));
         }
         catch (Exception ex)
         {
@@ -79,31 +89,33 @@ public sealed class HostFilterStore : IHostFilterStore
         }
     }
 
-    /// <summary>
-    /// Liest die Datei; migriert eine altformatige filter.json ({Filters,ActiveFilterName}
-    /// auf top-level) auf das neue Format {Sites: {siteName: {Filters,ActiveFilterName}}}.
-    /// </summary>
-    private HostFilterDoc LoadOrMigrate(string currentSite)
+    private HostFilterDoc ReadDocFromDisk()
     {
         if (!File.Exists(_path))
-            return new HostFilterDoc();
+            return NewDoc();
 
         try
         {
             var raw = File.ReadAllText(_path);
-            using var doc = JsonDocument.Parse(raw);
-            var root = doc.RootElement;
+            using var jsonDoc = JsonDocument.Parse(raw);
+            var root = jsonDoc.RootElement;
 
             // Neues Format erkennt man am "Sites"-Objekt.
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("Sites", out _))
             {
-                return JsonSerializer.Deserialize<HostFilterDoc>(raw) ?? new HostFilterDoc();
+                var deserialized = JsonSerializer.Deserialize<HostFilterDoc>(raw) ?? NewDoc();
+                // Der Deserializer wirft den case-insensitive Comparer der Property weg;
+                // wir bauen das Dict neu, damit "LHP" == "lhp" beim TryGetValue matcht.
+                deserialized.Sites = new Dictionary<string, HostFilterState>(
+                    deserialized.Sites, StringComparer.OrdinalIgnoreCase);
+                return deserialized;
             }
 
             // Altformat: die Datei ist selbst der HostFilterState. Als Filter der aktuellen
-            // Site interpretieren und beim naechsten Save ins neue Format ueberfuehren.
+            // Site interpretieren.
             var legacy = JsonSerializer.Deserialize<HostFilterState>(raw) ?? new HostFilterState();
-            var migrated = new HostFilterDoc();
+            var currentSite = _settings.Load().Site;
+            var migrated = NewDoc();
             if (!string.IsNullOrWhiteSpace(currentSite))
             {
                 migrated.Sites[currentSite] = legacy;
@@ -118,7 +130,12 @@ public sealed class HostFilterStore : IHostFilterStore
         catch (Exception ex)
         {
             Log.Warn(ex, "Host-Filter konnten nicht geladen werden — nutze leere Liste.");
-            return new HostFilterDoc();
+            return NewDoc();
         }
     }
+
+    private static HostFilterDoc NewDoc() => new()
+    {
+        Sites = new Dictionary<string, HostFilterState>(StringComparer.OrdinalIgnoreCase)
+    };
 }
