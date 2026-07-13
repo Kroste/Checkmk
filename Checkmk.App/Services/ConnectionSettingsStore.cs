@@ -76,11 +76,11 @@ public interface IConnectionSettingsStore
 }
 
 /// <summary>
-/// Speichert die Verbindungskonfiguration zentral auf einem Fileshare — Default
-/// <c>\\Samba01\542$\Checkmk\settings.json</c>, ueberschreibbar via
-/// <c>%APPDATA%\Kroste\Checkmk\bootstrap.json</c>. Verschluesselung mit dem
-/// <see cref="SharedAesProtector"/>, damit mehrere Windows-Clients dieselbe
-/// Datei entschluesseln koennen.
+/// Speichert die Verbindungskonfiguration user-lokal unter
+/// <c>%APPDATA%\Kroste\Checkmk\settings.json</c> — verschluesselt mit
+/// <see cref="WindowsDpapiProtector"/> (CurrentUser-Scope). Pfad ist per
+/// <c>bootstrap.json</c> ueberschreibbar. Frueher zentral auf dem Samba-
+/// Share; zurueckverlegt weil die Verbindungsdaten pro Nutzer gehoeren.
 /// </summary>
 public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 {
@@ -169,13 +169,22 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 /// </summary>
 internal sealed class Bootstrap
 {
-    private const string DefaultWindowsSharedPath = @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\settings.json";
+    private static readonly string DefaultLocalSettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Kroste", "Checkmk", "settings.json");
+
+    // Alter Default aus v1.0-v1.4 — wenn der noch in bootstrap.json steht, migrieren
+    // wir bei LoadOrCreate() automatisch auf den neuen lokalen Default.
+    private const string LegacySambaSettingsPath =
+        @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\settings.json";
+
     private const string DefaultSharedHostsPath = @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\hosts.json";
     private const string DefaultUpdateChannelUrl =
         "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
     private const string DefaultDomain = "lhp.intern";
 
-    public string SharedSettingsPath { get; set; } = DefaultWindowsSharedPath;
+    /// <summary>Pfad zur Verbindungsdatei. Default ist user-lokal (%APPDATA%).</summary>
+    public string SharedSettingsPath { get; set; } = DefaultLocalSettingsPath;
 
     /// <summary>Zentrale, unverschluesselte Host-Metadaten-Datei (Domain je Host, spaeter
     /// evtl. weitere Notizen). Alle Cockpit-Nutzer teilen dieselbe Zuordnung.</summary>
@@ -209,7 +218,22 @@ internal sealed class Bootstrap
                 var json = File.ReadAllText(path);
                 var loaded = JsonSerializer.Deserialize<Bootstrap>(json);
                 if (loaded != null && !string.IsNullOrWhiteSpace(loaded.SharedSettingsPath))
+                {
+                    // Wer aus v1.0-v1.4 upgradet hat noch den Samba-Pfad drin.
+                    // Neuer Default ist lokal — Anmeldedaten gehoeren pro Nutzer.
+                    if (string.Equals(loaded.SharedSettingsPath,
+                            LegacySambaSettingsPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        loaded.SharedSettingsPath = DefaultLocalSettingsPath;
+                        try
+                        {
+                            File.WriteAllText(path, JsonSerializer.Serialize(loaded,
+                                new JsonSerializerOptions { WriteIndented = true }));
+                        }
+                        catch { /* Migration ist best-effort */ }
+                    }
                     return loaded;
+                }
             }
             catch
             {
