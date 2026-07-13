@@ -27,6 +27,13 @@
           <TextBox Text="{Binding Site}" PlaceholderText="prod" />
         </StackPanel>
         <StackPanel Spacing="3">
+          <TextBlock Text="Bekannte Sites am selben Server (kommasepariert, für Umschalter)" />
+          <TextBox Text="{Binding KnownSitesCsv}"
+                   PlaceholderText="LHP-Prod, Schul_IT" />
+          <TextBlock Text="Leer lassen, wenn nur eine Site. Sonst erscheint oben rechts ein Site-Umschalter."
+                     Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Spacing="3">
           <TextBlock Text="Automation-User" />
           <TextBox Text="{Binding Username}" PlaceholderText="automation" />
         </StackPanel>

@@ -25,6 +25,14 @@
           </StackPanel>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                        Margin="0,0,12,0" IsVisible="{Binding IsSiteSwitcherVisible}">
+              <TextBlock Text="Site:" Foreground="#AAAAAA" VerticalAlignment="Center" />
+              <ComboBox ItemsSource="{Binding KnownSites}"
+                        SelectedItem="{Binding ActiveSite, Mode=TwoWay}"
+                        MinWidth="140" VerticalAlignment="Center"
+                        ToolTip.Tip="Zwischen bekannten Sites am gleichen Server umschalten (Host/User/Secret bleiben)." />
+            </StackPanel>
             <Button Content="Einstellungen" Command="{Binding OpenSettingsCommand}"
                     Background="Transparent" Padding="12,0" />
             <Button Content="Über" Command="{Binding OpenAboutCommand}"

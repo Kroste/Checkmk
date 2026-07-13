@@ -21,6 +21,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _agentShare = "";
     [ObservableProperty] private string _agentUpdateScript = "";
 
+    /// <summary>Weitere Sites am selben Server (kommasepariert) — z. B. "LHP-Prod, Schul_IT".</summary>
+    [ObservableProperty] private string _knownSitesCsv = "";
+
     public string StorageLocationLabel { get; }
 
     /// <summary>Wird true, sobald erfolgreich gespeichert wurde (Fenster kann schliessen).</summary>
@@ -42,6 +45,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Secret = _store.LoadSecret(s) ?? "";
         AgentShare = s.AgentShare;
         AgentUpdateScript = s.AgentUpdateScript;
+        KnownSitesCsv = string.Join(", ", s.KnownSites);
 
         var isShared = _store.SettingsFilePath.StartsWith(@"\\", StringComparison.Ordinal);
         StorageLocationLabel = isShared
@@ -90,6 +94,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
         UseHttps = UseHttps,
         IgnoreCertificateErrors = IgnoreCertificateErrors,
         AgentShare = AgentShare.Trim(),
-        AgentUpdateScript = AgentUpdateScript
+        AgentUpdateScript = AgentUpdateScript,
+        KnownSites = ParseSitesCsv(KnownSitesCsv)
     };
+
+    private static List<string> ParseSitesCsv(string csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return [];
+        return csv.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
 }

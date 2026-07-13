@@ -14,6 +14,14 @@ public sealed class ConnectionSettings
     public bool UseHttps { get; set; } = true;
     public bool IgnoreCertificateErrors { get; set; }
 
+    /// <summary>
+    /// Zusätzliche Sites am selben Checkmk-Server (Host/User/Secret identisch,
+    /// nur die Site wechselt). Enthält typischerweise auch die aktuelle
+    /// <see cref="Site"/> — wenn nicht, wird sie beim Laden ergänzt. Leer =
+    /// kein Umschalter im UI.
+    /// </summary>
+    public List<string> KnownSites { get; set; } = [];
+
     /// <summary>Plattformspezifisch verschluesseltes Secret (Base64). Nie im Klartext im JSON.</summary>
     public string? ProtectedSecret { get; set; }
 
@@ -73,6 +81,9 @@ public interface IConnectionSettingsStore
     void Save(ConnectionSettings settings, string plainSecret);
     bool IsConfigured(ConnectionSettings settings);
     string SettingsFilePath { get; }
+
+    /// <summary>Wechselt nur die aktive Site (Site-Umschalter). Secret bleibt unangetastet.</summary>
+    void UpdateActiveSite(string newSite);
 }
 
 /// <summary>
@@ -157,6 +168,22 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
            && !string.IsNullOrWhiteSpace(s.Site)
            && !string.IsNullOrWhiteSpace(s.Username)
            && !string.IsNullOrEmpty(s.ProtectedSecret);
+
+    public void UpdateActiveSite(string newSite)
+    {
+        if (string.IsNullOrWhiteSpace(newSite)) return;
+        var settings = Load();
+        if (string.Equals(settings.Site, newSite, StringComparison.Ordinal)) return;
+
+        settings.Site = newSite;
+        // ProtectedSecret bleibt drin — wir serialisieren das Settings-Objekt direkt,
+        // *ohne* Save() zu benutzen (das erwartet plainSecret und wuerde die Verschluesselung
+        // rotieren).
+        var json = JsonSerializer.Serialize(settings,
+            new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(_path, json);
+        Log.Info("Site auf '{Site}' umgeschaltet.", newSite);
+    }
 
     private static string ResolvePath() => Bootstrap.LoadOrCreate().SharedSettingsPath;
 }

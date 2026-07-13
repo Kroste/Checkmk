@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Checkmk.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,9 +15,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     private readonly IUpdateChecker _updateChecker;
     private readonly IUpdatePreferences _updatePrefs;
 
+    // Verhindert, dass der Site-Setter waehrend Initialize/Reconnect einen echten
+    // Switch triggert — wir wollen nur bei User-Auswahl reagieren.
+    private bool _suppressSiteSwitch;
+
     public StatusViewModel Status { get; }
     public ConfigViewModel Config { get; }
     public DashboardViewModel Dashboard { get; }
+
+    public ObservableCollection<string> KnownSites { get; } = [];
+
+    [ObservableProperty]
+    private string? _activeSite;
+
+    public bool IsSiteSwitcherVisible => KnownSites.Count > 1;
 
     [ObservableProperty]
     private string _connectionInfo = "Nicht verbunden";
@@ -32,6 +44,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase
 
     partial void OnAvailableUpdateChanged(UpdateInfo? value)
         => OnPropertyChanged(nameof(HasUpdate));
+
+    partial void OnActiveSiteChanged(string? oldValue, string? newValue)
+    {
+        if (_suppressSiteSwitch) return;
+        if (string.IsNullOrWhiteSpace(newValue)) return;
+        if (string.Equals(oldValue, newValue, StringComparison.Ordinal)) return;
+        _ = SwitchSiteAsync(newValue);
+    }
 
     /// <summary>Wird ausgeloest, wenn der Nutzer die Einstellungen oeffnen will.</summary>
     public event EventHandler? OpenSettingsRequested;
@@ -62,6 +82,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         var settings = _store.Load();
         var secret = _store.LoadSecret(settings);
 
+        RefreshKnownSitesFrom(settings);
+
         if (_store.IsConfigured(settings) && secret is not null)
         {
             _clients.Configure(settings, secret);
@@ -79,6 +101,54 @@ public sealed partial class MainWindowViewModel : ViewModelBase
 
         // Update-Check laeuft im Hintergrund, blockiert das UI nicht.
         _ = CheckForUpdatesAsync();
+    }
+
+    private void RefreshKnownSitesFrom(ConnectionSettings settings)
+    {
+        _suppressSiteSwitch = true;
+        try
+        {
+            KnownSites.Clear();
+            foreach (var s in settings.KnownSites.Where(s => !string.IsNullOrWhiteSpace(s)))
+                KnownSites.Add(s);
+            // Stelle sicher, dass die aktuelle Site in der Liste ist — sonst wird sie
+            // in der ComboBox als "kein Item gewaehlt" angezeigt.
+            if (!string.IsNullOrWhiteSpace(settings.Site) &&
+                !KnownSites.Any(s => string.Equals(s, settings.Site, StringComparison.Ordinal)))
+            {
+                KnownSites.Insert(0, settings.Site);
+            }
+            ActiveSite = settings.Site;
+            OnPropertyChanged(nameof(IsSiteSwitcherVisible));
+        }
+        finally { _suppressSiteSwitch = false; }
+    }
+
+    private async Task SwitchSiteAsync(string newSite)
+    {
+        try
+        {
+            _store.UpdateActiveSite(newSite);
+            var settings = _store.Load();
+            var secret = _store.LoadSecret(settings);
+            if (secret is null)
+            {
+                StatusMessage = "Site-Wechsel fehlgeschlagen — kein Secret verfuegbar.";
+                return;
+            }
+            _clients.Configure(settings, secret);
+            var scheme = settings.UseHttps ? "https" : "http";
+            ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
+            StatusMessage = $"Site gewechselt auf {newSite} — lade Daten…";
+            await Status.RefreshCommand.ExecuteAsync(null);
+            await Config.RefreshHostsCommand.ExecuteAsync(null);
+            await Dashboard.RefreshCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Site-Wechsel auf {Site} fehlgeschlagen.", newSite);
+            StatusMessage = $"Site-Wechsel fehlgeschlagen: {ex.Message}";
+        }
     }
 
     private async Task CheckForUpdatesAsync()
@@ -119,6 +189,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     public async Task ReconnectAsync()
     {
         var settings = _store.Load();
+        RefreshKnownSitesFrom(settings);
+
         if (_clients.IsReady)
         {
             var scheme = settings.UseHttps ? "https" : "http";
