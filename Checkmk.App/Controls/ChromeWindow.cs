@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace Checkmk.App.Controls;
 
@@ -23,6 +26,12 @@ public class ChromeWindow : Window
 
     protected void OnTitleBarPressed(object? sender, PointerPressedEventArgs e)
     {
+        // Wenn der Klick auf einem interaktiven Control landete (Button, ComboBox,
+        // TextBox, ...), ueberlassen wir es dem. Sonst wuerde der Drag den ersten
+        // Klick schlucken und die ComboBox brauchte einen zweiten zum Aufklappen.
+        if (e.Source is Visual v && IsInteractiveDescendant(v))
+            return;
+
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             if (e.ClickCount == 2)
@@ -30,6 +39,17 @@ public class ChromeWindow : Window
             else
                 BeginMoveDrag(e);
         }
+    }
+
+    private static bool IsInteractiveDescendant(Visual source)
+    {
+        for (var v = source; v is not null; v = v.GetVisualParent())
+        {
+            if (v is Window) return false;
+            if (v is Button or ComboBox or TextBox or CheckBox or RadioButton or ToggleButton)
+                return true;
+        }
+        return false;
     }
 
     protected void OnMinimizeClick(object? sender, RoutedEventArgs e)
