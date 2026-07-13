@@ -136,17 +136,15 @@ werden direkt instanziiert, nicht über DI.
   unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json`.
   Anwendung ist rein clientside (bei ≤ ein paar tausend Hosts problemlos);
   Livestatus-Query-serverside kann später kommen, wenn nötig.
-- **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt via
-  `ISecretProtector` (`SecretProtector.cs`). Ablage zentral auf
-  `\\Samba01\542$\Checkmk\settings.json` (Fachbereich 5424 IT-Basis-Dienste). Mehrere
-  Clients teilen dieselbe Datei → Verschlüsselung mit `SharedAesProtector` (AES-GCM,
-  Schlüssel via PBKDF2 aus im Binary hinterlegter Passphrase). Der Pfad ist per
-  `%APPDATA%\Kroste\Checkmk\bootstrap.json` (`SharedSettingsPath`) überschreibbar —
-  beim ersten Start wird der Default reingeschrieben, danach von Hand editierbar.
-  Bewusst kein UI dafür. Sicherheitsgrenze: schützt vor Zufallseinsicht auf dem
-  Share (Klartext-Vermeidung), **nicht** vor einem Angreifer mit App-Binary — der
-  Key ist im Binary abgeleitet. Für echte Multi-User-Isolation: DPAPI-NG mit
-  AD-Gruppen-SID (Roadmap).
+- **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt
+  via `WindowsDpapiProtector` (DPAPI-CurrentUser). Ablage user-lokal unter
+  `%APPDATA%\Kroste\Checkmk\settings.json`. Zusätzlich `KnownSites: [...]` als
+  Grundlage für den Site-Umschalter in der Titelleiste (z. B. `LHP-Prod` ⇄
+  `Schul_IT` am selben Server — Host/User/Secret bleiben). Der Pfad ist per
+  `bootstrap.json` (`SharedSettingsPath`) überschreibbar; alter Samba-Default aus
+  v1.0-v1.4 wird beim nächsten Start automatisch auf den lokalen Default
+  migriert. `hosts.json` (Domain-Zuordnung) bleibt zentral auf Samba01 —
+  Metadaten, keine Secrets.
 
 ## 5 · Checkmk-REST-API — nicht-offensichtliche Regeln
 
@@ -231,14 +229,19 @@ den Commit-Log an.
 17. **Autoupdater Phase 2**: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
     atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
     GitHub auf einen internen Fileshare umgestellt wird.
-18. **DPAPI-NG mit AD-Gruppen-SID** für die Windows-Shared-Verbindung — löst das „AES-Key im
-    Binary"-Trade-off ab, sobald AD-Gruppe steht.
-19. **Zweite Checkmk-Instanz (Schulen)**: Fachbereich betreibt zusätzlich einen zweiten
-    Checkmk-Server (u. a. für Schulen). Wahrscheinlich nur eine andere Site am gleichen
-    Host — muss verifiziert werden. Ansatz: mehrere benannte **Verbindungsprofile** in
-    `settings.json` statt einer harten Verbindung, plus Umschalter in der Toolbar
-    („Profil: Produktion" ⇄ „Profil: Schulen"). Persistenz analog zur bestehenden
-    Struktur.
+18. **DPAPI-NG mit AD-Gruppen-SID** — obsolet, seit die Verbindung wieder user-lokal
+    liegt (DPAPI-CurrentUser reicht). Nur relevant, falls wir irgendwann doch wieder
+    einen geteilten Store brauchen.
+19. ✅ **Zweite Checkmk-Instanz (Schulen)** — verifiziert: gleicher Server, nur
+    andere Site (`Schul_IT`). Umgesetzt als leichter Site-Umschalter in der Titelleiste
+    (`ConnectionSettings.KnownSites` + `UpdateActiveSite`), statt vollem Profil-Manager.
+    Volle benannte Verbindungsprofile bleiben offen für den Fall dass es doch ein
+    zweiter Server wird.
+20. **Verbindungsdaten wieder user-lokal** (fertig): Nach kurzem Fileshare-Experiment
+    (SharedAes) zurück nach `%APPDATA%\Kroste\Checkmk\settings.json` (DPAPI-CurrentUser).
+    Anmeldedaten gehören pro Nutzer; der SharedAes-Trick war nur Zufalls-Einsichts-Schutz,
+    kein echter Zugriffsschutz. `hosts.json` (Domain-Zuordnung) bleibt zentral —
+    das sind Metadaten, keine Secrets.
 
 ## 9 · Deal
 
