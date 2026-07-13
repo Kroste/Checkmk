@@ -224,8 +224,13 @@ den Commit-Log an.
 15. ✅ **Kommentare löschen** — `DeleteCommentAsync` mit Dual-Fallback:
     `POST /domain-types/comment/actions/delete/invoke` (`delete_type: "by_id"`) und bei
     404/405 `DELETE /objects/comment/{id}`. Roter ✕-Button an jedem Kommentar im Host-Detail.
-16. **OS-Version** aus der Checkmk-HW/SW-Inventur (`os_version`) statt nur Familie
-    aus dem Agent-Output — braucht einen weiteren Endpunkt-Aufruf.
+16. ✅ **OS-Familie aus Custom Host Attribute** statt Agent-PluginOutput-Parse. Der
+    HW/SW-Inventur-Weg wurde als Umweg verworfen — verlässlicher ist das Custom
+    Attribute (z. B. „Operation System"), das auf Folder-Ebene gesetzt und vererbt
+    wird. Umsetzung: `HostAttributes.AdditionalProperties` als Catch-All,
+    `Bootstrap.HostOsAttributeKeys` als Kandidatenliste, `IHostOsCache` als
+    prozessweiter Cache. StatusViewModel.OsFor bevorzugt Cache, fällt auf
+    OsDetection zurück. Vollständige OS-Version (2022, RHEL 9 usw.) bleibt offen.
 17. **Autoupdater Phase 2**: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
     atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
     GitHub auf einen internen Fileshare umgestellt wird.
