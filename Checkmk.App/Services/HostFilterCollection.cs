@@ -16,6 +16,7 @@ public sealed class HostFilterCollection : ObservableObject
     private readonly IHostFilterStore _store;
     private readonly IConnectionSettingsStore _settings;
     private string _currentSite;
+    private bool _suppressPersist;
 
     public ObservableCollection<HostFilter> Filters { get; } = new();
 
@@ -25,7 +26,10 @@ public sealed class HostFilterCollection : ObservableObject
         get => _active;
         set
         {
-            if (SetProperty(ref _active, value))
+            // Beim Laden setzt die two-way-gebundene ComboBox waehrend Filters.Clear()
+            // Active=null zurueck. Ohne diesen Guard wuerde der Setter dann Persist()
+            // mit LEERER Filterliste ausloesen und die Site auf Platte loeschen.
+            if (SetProperty(ref _active, value) && !_suppressPersist)
                 Persist();
         }
     }
@@ -40,17 +44,22 @@ public sealed class HostFilterCollection : ObservableObject
 
     private void LoadFiltersForCurrentSite()
     {
-        var s = _store.Load(_currentSite);
-        Filters.Clear();
-        foreach (var f in s.Filters)
+        _suppressPersist = true;
+        try
         {
-            // Defensiv: alte filter.json kann einen null-Eintrag enthalten.
-            if (f is not null)
-                Filters.Add(f);
+            var s = _store.Load(_currentSite);
+            Filters.Clear();
+            foreach (var f in s.Filters)
+            {
+                // Defensiv: alte filter.json kann einen null-Eintrag enthalten.
+                if (f is not null)
+                    Filters.Add(f);
+            }
+            _active = string.IsNullOrEmpty(s.ActiveFilterName)
+                ? null
+                : Filters.FirstOrDefault(f => f.Name == s.ActiveFilterName);
         }
-        _active = string.IsNullOrEmpty(s.ActiveFilterName)
-            ? null
-            : Filters.FirstOrDefault(f => f.Name == s.ActiveFilterName);
+        finally { _suppressPersist = false; }
         OnPropertyChanged(nameof(Active));
     }
 
