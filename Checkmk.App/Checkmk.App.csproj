@@ -39,6 +39,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Checkmk.Core/Checkmk.Core.csproj" />
+    <ProjectReference Include="../Checkmk.PluginContracts/Checkmk.PluginContracts.csproj" />
   </ItemGroup>
 
 </Project>

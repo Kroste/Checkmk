@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Contracts sind cross-platform: Plugins koennen auf net10.0 bauen ohne
+         Windows-Target. Cockpit.App zieht das via Reference automatisch mit. -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- Als NuGet-Package publishen, damit externe Plugin-Repos es referenzieren
+         koennen (GitHub Packages oder lokaler Feed). -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Checkmk.PluginContracts</PackageId>
+    <Description>Plugin-Contracts fuer das Checkmk Cockpit — Interfaces, die Plugins implementieren, um Tabs, Kontextmenue-Eintraege und wiederverwendbare Services beizusteuern.</Description>
+    <PackageProjectUrl>https://github.com/Kroste/Checkmk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Kroste/Checkmk</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Extensions.DependencyInjection.Abstractions ist der Contract-Level
+         (keine schwere DI-Impl), damit Plugins den DI-Container-Erweiterungspunkt
+         bekommen ohne die volle Runtime zu ziehen. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

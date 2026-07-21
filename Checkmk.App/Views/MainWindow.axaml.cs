@@ -5,15 +5,53 @@ using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using Checkmk.App.Controls;
 using Checkmk.App.ViewModels;
+using Checkmk.PluginContracts;
+using Microsoft.Extensions.DependencyInjection;
+using NLog;
 
 namespace Checkmk.App.Views;
 
 public partial class MainWindow : ChromeWindow
 {
+    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        Opened += (_, _) => AddPluginTabs();
+    }
+
+    /// <summary>Fuegt Tabs, die von Plugins beigesteuert werden, rechts von den
+    /// eingebauten Tabs (Status/Hosts/Dashboard) ein. Sortierung: Cockpit-Tabs
+    /// liegen bei 0-999 (XAML-Reihenfolge), Plugin-Tabs ab Order 1000.</summary>
+    private void AddPluginTabs()
+    {
+        var tabs = this.FindControl<TabControl>("MainTabs");
+        if (tabs is null) return;
+
+        var contribs = App.Services!.GetServices<ITabContribution>()
+            .OrderBy(c => c.Order)
+            .ToList();
+
+        foreach (var contrib in contribs)
+        {
+            try
+            {
+                if (contrib.CreateView() is not Control view)
+                {
+                    Log.Warn("Plugin-Tab '{Header}' hat kein Avalonia-Control als View geliefert — uebersprungen.",
+                        contrib.Header);
+                    continue;
+                }
+                tabs.Items.Add(new TabItem { Header = contrib.Header, Content = view });
+                Log.Info("Plugin-Tab hinzugefuegt: {Header} (Order {Order})", contrib.Header, contrib.Order);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "Plugin-Tab '{Header}' konnte nicht erstellt werden.", contrib.Header);
+            }
+        }
     }
 
     /// <summary>Wird von aussen (App.axaml.cs) genutzt, um beim Dashboard-Klick
