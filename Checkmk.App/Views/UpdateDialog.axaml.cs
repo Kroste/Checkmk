@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Checkmk.App.Controls;
 using Checkmk.App.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
 
@@ -24,7 +25,14 @@ public partial class UpdateDialog : ChromeWindow
     {
         AvaloniaXamlLoader.Load(this);
         _info = info;
-        _installer = installer;
+        // Fallback: wenn der Aufrufer keinen Installer uebergibt (About-Box tat
+        // das anfangs vergessen), holen wir ihn selbst aus dem DI-Container.
+        // Damit ist "Jetzt installieren" ueberall verfuegbar wo der Dialog
+        // aufpoppt — Badge-Klick und "Nach Updates suchen" gleichermassen.
+        _installer = installer
+            ?? (OperatingSystem.IsWindows()
+                ? App.Services?.GetService<UpdateInstaller>()
+                : null);
 
         var current = AppVersion.Display;
         this.FindControl<TextBlock>("VersionText")!.Text = $"Version {info.Version}";
