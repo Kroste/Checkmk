@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Checkmk.App.Controls;
 using Checkmk.App.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
 
@@ -31,6 +32,17 @@ public partial class AboutWindow : ChromeWindow
 
     private void OnGithubClick(object? sender, RoutedEventArgs e) => Launch(GithubUrl);
     private void OnDismissClick(object? sender, RoutedEventArgs e) => Close();
+
+    private async void OnPluginUpdatesClick(object? sender, RoutedEventArgs e)
+    {
+        var service = App.Services!.GetService<PluginUpdateService>();
+        if (service is null) return;
+        var installer = OperatingSystem.IsWindows()
+            ? App.Services!.GetService<PluginUpdateInstaller>()
+            : null;
+        var dlg = new PluginUpdatesDialog(service, installer);
+        await dlg.ShowDialog(this);
+    }
 
     private async void OnCheckUpdatesClick(object? sender, RoutedEventArgs e)
     {

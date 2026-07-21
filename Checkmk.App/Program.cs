@@ -81,7 +81,11 @@ internal static class Program
 
         // Self-Update-Installer: nur unter Windows registriert (Cockpit ist WinExe).
         if (OperatingSystem.IsWindows())
+        {
             services.AddSingleton<UpdateInstaller>();
+            services.AddSingleton<PluginUpdateInstaller>();
+        }
+        services.AddSingleton<PluginUpdateService>();
 
         services.AddSingleton<StatusViewModel>();
         services.AddSingleton<ConfigViewModel>();
