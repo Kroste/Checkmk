@@ -135,6 +135,14 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   und ist nicht für jeden Cockpit-Nutzer gedacht. Das Plugin exportiert einen
   `IAgentUpdater`-Service (aus `Checkmk.PluginContracts.Services`), den andere
   Plugins konsumieren können (Plan: vSphere-Baseimage-Plugin für Batch-Updates).
+- **Externe Plugin-Repos als Submodules**: unter `external-plugins/` liegen die
+  Plugin-Repos als Git-Submodules. Nach `git submodule update --init --recursive`
+  greift das `build/external-plugins.targets`-Target beim Cockpit-Debug-Build:
+  jedes Plugin wird mitgebaut und die `CheckmkPlugin.*.dll` ins
+  `Checkmk.App/bin/Debug/…/plugins/` kopiert — F5-Start hat die Plugins direkt
+  drin. **CI/Release checken die Submodules bewusst NICHT aus** (`actions/checkout`
+  ohne `submodules: true`), damit End-User-ZIPs plugin-frei bleiben — Plugins
+  müssen aktiv installiert werden.
 - **Autoupdater (Phase 1):** Beim Start fragt `GitHubReleasesUpdateChecker` den
   `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/Kroste/Checkmk/releases/
   latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen

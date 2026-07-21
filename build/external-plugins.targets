@@ -1,0 +1,54 @@
+<!--
+  Baut alle externen Plugin-Solutions unter external-plugins/*/ mit und kopiert
+  die entstehenden Plugin-DLLs ins bin/.../plugins/-Verzeichnis des Cockpits.
+
+  Damit sieht der Entwickler beim F5-Start sofort die installierten Plugins,
+  ohne DLLs manuell zu bewegen. End-User-Releases sind davon nicht betroffen —
+  das Release-YAML packt nur den Cockpit-Bin-Inhalt ohne das plugins/-Unter-
+  verzeichnis (siehe .github/workflows/release.yml, Plugins bleiben bewusst
+  optional).
+
+  Voraussetzung: die Submodules muessen ausgecheckt sein
+  (git submodule update init recursive). Fehlen sie, laeuft das Target
+  einfach ohne Kopieren durch.
+-->
+<Project>
+
+  <PropertyGroup>
+    <ExternalPluginsDir>$(MSBuildThisFileDirectory)..\external-plugins</ExternalPluginsDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Jede externe Plugin-Solution wird eigenstaendig gebaut. -->
+    <ExternalPluginSolution Include="$(ExternalPluginsDir)\**\*.slnx" />
+  </ItemGroup>
+
+  <Target Name="BuildExternalPlugins"
+          BeforeTargets="Build"
+          Condition="'@(ExternalPluginSolution)' != ''">
+    <Message Importance="high"
+             Text="Building external plugin: %(ExternalPluginSolution.Identity)" />
+    <Exec Command="dotnet build &quot;%(ExternalPluginSolution.FullPath)&quot; -c $(Configuration) --nologo -v minimal"
+          WorkingDirectory="%(ExternalPluginSolution.RootDir)%(ExternalPluginSolution.Directory)" />
+  </Target>
+
+  <Target Name="CopyExternalPlugins"
+          AfterTargets="Build"
+          Condition="Exists('$(ExternalPluginsDir)')">
+    <ItemGroup>
+      <!-- Plugin-DLL(s) heissen konventionell CheckmkPlugin.*.dll und liegen im
+           bin-Verzeichnis des Plugin-Projekts. TFM ist net10.0-windows*. -->
+      <PluginDll Include="$(ExternalPluginsDir)\**\bin\$(Configuration)\net10.0-windows*\CheckmkPlugin.*.dll" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(OutDir)plugins" Condition="'@(PluginDll)' != ''" />
+    <Copy SourceFiles="@(PluginDll)"
+          DestinationFolder="$(OutDir)plugins"
+          SkipUnchangedFiles="true"
+          Condition="'@(PluginDll)' != ''" />
+    <Message Importance="high"
+             Text="Copied external plugin: %(PluginDll.Filename)%(PluginDll.Extension) -> $(OutDir)plugins\"
+             Condition="'@(PluginDll)' != ''" />
+  </Target>
+
+</Project>

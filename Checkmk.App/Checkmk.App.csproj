@@ -42,4 +42,8 @@
     <ProjectReference Include="../Checkmk.PluginContracts/Checkmk.PluginContracts.csproj" />
   </ItemGroup>
 
+  <!-- Baut alle Submodule-Plugins mit und kopiert die DLLs ins bin/.../plugins/,
+       damit F5-Start das Plugin sofort sieht. Details: ../build/external-plugins.targets. -->
+  <Import Project="../build/external-plugins.targets" />
+
 </Project>

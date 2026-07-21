@@ -1,0 +1,3 @@
+[submodule "external-plugins/agent-updater"]
+	path = external-plugins/agent-updater
+	url = https://github.com/Kroste/Checkmk-Plugin-AgentUpdater.git
