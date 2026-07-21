@@ -21,7 +21,7 @@ soll nicht „nach Cross-Platform repariert" werden.
 
 ```bash
 dotnet build Checkmk.slnx -c Release          # muss 0 Warnings / 0 Errors sein
-dotnet test  Checkmk.slnx                      # xUnit + FluentAssertions v7
+dotnet test  Checkmk.slnx                      # xunit.v3 + FluentAssertions v7
 # Self-contained Single-File (bevorzugte Distribution, kein System-.NET nötig):
 dotnet publish Checkmk.App/Checkmk.App.csproj -c Release -r win-x64 \
   --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
@@ -47,7 +47,7 @@ muss `dotnet build -c Release` sauber durchlaufen.
 |---|---|
 | `Checkmk.Core` | REST-API-Client (`CheckmkClient`), Modelle, Optionen. **UI-unabhängig**, keine Avalonia-Abhängigkeit. |
 | `Checkmk.App` | Avalonia-UI: Tabs, Dialoge, DI-Bootstrap. |
-| `Checkmk.Core.Tests` | xUnit + FluentAssertions **v7** (v8 = kommerzielle Xceed-Lizenz, siehe §6). |
+| `Checkmk.Core.Tests` | xunit.v3 + FluentAssertions **v7** (v8 = kommerzielle Xceed-Lizenz, siehe §6). |
 
 **Muster:** MVVM mit CommunityToolkit.Mvvm (Source Generators, `[ObservableProperty]`,
 `[RelayCommand]`); manuelles DI via `ServiceCollection` in `Program.cs`; NLog (Secrets maskiert).
