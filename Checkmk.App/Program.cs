@@ -13,6 +13,7 @@ internal static class Program
     public static void Main(string[] args)
     {
         var logger = LogManager.Setup()
+            .SetupExtensions(e => e.RegisterLayoutRenderer<Checkmk.App.Services.MaskedLayoutRenderer>("masked"))
             .LoadConfigurationFromFile("nlog.config", optional: true)
             .GetCurrentClassLogger();
 

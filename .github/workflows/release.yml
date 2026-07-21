@@ -80,7 +80,7 @@ jobs:
         run: find artifacts -type f | sort
 
       - name: GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: release-body.md
           # Rekursiver Glob — actions/download-artifact hat zwischen Major-Versionen
