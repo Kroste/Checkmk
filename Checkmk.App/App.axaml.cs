@@ -37,7 +37,10 @@ public partial class App : Application
 
             vm.OpenUpdateRequested += async (_, info) =>
             {
-                var dialog = new UpdateDialog(info);
+                var installer = OperatingSystem.IsWindows()
+                    ? Services.GetService<UpdateInstaller>()
+                    : null;
+                var dialog = new UpdateDialog(info, installer);
                 var result = await dialog.ShowDialog<UpdateDialogResult>(window);
                 if (result == UpdateDialogResult.Skip)
                     vm.SkipCurrentUpdate();

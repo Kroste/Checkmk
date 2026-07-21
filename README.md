@@ -549,11 +549,16 @@ Am Firmen-Proxy (Fortinet): der Update-Check nutzt automatisch die
 Windows-Anmeldedaten für die Proxy-Auth.
 
 Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update auf
-1.5.0 verfügbar"**. Klick öffnet einen Dialog:
+1.7.1 verfügbar"**. Klick öffnet einen Dialog:
 
-- **Release-Seite öffnen** — führt zum GitHub-Release, dort ist das ZIP.
-  Aktuell **musst du das ZIP von Hand herunterladen, entpacken und die alte
-  Version ersetzen**.
+- **Jetzt installieren** *(seit v1.7.1)* — lädt das Windows-ZIP mit
+  Fortschrittsanzeige herunter, entpackt es in einen Temp-Ordner, startet ein
+  Austausch-Skript, beendet die App. Das Skript wartet auf das Prozess-Ende,
+  kopiert die neuen Dateien über die alte Installation (`xcopy /E /Y /I`) und
+  startet die App neu. Ein `update.log` im Temp-Ordner (`%TEMP%\Checkmk-update-*\`)
+  dokumentiert den Ablauf für die Fehlersuche.
+- **Release-Seite öffnen** — führt zum GitHub-Release im Browser (Fallback,
+  wenn der Auto-Install mal hakt oder du händisch installieren willst).
 - **Später** — Badge bleibt, beim nächsten Start wird wieder geprüft.
 - **Diese Version überspringen** — der Badge kommt erst wieder, wenn eine
   **noch neuere** Version rauskommt.

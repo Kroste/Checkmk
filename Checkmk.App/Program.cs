@@ -79,6 +79,10 @@ internal static class Program
                 sp.GetRequiredService<IUpdatePreferences>());
         });
 
+        // Self-Update-Installer: nur unter Windows registriert (Cockpit ist WinExe).
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<UpdateInstaller>();
+
         services.AddSingleton<StatusViewModel>();
         services.AddSingleton<ConfigViewModel>();
         services.AddSingleton<MainWindowViewModel>();
