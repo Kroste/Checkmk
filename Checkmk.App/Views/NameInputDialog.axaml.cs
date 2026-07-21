@@ -12,7 +12,7 @@ public partial class NameInputDialog : ChromeWindow
     {
         AvaloniaXamlLoader.Load(this);
         Title = title;
-        this.FindControl<TextBlock>("TitleText")!.Text = title;
+        this.FindControl<Controls.TitleBar>("AppTitleBar")!.Title = title;
         this.FindControl<TextBlock>("PromptText")!.Text = prompt;
         var box = this.FindControl<TextBox>("ValueBox")!;
         box.Text = defaultValue;

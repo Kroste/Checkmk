@@ -13,22 +13,7 @@
   <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
     <Grid RowDefinitions="40,Auto,Auto,*,Auto,Auto">
 
-      <!-- Titelleiste -->
-      <Border Grid.Row="0" Background="#252526" PointerPressed="OnTitleBarPressed">
-        <Grid ColumnDefinitions="Auto,*,Auto">
-          <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0" Spacing="8"
-                      VerticalAlignment="Center">
-            <TextBlock Text="Host-Details:" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding HostName}" VerticalAlignment="Center" Foreground="#123E6B"
-                       FontWeight="SemiBold" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Orientation="Horizontal">
-            <Button Content="—" Click="OnMinimizeClick" Background="Transparent" Width="42" />
-            <Button Content="▢" Click="OnMaximizeClick" Background="Transparent" Width="42" />
-            <Button Content="✕" Click="OnCloseClick" Background="Transparent" Width="42" />
-          </StackPanel>
-        </Grid>
-      </Border>
+      <controls:TitleBar Grid.Row="0" Title="{Binding HostName, StringFormat='Host-Details: {0}'}" />
 
       <!-- Host-Kopf: State + Attribute -->
       <Border Grid.Row="1" Background="#252526" CornerRadius="6" Margin="8" Padding="14">

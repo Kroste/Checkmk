@@ -57,15 +57,24 @@ muss `dotnet build -c Release` sauber durchlaufen.
 `CheckmkClient` aus den aktuellen Settings neu (statt statischem `IOptions`). Nach dem Speichern
 der Settings `Configure(...)` aufrufen, nicht die App neu starten.
 
-**Fenster:** alle Fenster erben von `ChromeWindow` (randlos, `WindowDecorations.BorderOnly`,
-`CanResize=true`, eigene Titelleiste). **Avalonia-12-Chrome (Referenz Klemmbrett-Scaffold):**
-`ExtendClientAreaToDecorationsHint=true` + `ExtendClientAreaTitleBarHeightHint=-1` — sonst
-liegt die OS-Caption-Zone über der eigenen Leiste und schluckt Klicks/Drag. Die MainWindow-
-Titelleiste nutzt `chrome:WindowDecorationProperties.ElementRole` (`TitleBar` = nativer Drag/
-Doppelklick, `User` = klickbare Controls). Palette/Buttons: `Kroste*Brush` + `Button.chrome`
-in `App.axaml`. **App-Icon:** `Assets/app.ico` (`<ApplicationIcon>`, EXE) + `Assets/app.png`
-(`ChromeWindow.Icon`, Fenster/Taskleiste). Dialoge mit Laufzeitdaten (z. B. `ServiceActionDialog`)
-werden direkt instanziiert, nicht über DI.
+**Fenster:** alle Fenster erben von `Controls/ChromeWindow` (randlos,
+`WindowDecorations.BorderOnly` + `ExtendClientAreaToDecorationsHint=true` +
+`ExtendClientAreaTitleBarHeightHint=-1` + `CanResize=true` — alle vier Zeilen
+Pflicht, sonst schluckt die OS-Caption-Zone Klicks/Drag). Die Titelleiste ist
+das UserControl `Controls/TitleBar` — ein Fenster packt schlicht
+`<controls:TitleBar Title="..." />` an den oberen Rand, keine inline
+`Border`+`PointerPressed`-Konstruktion mehr. Die TitleBar setzt intern die
+Avalonia-12-`chrome:WindowDecorationProperties.ElementRole`-Rollen
+(`TitleBar` = nativer Drag/Doppelklick via HTCAPTION, `User` an Fensterbuttons
+und Extras — Klicks laufen als HTCLIENT direkt zu den Controls). Für Extras in
+der Titelleiste (z. B. Site-Umschalter im MainWindow) gibt es die
+`TitleBar.Extras`-Property (ContentProperty), Kinder darin erben automatisch
+die `User`-Rolle. Palette/Buttons: `Kroste*Brush` + `Button.chrome` in
+`App.axaml`. **App-Icon:** `Assets/app.ico` (`<ApplicationIcon>`, EXE) +
+`Assets/app.png` (`ChromeWindow.Icon`, Fenster/Taskleiste; die TitleBar zeigt
+es zusätzlich klein oben links). Dialoge mit Laufzeitdaten (z. B.
+`ServiceActionDialog`) werden direkt instanziiert, nicht über DI. Referenz
+für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
 **Version:** Anzeige immer über `AppVersion.Display` (MinVer-`InformationalVersion`, ohne
 `+`-Suffix) — `Assembly.GetName().Version` liefert bei MinVer nur `Major.0.0.0`.
 

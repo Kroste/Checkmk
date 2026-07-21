@@ -1,32 +1,35 @@
-using Avalonia;
+using System;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Platform;
-using Avalonia.VisualTree;
 
 namespace Checkmk.App.Controls;
 
 /// <summary>
-/// Basisfenster mit randlosem Chrome (SystemDecorations.BorderOnly) und
-/// eigener Titelleiste. Abgeleitete Fenster binden ihre Titelleisten-Border
-/// per PointerPressed an OnTitleBarPressed und die Buttons an die
-/// Min/Max/Close-Handler.
+/// Custom-Chrome nach Avalonia-12-Konvention (Kroste-Standard, Referenz:
+/// Klemmbrett-Scaffold). Alle vier Zeilen im Ctor sind Pflicht:
+///
+/// - <see cref="WindowDecorations.BorderOnly"/> statt None — sonst fehlen die
+///   nativen Resize-Griffe und der Fensterschatten.
+/// - <see cref="Window.ExtendClientAreaToDecorationsHint"/> + Height=-1 —
+///   ohne beides liegt die OS-Caption-Hit-Test-Zone ueber der eigenen
+///   Titelleiste und schluckt Klicks/Drag. Buttons ohne Funktion,
+///   Fenster nicht verschiebbar.
+/// - <see cref="Window.CanResize"/> true.
+///
+/// Fenster erben von dieser Klasse und packen im XAML eine
+/// <see cref="TitleBar"/>-UserControl an den oberen Rand — dort sind die
+/// Hit-Test-Rollen (WindowDecorationProperties.ElementRole) gesetzt, sodass
+/// das OS Drag/Doppelklick nativ verarbeitet und Buttons/Extras Klicks
+/// bekommen. Kein OnTitleBarPressed-Handler in den Fenstern noetig.
 /// </summary>
 public class ChromeWindow : Window
 {
-    public ChromeWindow()
+    protected ChromeWindow()
     {
         WindowDecorations = WindowDecorations.BorderOnly;
-        CanResize = true;
-        // WICHTIG (Avalonia 12, Referenz Klemmbrett-Scaffold): ohne ExtendClientArea
-        // liegt die OS-Caption-Hit-Test-Zone ueber der eigenen Titelleiste und
-        // schluckt Klicks/Drag. Mit -1 uebernimmt die eigene Leiste die volle Hoehe.
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = -1;
-        TransparencyLevelHint = [WindowTransparencyLevel.None];
-        Background = null; // Theme-Hintergrund kommt aus dem Root-Panel
+        CanResize = true;
 
         try
         {
@@ -37,46 +40,4 @@ public class ChromeWindow : Window
             // Ohne Icon lauffaehig bleiben (falls Asset fehlt).
         }
     }
-
-    protected void OnTitleBarPressed(object? sender, PointerPressedEventArgs e)
-    {
-        // Wenn der Klick auf einem interaktiven Control landete (Button, ComboBox,
-        // TextBox, ...), ueberlassen wir es dem. Sonst wuerde der Drag den ersten
-        // Klick schlucken und die ComboBox brauchte einen zweiten zum Aufklappen.
-        if (e.Source is Visual v && IsInteractiveDescendant(v))
-            return;
-
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            if (e.ClickCount == 2)
-                ToggleMaximize();
-            else
-                BeginMoveDrag(e);
-        }
-    }
-
-    private static bool IsInteractiveDescendant(Visual source)
-    {
-        for (var v = source; v is not null; v = v.GetVisualParent())
-        {
-            if (v is Window) return false;
-            if (v is Button or ComboBox or TextBox or CheckBox or RadioButton or ToggleButton)
-                return true;
-        }
-        return false;
-    }
-
-    protected void OnMinimizeClick(object? sender, RoutedEventArgs e)
-        => WindowState = WindowState.Minimized;
-
-    protected void OnMaximizeClick(object? sender, RoutedEventArgs e)
-        => ToggleMaximize();
-
-    protected void OnCloseClick(object? sender, RoutedEventArgs e)
-        => Close();
-
-    private void ToggleMaximize()
-        => WindowState = WindowState == WindowState.Maximized
-            ? WindowState.Normal
-            : WindowState.Maximized;
 }

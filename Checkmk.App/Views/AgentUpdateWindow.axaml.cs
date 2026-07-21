@@ -26,11 +26,13 @@ public partial class AgentUpdateWindow : ChromeWindow
         _share = share;
         _script = script;
 
-        this.FindControl<TextBlock>("TitleText")!.Text = $"Client-Aktualisierung — {host}";
+        this.FindControl<Controls.TitleBar>("AppTitleBar")!.Title = $"Client-Aktualisierung — {host}";
         Opened += async (_, _) => await RunAsync();
     }
 
     public AgentUpdateWindow() => AvaloniaXamlLoader.Load(this);
+
+    private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 
     private async Task RunAsync()
     {

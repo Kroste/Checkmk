@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
+             x:Class="Checkmk.App.Controls.TitleBar"
+             x:Name="Root"
+             Height="40">
+  <!-- ElementRole ist der Avalonia-12-Mechanismus fuer Custom-Chrome-Hit-Testing:
+       TitleBar = OS uebernimmt Drag + Doppelklick-Maximieren nativ (HTCAPTION).
+       Buttons = Rolle "User" (HTCLIENT): Klicks laufen als normale Client-
+       Eingabe direkt zu den Avalonia-Buttons. NICHT MinimizeButton/
+       MaximizeButton/CloseButton verwenden — diese Rollen leiten ueber den
+       Non-Client-Pfad, wo DwmDefWindowProc die Klicks schlucken kann. -->
+  <Border x:Name="Bar"
+          Background="{DynamicResource KrosteTitleBarBrush}"
+          chrome:WindowDecorationProperties.ElementRole="TitleBar">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+      <!-- App-Icon (Titelbar erbt TitleBar-Rolle) -->
+      <Image x:Name="IconImage" Grid.Column="0"
+             Width="18" Height="18" Margin="10,0,6,0"
+             VerticalAlignment="Center" IsVisible="False" />
+
+      <!-- Titel-Text (Kroste-Gold, erbt TitleBar-Rolle → Drag/Doppelklick OK) -->
+      <TextBlock x:Name="TitleText" Grid.Column="1"
+                 Margin="4,0,12,0" VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource KrosteGoldBrush}"
+                 Text="{Binding #Root.Title}" />
+
+      <!-- Extras-Slot (Site-Umschalter u. Ae.). ElementRole=User, damit
+           interaktive Kinder Klicks bekommen. Standardmaessig leer. -->
+      <ContentPresenter x:Name="ExtrasHost" Grid.Column="3"
+                        Content="{Binding #Root.Extras}"
+                        Margin="0,0,8,0" VerticalAlignment="Center"
+                        chrome:WindowDecorationProperties.ElementRole="User" />
+
+      <!-- Fensterbuttons -->
+      <StackPanel Grid.Column="4" Orientation="Horizontal">
+        <Button x:Name="MinButton" Classes="chrome" Content="—"
+                chrome:WindowDecorationProperties.ElementRole="User" />
+        <Button x:Name="MaxButton" Classes="chrome" Content="❐"
+                chrome:WindowDecorationProperties.ElementRole="User" />
+        <Button x:Name="CloseButton" Classes="chrome close" Content="✕"
+                chrome:WindowDecorationProperties.ElementRole="User" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

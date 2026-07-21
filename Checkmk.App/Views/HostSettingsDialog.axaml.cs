@@ -19,7 +19,7 @@ public partial class HostSettingsDialog : ChromeWindow
         _domainStore = domainStore;
         _sshStore = sshStore;
 
-        this.FindControl<TextBlock>("HostText")!.Text = host;
+        this.FindControl<Controls.TitleBar>("AppTitleBar")!.Title = $"Host-Einstellungen: {host}";
 
         // Domain vorbelegen
         var state = _domainStore.Load();

@@ -11,10 +11,7 @@
   <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
     <Grid RowDefinitions="40,*,Auto">
 
-      <Border Grid.Row="0" Background="#252526" PointerPressed="OnTitleBarPressed">
-        <TextBlock Text="Checkmk-Verbindung" FontWeight="SemiBold"
-                   VerticalAlignment="Center" Margin="12,0" />
-      </Border>
+      <controls:TitleBar Grid.Row="0" Title="Checkmk-Verbindung" />
 
       <ScrollViewer Grid.Row="1">
       <StackPanel Margin="16" Spacing="10">
