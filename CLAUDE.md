@@ -3,7 +3,13 @@
 Avalonia-12-Desktop-Tool, das die **täglichen Checkmk-Admin-Handgriffe entwirrt** — die
 Aktionen, die das Webinterface tief in Menüs vergräbt, liegen hier flach an der Zeile, wo
 man das Problem sieht. Ziel-Backend: **Checkmk 2.5.x Pro** über die **REST-API v1**.
-Ziel-Plattform primär **Windows (win-x64)**.
+
+**Bewusst Windows-only** (dokumentierte Ausnahme zur Cross-Platform-Regel des
+kroste-avalonia-Skills): App-Target `net10.0-windows`, `WinExe`, nur `win-x64`,
+**kein Linux-Build/AppImage**. Grund sind tragende, Windows-gebundene Features —
+DPAPI-Secret-Storage, WinRM/PowerShell-basierte Client-Aktualisierung und der
+Tray-Balloon per `Shell_NotifyIcon`-P/Invoke. Diese Entscheidung ist final und
+soll nicht „nach Cross-Platform repariert" werden.
 
 > Diese Datei wird von Copilot/Claude in VS Code als always-on-Kontext gelesen. Regeln sind
 > bewusst kurz, begründet und mit Beispielen — nicht wiederholen, was Linter/`.editorconfig`
