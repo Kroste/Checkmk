@@ -128,20 +128,13 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   „Kommentar…" auf dem markierten Service; Status-Tab hat Rechtsklick → „Kommentar…".
   Persistent-Flag im Dialog wählbar. Delete-Endpoint noch nicht implementiert (2.4/2.5-API
   hat konkurrierende Varianten — nachziehen sobald an Live-Server verifiziert).
-- **Client-Aktualisierung** (`AgentUpdater` + `AgentUpdateWindow` + `CredentialDialog`):
-  aus dem Kontextmenü (Zeile/Baum-Knoten) den Checkmk-Agent auf einem Zielhost
-  aktualisieren. Ablauf: `CredentialDialog` fragt Admin-Credentials → Remote-PowerShell
-  zum Ziel → **Installer per `Copy-Item -ToSession`** auf den Host kopiert (umgeht
-  Double-Hop) → editierbare **Skript-Vorlage** ausführen (Deinstall → Install → Register).
-  Agent-Share und Skript-Vorlage in den Settings pflegbar. Windows-only, WinRM
-  vorausgesetzt (in DMZ i. d. R. geblockt). **Fallen (aus Fixes gelernt):**
-  Skript-Ausführung über `powershell.exe -File <tmp.ps1>`, **nicht** `-Command -` via
-  STDIN (verschluckt mehrzeilige Skripte). Erfolg am **Exit-Code**, nicht an stderr
-  (native Tools wie `cmk-agent-ctl`/`msiexec` schreiben Infos auch nach stderr).
-  `cmk-agent-ctl register` braucht **`--trust-cert`**, sonst interaktive Cert-Abfrage
-  → `NativeCommandError`. Skript/Passwörter **niemals loggen** (Regression in v1.2.0
-  gefixt). `Start-Process msiexec -Wait` meldet Nicht-Null-Exits nicht automatisch —
-  für harte Fehlererkennung `-PassThru` + `$proc.ExitCode`-Prüfung in die Vorlage.
+- **Client-Aktualisierung** ist seit v1.7.0 **ausgelagert** ins Plugin
+  [`Checkmk-Plugin-AgentUpdater`](https://github.com/Kroste/Checkmk-Plugin-AgentUpdater).
+  Wer die Funktion braucht, legt die Plugin-DLL in den `plugins/`-Ordner neben
+  `Checkmk.App.exe`. Grund für das Auslagern: die Aktion braucht Admin-Credentials
+  und ist nicht für jeden Cockpit-Nutzer gedacht. Das Plugin exportiert einen
+  `IAgentUpdater`-Service (aus `Checkmk.PluginContracts.Services`), den andere
+  Plugins konsumieren können (Plan: vSphere-Baseimage-Plugin für Batch-Updates).
 - **Autoupdater (Phase 1):** Beim Start fragt `GitHubReleasesUpdateChecker` den
   `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/Kroste/Checkmk/releases/
   latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen
@@ -244,10 +237,12 @@ den Commit-Log an.
 10. ✅ Tray + Status-Notifications (WinRT-Toast, Action-Center-kompatibel).
 11. ✅ CSV-Export + Freitext-Filter über Ausgabe/Alias.
 12. ✅ IP-Fallback per Ping/DNS im Host-Detail, wenn Checkmk keine liefert.
-13. ✅ Client-Aktualisierung (Kontextmenü, Remote-PowerShell, Agent-Deinstall/Install/Register).
-14. ✅ **Client-Aktualisierung härten**: `Start-Process msiexec` in der Skript-Vorlage nutzt
-    jetzt `-PassThru` + `$proc.ExitCode`-Prüfung (Nicht-Null-Exits werfen). Site-CA-Push
-    und Entfernen von `--trust-cert` bleibt offen — braucht AD-Rollout und ist eigener Arbeitspunkt.
+13. ✅ Client-Aktualisierung (Kontextmenü, Remote-PowerShell, Agent-Deinstall/Install/Register)
+    — seit v1.7.0 ausgelagert ins Plugin
+    [`Checkmk-Plugin-AgentUpdater`](https://github.com/Kroste/Checkmk-Plugin-AgentUpdater).
+14. ✅ **Client-Aktualisierung härten**: `Start-Process msiexec` mit `-PassThru`
+    + Exit-Code-Prüfung. Wanderte mit dem Plugin-Auszug in v1.7.0 in dessen
+    Default-Skript-Vorlage.
 15. ✅ **Kommentare löschen** — `DeleteCommentAsync` mit Dual-Fallback:
     `POST /domain-types/comment/actions/delete/invoke` (`delete_type: "by_id"`) und bei
     404/405 `DELETE /objects/comment/{id}`. Roter ✕-Button an jedem Kommentar im Host-Detail.

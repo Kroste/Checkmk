@@ -22,7 +22,7 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 8. [Regex-Beispiele für Filter](#8-regex-beispiele-für-filter)
 9. [Tray und Notifications](#9-tray-und-notifications)
 10. [Hosts-Tab: Service Discovery und Änderungen aktivieren](#10-hosts-tab-service-discovery-und-änderungen-aktivieren)
-11. [Client-Aktualisierung (Agent-Update)](#11-client-aktualisierung-agent-update)
+11. [Client-Aktualisierung (jetzt als Plugin)](#11-client-aktualisierung-jetzt-als-plugin)
 12. [CSV-Export](#12-csv-export)
 13. [Mehrere Sites am selben Server](#13-mehrere-sites-am-selben-server)
 14. [Updates](#14-updates)
@@ -482,42 +482,28 @@ Service-Discovery, damit er überwacht wird.
 
 ---
 
-## 11. Client-Aktualisierung (Agent-Update)
+## 11. Client-Aktualisierung (jetzt als Plugin)
 
-Aus dem Kontextmenü einer Zeile: **„Client aktualisieren…"** startet die
-Aktualisierung des Checkmk-Agents auf dem Zielhost. **Windows-only, WinRM am
-Zielhost muss aktiv sein**.
+Ab **v1.7.0** liegt die Client-Aktualisierung nicht mehr im Cockpit-Kern —
+nur wer das externe Plugin installiert, sieht den Menüpunkt „Client
+aktualisieren…" im Kontextmenü. Hintergrund: die Aktion greift mit Admin-
+Credentials auf entfernte Hosts zu und ist bewusst nicht für jeden
+Cockpit-Nutzer verfügbar.
 
-Ablauf:
+**Installation** (nur wenn du die Funktion brauchst):
 
-1. **Credentials-Dialog** — Admin-Credentials für die Remote-Session.
-2. Installer wird per `Copy-Item -ToSession` auf den Host kopiert.
-3. Editierbare **Skript-Vorlage** läuft: Deinstall → Install → Register.
-4. Fortschritt und Ausgabe im Fenster; Erfolg am Exit-Code (nicht an stderr).
+1. Neuestes ZIP von den
+   [Plugin-Releases](https://github.com/Kroste/Checkmk-Plugin-AgentUpdater/releases)
+   herunterladen.
+2. Entpacken → `CheckmkPlugin.AgentUpdater.dll` in den Ordner **`plugins/`**
+   **neben** deiner `Checkmk.App.exe` legen (Ordner ggf. anlegen).
+3. Cockpit neu starten. Im NLog-File siehst du unter Info:
+   `Plugin registriert: Client-Aktualisierung x.y.z`.
 
-### Agent-Share und Skript-Vorlage
-
-In den Einstellungen:
-
-- **Agent-Share** — Pfad zum Installer-Paket.
-- **Update-Skript-Vorlage** — PowerShell-Code für den Zielhost, editierbar.
-
-**Wichtige Details:**
-
-- Der Register-Befehl braucht `--trust-cert`, sonst hängt sich
-  `cmk-agent-ctl register` in einer interaktiven Zertifikatsabfrage auf.
-- `msiexec`-Aufrufe im Skript nutzen jetzt `-PassThru` + Exit-Code-Check — die
-  Vorlage wirft, wenn Install oder Deinstall mit Non-Zero-ExitCode endet
-  (bisher wurden solche Fehler stumm geschluckt).
-
-Wer eine ältere Vorlage gespeichert hat und die neuen Defaults will: in den
-Einstellungen den kompletten Skript-Text löschen, Speichern → beim nächsten
-Öffnen wird die neue Default-Vorlage geladen.
-
-### Sicherheit
-
-Skript, Passwörter und temporäre Dateien werden **nicht** ins Logfile
-geschrieben.
+Danach steht „Client aktualisieren…" in den Kontextmenüs der Service-Grid, der
+Baumansicht und der Hosts-Liste. Bedienung und Konfiguration siehe README des
+Plugin-Repos. Agent-Share und Skript-Vorlage liegen im Plugin-Datenordner
+`%APPDATA%\Kroste\Checkmk\plugins\kroste.checkmk.agent-updater\settings.json`.
 
 ---
 
@@ -714,11 +700,9 @@ korrektes Zertifikat installieren.
 - Toast im Action Center suchen — dort landen sie auch nach dem Popup.
 - Sammel-Option unter `Win+I` → System → Benachrichtigungen prüfen.
 
-### Client-Aktualisierung meldet „NativeCommandError" bei Register
+### „Client aktualisieren…" fehlt im Kontextmenü
 
-`cmk-agent-ctl register` will interaktiv das Zertifikat bestätigen. **`--trust-cert`
-fehlt in deiner gespeicherten Skript-Vorlage** — direkt hinter `register`
-ergänzen.
+Ab v1.7.0 ist die Funktion ins externe Plugin ausgezogen. Siehe [Abschnitt 11](#11-client-aktualisierung-jetzt-als-plugin).
 
 ### Die App fühlt sich falsch an — was tun
 

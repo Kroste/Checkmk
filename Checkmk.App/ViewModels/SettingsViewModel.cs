@@ -19,8 +19,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _secret = "";
     [ObservableProperty] private bool _useHttps = true;
     [ObservableProperty] private bool _ignoreCertificateErrors;
-    [ObservableProperty] private string _agentShare = "";
-    [ObservableProperty] private string _agentUpdateScript = "";
 
     /// <summary>Weitere Sites am selben Server (kommasepariert) — z. B. "LHP-Prod, Schul_IT".</summary>
     [ObservableProperty] private string _knownSitesCsv = "";
@@ -77,8 +75,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         UseHttps = s.UseHttps;
         IgnoreCertificateErrors = s.IgnoreCertificateErrors;
         Secret = _store.LoadSecret(s) ?? "";
-        AgentShare = s.AgentShare;
-        AgentUpdateScript = s.AgentUpdateScript;
         KnownSitesCsv = string.Join(", ", s.KnownSites);
 
         var isShared = _store.SettingsFilePath.StartsWith(@"\\", StringComparison.Ordinal);
@@ -128,8 +124,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         AuthMode = AuthMode,
         UseHttps = UseHttps,
         IgnoreCertificateErrors = IgnoreCertificateErrors,
-        AgentShare = AgentShare.Trim(),
-        AgentUpdateScript = AgentUpdateScript,
         KnownSites = ParseSitesCsv(KnownSitesCsv)
     };
 
