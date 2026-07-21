@@ -58,8 +58,16 @@ muss `dotnet build -c Release` sauber durchlaufen.
 der Settings `Configure(...)` aufrufen, nicht die App neu starten.
 
 **Fenster:** alle Fenster erben von `ChromeWindow` (randlos, `WindowDecorations.BorderOnly`,
-`CanResize=true`, eigene Titelleiste). Dialoge mit Laufzeitdaten (z. B. `ServiceActionDialog`)
+`CanResize=true`, eigene Titelleiste). **Avalonia-12-Chrome (Referenz Klemmbrett-Scaffold):**
+`ExtendClientAreaToDecorationsHint=true` + `ExtendClientAreaTitleBarHeightHint=-1` — sonst
+liegt die OS-Caption-Zone über der eigenen Leiste und schluckt Klicks/Drag. Die MainWindow-
+Titelleiste nutzt `chrome:WindowDecorationProperties.ElementRole` (`TitleBar` = nativer Drag/
+Doppelklick, `User` = klickbare Controls). Palette/Buttons: `Kroste*Brush` + `Button.chrome`
+in `App.axaml`. **App-Icon:** `Assets/app.ico` (`<ApplicationIcon>`, EXE) + `Assets/app.png`
+(`ChromeWindow.Icon`, Fenster/Taskleiste). Dialoge mit Laufzeitdaten (z. B. `ServiceActionDialog`)
 werden direkt instanziiert, nicht über DI.
+**Version:** Anzeige immer über `AppVersion.Display` (MinVer-`InformationalVersion`, ohne
+`+`-Suffix) — `Assembly.GetName().Version` liefert bei MinVer nur `Major.0.0.0`.
 
 ## 4 · Aktueller Funktionsstand
 

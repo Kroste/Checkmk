@@ -1,4 +1,3 @@
-using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -27,8 +26,7 @@ public partial class AboutWindow : ChromeWindow
     {
         AvaloniaXamlLoader.Load(this);
 
-        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
-        this.FindControl<TextBlock>("VersionText")!.Text = $"Version {version}";
+        this.FindControl<TextBlock>("VersionText")!.Text = $"Version {Services.AppVersion.Display}";
     }
 
     private void OnGithubClick(object? sender, RoutedEventArgs e) => Launch(GithubUrl);

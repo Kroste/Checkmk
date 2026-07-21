@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
 using Avalonia.VisualTree;
 
 namespace Checkmk.App.Controls;
@@ -19,9 +20,22 @@ public class ChromeWindow : Window
     {
         WindowDecorations = WindowDecorations.BorderOnly;
         CanResize = true;
-        ExtendClientAreaToDecorationsHint = false;
+        // WICHTIG (Avalonia 12, Referenz Klemmbrett-Scaffold): ohne ExtendClientArea
+        // liegt die OS-Caption-Hit-Test-Zone ueber der eigenen Titelleiste und
+        // schluckt Klicks/Drag. Mit -1 uebernimmt die eigene Leiste die volle Hoehe.
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaTitleBarHeightHint = -1;
         TransparencyLevelHint = [WindowTransparencyLevel.None];
         Background = null; // Theme-Hintergrund kommt aus dem Root-Panel
+
+        try
+        {
+            Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://Checkmk.App/Assets/app.png")));
+        }
+        catch
+        {
+            // Ohne Icon lauffaehig bleiben (falls Asset fehlt).
+        }
     }
 
     protected void OnTitleBarPressed(object? sender, PointerPressedEventArgs e)

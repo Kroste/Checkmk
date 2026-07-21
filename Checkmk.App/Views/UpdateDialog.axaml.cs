@@ -1,4 +1,3 @@
-using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -23,7 +22,7 @@ public partial class UpdateDialog : ChromeWindow
         AvaloniaXamlLoader.Load(this);
         _info = info;
 
-        var current = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?";
+        var current = AppVersion.Display;
         this.FindControl<TextBlock>("VersionText")!.Text = $"Version {info.Version}";
         this.FindControl<TextBlock>("CurrentVersionText")!.Text = $"(installiert: {current})";
         this.FindControl<TextBlock>("NotesText")!.Text = string.IsNullOrWhiteSpace(info.ReleaseNotes)
