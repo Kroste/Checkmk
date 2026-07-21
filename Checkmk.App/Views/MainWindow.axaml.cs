@@ -30,9 +30,27 @@ public partial class MainWindow : ChromeWindow
         var tabs = this.FindControl<TabControl>("MainTabs");
         if (tabs is null) return;
 
-        var contribs = App.Services!.GetServices<ITabContribution>()
-            .OrderBy(c => c.Order)
-            .ToList();
+        // ITabContribution-Instanzen einzeln aufloesen und in try/catch iterieren —
+        // wenn ein Plugin einen kaputten Ctor hat (z. B. IPluginContext als DI-
+        // Dependency erwartet), wirft nur DIESES Plugin und die anderen laufen
+        // trotzdem. Ohne den Try-Wrapper wuerde ein einziger Fehler in der
+        // GetServices-Enumeration die ganze Kette killen -> Cockpit-Absturz.
+        var contribs = new List<ITabContribution>();
+        try
+        {
+            var descriptors = App.Services!.GetServices<ITabContribution>();
+            foreach (var c in descriptors)
+            {
+                try { contribs.Add(c); }
+                catch (Exception ex) { Log.Warn(ex, "Plugin-Tab-Instanz konnte nicht aufgeloest werden."); }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Plugin-Tab-Enumeration fehlgeschlagen — kein Plugin-Tab wird geladen.");
+            return;
+        }
+        contribs.Sort((a, b) => a.Order.CompareTo(b.Order));
 
         foreach (var contrib in contribs)
         {
