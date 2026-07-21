@@ -176,7 +176,7 @@ Diese Punkte kosten sonst zuverlässig Zeit:
 
 ## 6 · Abhängigkeiten — Fallen
 
-- **Avalonia >= 12** (min. 12.0.4). Breaking vs. v11: `Avalonia.Diagnostics` ist raus →
+- **Avalonia >= 12.1** (aktuell 12.1.0, nativer Wayland-Backend ab 12.1). Breaking vs. v11: `Avalonia.Diagnostics` ist raus →
   `AvaloniaUI.DiagnosticsSupport` (Debug-only). `Window.SystemDecorations` → `WindowDecorations`
   (`WindowDecorations.BorderOnly`). `TextBox.Watermark` → `PlaceholderText`.
   `Avalonia.Controls.DataGrid` und `AvaloniaUI.DiagnosticsSupport` haben eigene Versionskadenz.
