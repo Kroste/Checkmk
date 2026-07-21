@@ -13,15 +13,36 @@ public sealed record UpdateInfo(
     string ReleasePageUrl,
     string? WindowsZipUrl);
 
+/// <summary>Ergebnis eines manuell ausgeloesten Update-Checks.</summary>
+public enum UpdateCheckOutcome
+{
+    /// <summary>Eine neuere Version ist verfuegbar (<see cref="UpdateCheckResult.Info"/> gesetzt).</summary>
+    UpdateAvailable,
+    /// <summary>Die installierte Version ist aktuell.</summary>
+    UpToDate,
+    /// <summary>Der Check ist fehlgeschlagen (Netz/Proxy/Parsing) — Details im Log.</summary>
+    Failed
+}
+
+/// <summary>Reichhaltiges Ergebnis fuer die manuelle Pruefung; <see cref="Info"/> nur bei <see cref="UpdateCheckOutcome.UpdateAvailable"/>.</summary>
+public sealed record UpdateCheckResult(UpdateCheckOutcome Outcome, UpdateInfo? Info);
+
 public interface IUpdateChecker
 {
     /// <summary>
-    /// Fragt den Update-Kanal an, vergleicht mit der laufenden Assembly-Version
-    /// und beruecksichtigt die vom Nutzer uebersprungene Version.
-    /// Liefert <c>null</c>, wenn keine neuere Version verfuegbar ist oder der
+    /// Automatischer Check (Startup): fragt den Update-Kanal an, vergleicht mit der
+    /// laufenden Assembly-Version und beruecksichtigt die vom Nutzer uebersprungene
+    /// Version. Liefert <c>null</c>, wenn keine neuere Version verfuegbar ist oder der
     /// Check fehlschlaegt (Fehler werden geloggt, nie ins UI durchgereicht).
     /// </summary>
     Task<UpdateInfo?> CheckAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Manueller Check (About-Box): wie <see cref="CheckAsync"/>, aber
+    /// (a) ignoriert eine zuvor uebersprungene Version — wer aktiv prueft, will es wissen —
+    /// und (b) unterscheidet die Faelle aktuell / verfuegbar / fehlgeschlagen fuers UI-Feedback.
+    /// </summary>
+    Task<UpdateCheckResult> CheckManuallyAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -51,6 +72,28 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
 
     public async Task<UpdateInfo?> CheckAsync(CancellationToken ct = default)
     {
+        // Automatisch: nur ein tatsaechlich verfuegbares (nicht uebersprungenes)
+        // Update wird gemeldet; alles andere bleibt still (null).
+        var (outcome, info) = await EvaluateAsync(honorSkip: true, ct);
+        return outcome == UpdateCheckOutcome.UpdateAvailable ? info : null;
+    }
+
+    public async Task<UpdateCheckResult> CheckManuallyAsync(CancellationToken ct = default)
+    {
+        // Manuell: honorSkip=false — wer aktiv prueft, soll auch eine zuvor
+        // uebersprungene Version wieder sehen. Ergebnis wird 1:1 fuers UI-Feedback
+        // zurueckgegeben (aktuell / verfuegbar / fehlgeschlagen).
+        var (outcome, info) = await EvaluateAsync(honorSkip: false, ct);
+        return new UpdateCheckResult(outcome, info);
+    }
+
+    /// <summary>
+    /// Gemeinsame Kernlogik beider Checks. <paramref name="honorSkip"/> steuert, ob
+    /// eine vom Nutzer uebersprungene Version als "nichts anzuzeigen" (UpToDate) gilt.
+    /// </summary>
+    private async Task<(UpdateCheckOutcome Outcome, UpdateInfo? Info)> EvaluateAsync(
+        bool honorSkip, CancellationToken ct)
+    {
         // MinVer setzt AssemblyVersion default nur auf Major.0.0.0 (z. B. 1.0.0.0
         // fuer Tag v1.4.0). Vergleich damit meldet immer ein Update. Deshalb den
         // InformationalVersion-Attribut nehmen — den setzt MinVer auf die
@@ -74,8 +117,8 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
         }
         if (current is null)
         {
-            Log.Debug("Keine App-Version ermittelt — Update-Check uebersprungen.");
-            return null;
+            Log.Debug("Keine App-Version ermittelt — Update-Check nicht moeglich.");
+            return (UpdateCheckOutcome.Failed, null);
         }
 
         GitHubRelease? release;
@@ -86,25 +129,31 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
         catch (Exception ex)
         {
             Log.Debug(ex, "Update-Check fehlgeschlagen ({Url}).", _apiUrl);
-            return null;
+            return (UpdateCheckOutcome.Failed, null);
         }
         if (release is null || string.IsNullOrEmpty(release.TagName))
-            return null;
+        {
+            Log.Debug("Update-Kanal lieferte kein verwertbares Release.");
+            return (UpdateCheckOutcome.Failed, null);
+        }
 
         if (!SemVerTag.TryParse(release.TagName, out var latest))
         {
             Log.Debug("Konnte Release-Tag '{Tag}' nicht als Version parsen.", release.TagName);
-            return null;
+            return (UpdateCheckOutcome.Failed, null);
         }
 
         if (Normalize(latest) <= Normalize(current))
-            return null;
+            return (UpdateCheckOutcome.UpToDate, null);
 
-        var skipped = _prefs.LoadSkippedVersion();
-        if (skipped is not null && Normalize(skipped) >= Normalize(latest))
+        if (honorSkip)
         {
-            Log.Debug("Neuere Version {Latest} verfuegbar, aber vom User uebersprungen.", latest);
-            return null;
+            var skipped = _prefs.LoadSkippedVersion();
+            if (skipped is not null && Normalize(skipped) >= Normalize(latest))
+            {
+                Log.Debug("Neuere Version {Latest} verfuegbar, aber vom User uebersprungen.", latest);
+                return (UpdateCheckOutcome.UpToDate, null);
+            }
         }
 
         var zip = release.Assets?
@@ -113,12 +162,13 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
                                  a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             ?.BrowserDownloadUrl;
 
-        return new UpdateInfo(
+        var info = new UpdateInfo(
             Version: latest,
             TagName: release.TagName,
             ReleaseNotes: release.Body ?? "",
             ReleasePageUrl: release.HtmlUrl ?? "",
             WindowsZipUrl: zip);
+        return (UpdateCheckOutcome.UpdateAvailable, info);
     }
 
     // Version.CompareTo unterscheidet zwischen "1.4.0" (Revision=-1) und "1.4.0.0"

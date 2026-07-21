@@ -132,6 +132,10 @@ werden direkt instanziiert, nicht über DI.
   „Release-Seite öffnen"/„Später"/„Diese Version überspringen"). Skip-Version liegt in
   `%APPDATA%\Kroste\Checkmk\updates.json`.
   Kein Selbst-Ersetzen des Binary — Roadmap-Phase 2.
+  **Manuell (About-Box):** Button „Nach Updates suchen" ruft `CheckManuallyAsync`
+  auf — ignoriert bewusst die übersprungene Version und gibt klares Feedback
+  (aktuell / verfügbar → `UpdateDialog` / fehlgeschlagen). Gemeinsame Kernlogik mit
+  dem Startup-Check über das private `EvaluateAsync(honorSkip)`.
   **Proxy-Fix (v1.2.1):** `HttpClient` nutzt `DefaultProxyCredentials`
   (Negotiate/NTLM über den angemeldeten Windows-User) — sonst 407 am FortiProxy.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
