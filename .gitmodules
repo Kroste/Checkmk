@@ -1,3 +1,6 @@
 [submodule "external-plugins/agent-updater"]
 	path = external-plugins/agent-updater
 	url = https://github.com/Kroste/Checkmk-Plugin-AgentUpdater.git
+[submodule "external-plugins/vsphere-baseimage"]
+	path = external-plugins/vsphere-baseimage
+	url = https://github.com/Kroste/Checkmk-Plugin-VSphereBaseImage.git
