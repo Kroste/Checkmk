@@ -61,7 +61,7 @@
               SelectionMode="Extended"
               DoubleTapped="OnServiceDoubleTapped">
       <DataGrid.ContextMenu>
-        <ContextMenu>
+        <ContextMenu x:Name="ServiceGridContextMenu">
           <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
           <Separator />
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
@@ -118,7 +118,7 @@
               SelectedItem="{Binding SelectedTreeItem}"
               DoubleTapped="OnServiceDoubleTapped">
       <TreeView.ContextMenu>
-        <ContextMenu>
+        <ContextMenu x:Name="ServiceTreeContextMenu">
           <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
           <Separator />
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />

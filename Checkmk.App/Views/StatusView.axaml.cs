@@ -8,8 +8,10 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Checkmk.App;
 using Checkmk.App.Services;
+using Checkmk.App.Services.Plugins;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
+using Checkmk.PluginContracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
@@ -24,6 +26,29 @@ public partial class StatusView : UserControl
             if (DataContext is StatusViewModel vm)
                 vm.NewCriticalAppeared += OnNewCritical;
         };
+
+        // Plugin-Kontextmenue-Eintraege dynamisch anhaengen (unten in beiden Menues).
+        var gridMenu = this.FindControl<ContextMenu>("ServiceGridContextMenu");
+        if (gridMenu is not null)
+            PluginContextMenuAdapter.Attach(gridMenu, ContextMenuLocation.StatusServiceRow,
+                () => BuildTargetForStatus());
+        var treeMenu = this.FindControl<ContextMenu>("ServiceTreeContextMenu");
+        if (treeMenu is not null)
+            PluginContextMenuAdapter.Attach(treeMenu, ContextMenuLocation.StatusHostNode,
+                () => BuildTargetForStatus());
+    }
+
+    private ContextMenuTarget? BuildTargetForStatus()
+    {
+        var host = GetTargetHostName();
+        if (string.IsNullOrEmpty(host)) return null;
+        var svc = GetTargetService();
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        return new ContextMenuTarget(
+            svc is null ? ContextMenuLocation.StatusHostNode : ContextMenuLocation.StatusServiceRow,
+            host,
+            svc?.Description,
+            owner);
     }
 
     private void OnNewCritical(ServiceStatus svc)

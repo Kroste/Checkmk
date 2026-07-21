@@ -6,15 +6,32 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Checkmk.App;
 using Checkmk.App.Services;
+using Checkmk.App.Services.Plugins;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
+using Checkmk.PluginContracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
 
 public partial class ConfigView : UserControl
 {
-    public ConfigView() => AvaloniaXamlLoader.Load(this);
+    public ConfigView()
+    {
+        AvaloniaXamlLoader.Load(this);
+
+        var hostMenu = this.FindControl<ContextMenu>("HostGridContextMenu");
+        if (hostMenu is not null)
+            PluginContextMenuAdapter.Attach(hostMenu, ContextMenuLocation.HostConfigRow,
+                () =>
+                {
+                    var host = SelectedHostName();
+                    if (string.IsNullOrEmpty(host)) return null;
+                    var owner = TopLevel.GetTopLevel(this) as Window;
+                    return new ContextMenuTarget(
+                        ContextMenuLocation.HostConfigRow, host, null, owner);
+                });
+    }
 
     private void OnRdpClick(object? sender, RoutedEventArgs e)
     {

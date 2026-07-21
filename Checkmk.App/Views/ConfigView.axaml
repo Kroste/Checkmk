@@ -62,7 +62,7 @@
               SelectionMode="Extended"
               DoubleTapped="OnHostDoubleTapped">
       <DataGrid.ContextMenu>
-        <ContextMenu>
+        <ContextMenu x:Name="HostGridContextMenu">
           <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
           <Separator />
           <MenuItem Header="Services entdecken (fix_all + aktivieren)"
