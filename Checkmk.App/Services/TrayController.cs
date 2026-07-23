@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Platform;
 using Avalonia.Threading;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
@@ -47,19 +46,19 @@ public sealed class TrayController
         _status = status;
         _toast = toast;
 
-        _iconOk = Load("ok");
-        _iconWarn = Load("warn");
-        _iconCrit = Load("crit");
-        _iconUnknown = Load("unknown");
+        // Tray-Icons zur Laufzeit rendern: App-Icon + farbiger Status-Dot unten
+        // rechts. Damit bleibt im Tray erkennbar dass das der Checkmk Cockpit
+        // ist, und der Status ist trotzdem auf einen Blick sichtbar.
+        _iconOk = TrayIconFactory.Create(TrayIconFactory.OkGreen);
+        _iconWarn = TrayIconFactory.Create(TrayIconFactory.WarnYellow);
+        _iconCrit = TrayIconFactory.Create(TrayIconFactory.CritRed);
+        _iconUnknown = TrayIconFactory.Create(TrayIconFactory.UnknownGrey);
 
         BuildTray();
 
         _status.Refreshed += OnStatusRefreshed;
         _window.PropertyChanged += OnWindowPropertyChanged;
     }
-
-    private static WindowIcon Load(string name)
-        => new(AssetLoader.Open(new Uri($"avares://Checkmk.App/Assets/tray/{name}.ico")));
 
     private void BuildTray()
     {
