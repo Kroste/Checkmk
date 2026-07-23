@@ -15,6 +15,13 @@ public partial class MainWindow : ChromeWindow
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
+    // Plugin-Tabs duerfen nur EINMAL angehaengt werden. Das Opened-Event feuert
+    // aber bei jedem Window.Show() erneut — u. a. wenn der TrayController die App
+    // aus dem Tray zurueckholt (Minimieren -> Hide, Wiederherstellen -> Show).
+    // Ohne diesen Guard bekaeme jeder Minimieren/Wiederherstellen-Zyklus einen
+    // weiteren Satz Plugin-Tabs (z. B. dreifaches "vSphere Baseimages").
+    private bool _pluginTabsAdded;
+
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
@@ -27,8 +34,12 @@ public partial class MainWindow : ChromeWindow
     /// liegen bei 0-999 (XAML-Reihenfolge), Plugin-Tabs ab Order 1000.</summary>
     private void AddPluginTabs()
     {
+        if (_pluginTabsAdded) return;
+
         var tabs = this.FindControl<TabControl>("MainTabs");
         if (tabs is null) return;
+
+        _pluginTabsAdded = true;
 
         // ITabContribution-Instanzen einzeln aufloesen und in try/catch iterieren —
         // wenn ein Plugin einen kaputten Ctor hat (z. B. IPluginContext als DI-
