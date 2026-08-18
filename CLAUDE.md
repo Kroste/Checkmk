@@ -69,7 +69,16 @@ Avalonia-12-`chrome:WindowDecorationProperties.ElementRole`-Rollen
 und Extras — Klicks laufen als HTCLIENT direkt zu den Controls). Für Extras in
 der Titelleiste (z. B. Site-Umschalter im MainWindow) gibt es die
 `TitleBar.Extras`-Property (ContentProperty), Kinder darin erben automatisch
-die `User`-Rolle. Palette/Buttons: `Kroste*Brush` + `Button.chrome` in
+die `User`-Rolle. **Zusaetzlich Pflicht:** der managed Drag-Fallback in
+`TitleBar.OnBarPointerPressed` filtert per Visual-Tree-Walk
+(`LandedOnInteractiveChild`) alle Klicks aus, die aus einem interaktiven Kind
+gebubbelt kommen. Ohne diesen Guard startet `BeginMoveDrag` bei jedem Klick auf
+die Site-ComboBox einen Fenster-Drag, der Pointer geht ans OS und das Dropdown
+oeffnet nie (nur der ToolTip erscheint). Buttons sind davon nicht betroffen, weil
+sie den Press selbst als handled markieren — die ComboBox tut das nicht. Der Guard
+existierte schon einmal in `ChromeWindow` (be95724) und ging beim TitleBar-Refactor
+(23160d8) verloren; **nicht wieder als „durch ElementRole ueberfluessig" entfernen**,
+solange der Fallback-Handler dranhaengt. Palette/Buttons: `Kroste*Brush` + `Button.chrome` in
 `App.axaml`. **App-Icon:** `Assets/app.ico` (`<ApplicationIcon>`, EXE) +
 `Assets/app.png` (`ChromeWindow.Icon`, Fenster/Taskleiste; die TitleBar zeigt
 es zusätzlich klein oben links). Dialoge mit Laufzeitdaten (z. B.

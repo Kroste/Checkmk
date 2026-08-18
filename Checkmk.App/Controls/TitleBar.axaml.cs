@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 
 namespace Checkmk.App.Controls;
 
@@ -47,7 +48,7 @@ public partial class TitleBar : UserControl
         CloseButton.Click += (_, _) => Host?.Close();
 
         Bar.PointerPressed += OnBarPointerPressed;
-        Bar.DoubleTapped += (_, _) => ToggleMaximize();
+        Bar.DoubleTapped += OnBarDoubleTapped;
 
         TryLoadAppIcon();
     }
@@ -58,8 +59,55 @@ public partial class TitleBar : UserControl
 
     private void OnBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        // Der Klick kam per Bubbling aus einem interaktiven Kind (Site-ComboBox,
+        // Buttons im Extras-Slot). Dann gehoert er dem Control, nicht dem Fenster.
+        if (LandedOnInteractiveChild(e.Source))
+            return;
+
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             Host?.BeginMoveDrag(e);
+    }
+
+    private void OnBarDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (LandedOnInteractiveChild(e.Source))
+            return;
+
+        ToggleMaximize();
+    }
+
+    /// <summary>
+    /// Laeuft vom Ereignis-Ursprung den Visual-Tree hoch bis zur Titelleisten-Border
+    /// und meldet true, wenn unterwegs ein interaktives Control liegt.
+    ///
+    /// WARUM: PointerPressed bubbelt. Die ComboBox im Extras-Slot markiert den
+    /// Press nicht als handled (anders als Button, der ihn abfaengt und den
+    /// Pointer captured) — ohne diesen Guard startet <see cref="Window.BeginMoveDrag"/>
+    /// einen Fenster-Drag, der Pointer wandert zum OS und die ComboBox sieht nie
+    /// ein PointerReleased. Symptom: Dropdown laesst sich gar nicht oeffnen, nur
+    /// der ToolTip erscheint. Genau dieser Bug war schon einmal in ChromeWindow
+    /// gefixt (be95724) und ging beim TitleBar-Refactor (23160d8) verloren.
+    /// </summary>
+    private bool LandedOnInteractiveChild(object? source)
+    {
+        for (var v = source as Visual; v is not null; v = v.GetVisualParent())
+        {
+            // Die Titelleiste selbst (und alles darueber) ist Drag-Flaeche.
+            if (ReferenceEquals(v, Bar))
+                return false;
+
+            // Button deckt ToggleButton/CheckBox/RadioButton/RepeatButton mit ab.
+            if (v is Button or ComboBox or TextBox or Slider or ListBox or MenuItem)
+                return true;
+
+            // Auffangnetz fuer Controls, die oben nicht gelistet sind: alles,
+            // was den Fokus annehmen kann, will den Klick selbst verarbeiten.
+            if (v is InputElement { Focusable: true })
+                return true;
+        }
+
+        // Ursprung liegt ausserhalb der Titelleiste (z. B. in einem Popup-Root).
+        return true;
     }
 
     private void ToggleMaximize()
