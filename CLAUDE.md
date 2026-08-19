@@ -346,6 +346,10 @@ den Commit-Log an.
     Schreibaktionen, keine Plugins. Details und die drei Nicht-Aufräumen-Punkte
     in §4. Ein Profil-Manager mit mehreren benannten Viewer-Sichten in *einer*
     Datei wurde nicht gebaut — eine Sicht pro Ausgabe ist die Verteil-Einheit.
+22. ✅ **Spalten frei konfigurierbar** (Status-Tab, Normalmodus) — Rechtsklick auf die
+    Kopfzeile, Checkbox-Liste, Drag zum Umsortieren, persistent in `columns.json`.
+    Details und die drei Fallen in §4. Für die Host-Detail-Tabelle bewusst *nicht*
+    umgesetzt: dort ist der Spaltensatz kurz und `host` wäre redundant.
 
 ## 9 · Deal
 

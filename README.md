@@ -562,6 +562,15 @@ Format:
 - UTF-8-BOM (Umlaute stimmen)
 - RFC-4180-konformes Quoting
 
+Spalten — **fest**, unabhängig davon, was in der Tabelle gerade eingeblendet ist:
+
+```
+Host;Alias;Anzeigename;Service;Status;Ausgabe;Ack;Downtime;Age
+```
+
+> „Anzeigename" ist seit v1.7.8 dabei. Wer den Export weiterverarbeitet: alle
+> Spalten ab „Service" sind dadurch um eine Position nach rechts gerutscht.
+
 ---
 
 ## 13. Mehrere Sites am selben Server
