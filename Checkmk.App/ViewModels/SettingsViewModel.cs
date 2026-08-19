@@ -107,7 +107,22 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private void Save()
     {
         var settings = BuildSettings();
-        _store.Save(settings, Secret);
+        try
+        {
+            _store.Save(settings, Secret);
+        }
+        catch (Exception ex)
+        {
+            // Ohne diesen Fang reisst ein nicht beschreibbares Ziel die ganze App
+            // mit: die Exception laeuft aus dem RelayCommand in den Avalonia-
+            // Dispatcher und beendet den Prozess. Genau das ist Nutzern passiert,
+            // deren bootstrap.json auf ein fremdes Benutzerprofil zeigte.
+            Log.Error(ex, "Einstellungen konnten nicht gespeichert werden ({Path}).",
+                _store.SettingsFilePath);
+            StatusMessage = $"Speichern fehlgeschlagen: {ex.Message} — Ziel: {_store.SettingsFilePath}";
+            return;   // Dialog offen lassen, damit die Eingaben nicht verloren gehen
+        }
+
         _clients.Configure(settings, Secret);
         Saved = true;
         RequestClose?.Invoke(this, EventArgs.Empty);

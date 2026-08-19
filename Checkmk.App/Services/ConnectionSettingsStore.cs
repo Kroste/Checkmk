@@ -126,11 +126,24 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
         }
     }
 
+    /// <summary>
+    /// Schreibt die Einstellungen. Wirft weiter, wenn das Ziel nicht beschreibbar
+    /// ist — der Aufrufer muss das anzeigen, <b>nicht</b> die App sterben lassen
+    /// (siehe <c>SettingsViewModel.Save</c>).
+    /// </summary>
     public void Save(ConnectionSettings settings, string plainSecret)
     {
         settings.ProtectedSecret = string.IsNullOrEmpty(plainSecret)
             ? null
             : Convert.ToBase64String(_protector.Protect(Encoding.UTF8.GetBytes(plainSecret)));
+
+        // Verzeichnis hier nochmal anlegen: der Versuch im Ctor kann fehlgeschlagen
+        // sein (Pfad kam damals aus einer kaputten bootstrap.json) oder das
+        // Verzeichnis wurde zwischenzeitlich geloescht. Ohne das gibt es beim
+        // Schreiben eine DirectoryNotFoundException.
+        var dir = Path.GetDirectoryName(_path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
 
         var json = JsonSerializer.Serialize(settings,
             new JsonSerializerOptions { WriteIndented = true });
@@ -160,7 +173,7 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
         Log.Info("Site auf '{Site}' umgeschaltet.", newSite);
     }
 
-    private static string ResolvePath() => Bootstrap.LoadOrCreate().SharedSettingsPath;
+    private static string ResolvePath() => Bootstrap.LoadOrCreate().ResolvedSettingsPath;
 }
 
 /// <summary>
@@ -171,6 +184,8 @@ public sealed class ConnectionSettingsStore : IConnectionSettingsStore
 /// </summary>
 internal sealed class Bootstrap
 {
+    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
     private static readonly string DefaultLocalSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Kroste", "Checkmk", "settings.json");
@@ -185,8 +200,23 @@ internal sealed class Bootstrap
         "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
     private const string DefaultDomain = "lhp.intern";
 
-    /// <summary>Pfad zur Verbindungsdatei. Default ist user-lokal (%APPDATA%).</summary>
-    public string SharedSettingsPath { get; set; } = DefaultLocalSettingsPath;
+    /// <summary>
+    /// Pfad zur Verbindungsdatei. <b>Leer = user-lokal</b> (%APPDATA%), und das ist
+    /// der Default. Bewusst kein aufgeloester Pfad: die Bootstrap-Datei wird zentral
+    /// geteilt, ein absoluter Profilpfad wuerde also allen anderen Nutzern das
+    /// Profil eines Einzelnen unterschieben. Genau das ist passiert — in der
+    /// zentralen Datei stand <c>C:\Users\OsteL\AppData\Roaming\…</c>, und jeder
+    /// andere bekam beim Speichern eine DirectoryNotFoundException.
+    /// Umgebungsvariablen (<c>%APPDATA%</c>) werden beim Aufloesen expandiert.
+    /// </summary>
+    public string SharedSettingsPath { get; set; } = "";
+
+    /// <summary>Der tatsaechlich zu benutzende Pfad — siehe <see cref="SettingsPathResolver"/>.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string ResolvedSettingsPath => SettingsPathResolver.Resolve(
+        SharedSettingsPath,
+        DefaultLocalSettingsPath,
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     /// <summary>Zentrale, unverschluesselte Host-Metadaten-Datei (Domain je Host, spaeter
     /// evtl. weitere Notizen). Alle Cockpit-Nutzer teilen dieselbe Zuordnung.</summary>
@@ -263,7 +293,11 @@ internal sealed class Bootstrap
             if (!File.Exists(path)) return false;
             var json = File.ReadAllText(path);
             var loaded = JsonSerializer.Deserialize<Bootstrap>(json);
-            if (loaded is null || string.IsNullOrWhiteSpace(loaded.SharedSettingsPath))
+            // Bewusst KEINE Pruefung auf einen gesetzten SharedSettingsPath mehr:
+            // leer ist der gueltige Normalfall (= user-lokal). Frueher galt die
+            // Datei dadurch als kaputt und wurde mit einem aufgeloesten Profilpfad
+            // ueberschrieben — genau so kam der fremde Pfad in die zentrale Datei.
+            if (loaded is null)
                 return false;
             result = loaded;
             return true;
@@ -279,11 +313,33 @@ internal sealed class Bootstrap
         var dirty = false;
 
         // Wer aus v1.0-v1.4 upgradet hat noch den Samba-Pfad in SharedSettingsPath drin.
-        // Anmeldedaten gehoeren pro Nutzer — Default zurueck auf lokal.
+        // Anmeldedaten gehoeren pro Nutzer -> auf "leer" = user-lokal zuruecksetzen.
         if (string.Equals(loaded.SharedSettingsPath,
                 LegacySambaSettingsPath, StringComparison.OrdinalIgnoreCase))
         {
-            loaded.SharedSettingsPath = DefaultLocalSettingsPath;
+            loaded.SharedSettingsPath = "";
+            dirty = true;
+        }
+
+        // Selbstheilung: steht in der (zentral geteilten!) Datei der Profilpfad
+        // eines anderen Nutzers, ist das fuer alle ausser diesem einen kaputt.
+        // Auf "leer" zuruecksetzen, damit jeder wieder sein eigenes %APPDATA% nimmt.
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (SettingsPathResolver.PointsIntoForeignUserProfile(loaded.SharedSettingsPath, userProfile))
+        {
+            Log.Warn("bootstrap.json {Source}: SharedSettingsPath '{Path}' zeigt in ein fremdes "
+                   + "Benutzerprofil — wird auf user-lokal zurueckgesetzt.",
+                sourcePath, loaded.SharedSettingsPath);
+            loaded.SharedSettingsPath = "";
+            dirty = true;
+        }
+
+        // Ein aufgeloester eigener Profilpfad darf ebenfalls nicht stehenbleiben:
+        // sobald die Datei zentral migriert wird, erbt ihn der naechste Nutzer.
+        if (string.Equals(loaded.SharedSettingsPath, DefaultLocalSettingsPath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            loaded.SharedSettingsPath = "";
             dirty = true;
         }
 

@@ -260,6 +260,24 @@ Diese Punkte kosten sonst zuverlässig Zeit:
 - **Host anlegen ≠ Monitoring.** Nach dem Anlegen fehlt noch die Service-Discovery
   (`POST /domain-types/service_discovery_run/actions/start/invoke`, mode `fix_all`) + Aktivieren.
 
+### Bootstrap-Datei — geteilt, also niemals user-spezifisch
+
+`bootstrap.json` wird **zentral geteilt** (Samba01, mit Fallback auf `%APPDATA%`).
+Daraus folgt eine Regel, die schon einmal produktiv gebrochen wurde: **kein
+aufgelöster Benutzerpfad darf in die Datei geschrieben werden.** Genau das war
+passiert — `SharedSettingsPath` enthielt `C:\Users\OsteL\AppData\Roaming\…`, jeder
+andere Nutzer erbte den Pfad und die App **starb** beim Speichern der Einstellungen
+(`DirectoryNotFoundException` aus dem RelayCommand → Avalonia-Dispatcher → Prozessende).
+
+- `SharedSettingsPath` leer = user-lokal, und das ist der Default. `SettingsPathResolver`
+  expandiert Umgebungsvariablen und verwirft Pfade, die in ein **fremdes** Benutzerprofil
+  zeigen (UNC und `D:\…` bleiben unangetastet — die sind Absicht).
+- `TryLoad` darf **nicht** wieder auf „SharedSettingsPath muss gesetzt sein" prüfen:
+  dadurch galt die Datei als kaputt und wurde mit einem aufgelösten Profilpfad
+  überschrieben — der Weg, auf dem der Fehler entstand.
+- Schreibende Zugriffe auf Settings **immer** absichern. `SettingsViewModel.Save`
+  fängt jetzt und lässt den Dialog offen; ein Schreibfehler darf nie die App beenden.
+
 ## 6 · Abhängigkeiten — Fallen
 
 - **Avalonia >= 12.1** (aktuell 12.1.0, nativer Wayland-Backend ab 12.1). Breaking vs. v11: `Avalonia.Diagnostics` ist raus →

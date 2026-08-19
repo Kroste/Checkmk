@@ -642,7 +642,7 @@ Die zentrale `bootstrap.json` enthält Optionen, für die es bewusst kein UI gib
 
 ```json
 {
-  "SharedSettingsPath": "%APPDATA%\\Kroste\\Checkmk\\settings.json",
+  "SharedSettingsPath": "",
   "SharedHostsPath":    "\\\\Samba01\\...\\hosts.json",
   "HostDefaultDomain":  "lhp.intern",
   "HostOsAttributeKeys": [
@@ -656,7 +656,18 @@ Die zentrale `bootstrap.json` enthält Optionen, für die es bewusst kein UI gib
 }
 ```
 
-- **`SharedSettingsPath`** — Pfad zur user-lokalen Verbindungsdatei.
+- **`SharedSettingsPath`** — Pfad zur Verbindungsdatei. **Leer lassen** (= jeder
+  Nutzer bekommt sein eigenes `%APPDATA%\Kroste\Checkmk\settings.json`).
+  Umgebungsvariablen werden expandiert, `"%APPDATA%\\Kroste\\Checkmk\\settings.json"`
+  ist also ebenfalls gültig.
+
+  > ⚠️ Diese Datei ist **zentral geteilt**. Hier darf niemals ein aufgelöster
+  > Profilpfad wie `C:\Users\Meier\AppData\Roaming\…` stehen — alle anderen
+  > Nutzer erben ihn dann und können ihre Einstellungen nicht speichern. Genau
+  > das war der Fehler, den v1.7.10 behebt: bis dahin *beendete* sich die App
+  > dabei sogar. Fremde Profilpfade werden seither beim Start erkannt, verworfen
+  > und im Log gemeldet.
+
 - **`SharedHostsPath`** — Pfad zur zentralen Domain-Zuordnung.
 - **`HostDefaultDomain`** — Fallback-Domain, wenn ein Host keinen expliziten
   Eintrag in `hosts.json` hat.
