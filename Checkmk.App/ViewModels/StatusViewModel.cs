@@ -452,6 +452,19 @@ public sealed partial class StatusViewModel : ViewModelBase
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// Freitext-Treffer auf einem Service. Der <b>Anzeigename</b> muss mitgesucht
+    /// werden: bei SNMP-Geraeten (z. B. Rittal CMC III) heisst der Service
+    /// „CMCIII-IO3 Input 1", angezeigt wird aber „USV Netzausfall (Input 1)" —
+    /// und der Anwender tippt genau das, was er in der Spalte liest.
+    /// </summary>
+    private static bool MatchesText(ServiceStatus s, string f)
+        => s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase)
+           || s.Description.Contains(f, StringComparison.OrdinalIgnoreCase)
+           || s.DisplayNameOrDescription.Contains(f, StringComparison.OrdinalIgnoreCase)
+           || (s.HostAlias?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false)
+           || (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false);
+
     private void ApplyFilter()
     {
         IEnumerable<ServiceStatus> q = _allServices;
@@ -468,11 +481,7 @@ public sealed partial class StatusViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(FilterText))
         {
             var f = FilterText.Trim();
-            q = q.Where(s =>
-                s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
-                s.Description.Contains(f, StringComparison.OrdinalIgnoreCase) ||
-                (s.HostAlias?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
+            q = q.Where(s => MatchesText(s, f));
         }
 
         Services.Clear();
@@ -496,11 +505,7 @@ public sealed partial class StatusViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(FilterText))
         {
             var f = FilterText.Trim();
-            q = q.Where(s =>
-                s.HostName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
-                s.Description.Contains(f, StringComparison.OrdinalIgnoreCase) ||
-                (s.HostAlias?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
+            q = q.Where(s => MatchesText(s, f));
         }
 
         HostTree.Clear();

@@ -13,8 +13,11 @@ public static class CsvExporter
     private const char Delimiter = ';';
     private const string NewLine = "\r\n";
 
+    // „Anzeigename" gehoert dazu, seit die Tabelle ihn zeigen kann: bei SNMP-Geraeten
+    // ist er der sprechende Name („USV Netzausfall (Input 1)"), die Service-Beschreibung
+    // dagegen nur die technische Kennung („CMCIII-IO3 Input 1").
     private static readonly string[] Headers =
-        ["Host", "Alias", "Service", "Status", "Ausgabe", "Ack", "Downtime", "Age"];
+        ["Host", "Alias", "Anzeigename", "Service", "Status", "Ausgabe", "Ack", "Downtime", "Age"];
 
     public static string ToCsv(IEnumerable<ServiceStatus> rows)
     {
@@ -25,6 +28,7 @@ public static class CsvExporter
         {
             sb.Append(Esc(s.HostName)).Append(Delimiter);
             sb.Append(Esc(s.HostAlias ?? string.Empty)).Append(Delimiter);
+            sb.Append(Esc(s.DisplayNameOrDescription)).Append(Delimiter);
             sb.Append(Esc(s.Description)).Append(Delimiter);
             sb.Append(Esc(s.ServiceState.ToString())).Append(Delimiter);
             sb.Append(Esc(s.PluginOutput ?? string.Empty)).Append(Delimiter);

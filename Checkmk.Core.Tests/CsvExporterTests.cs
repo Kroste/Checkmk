@@ -15,8 +15,23 @@ public class CsvExporterTests
     {
         var csv = CsvExporter.ToCsv([Svc("h1", "CPU", ServiceState.Ok, "load 0.5")]);
 
-        csv.Should().StartWith("Host;Alias;Service;Status;Ausgabe;Ack;Downtime;Age\r\n");
-        csv.Should().Contain("h1;;CPU;Ok;load 0.5;nein;nein;");
+        csv.Should().StartWith("Host;Alias;Anzeigename;Service;Status;Ausgabe;Ack;Downtime;Age\r\n");
+        // Ohne eigenen Anzeigenamen faellt die Spalte auf die Beschreibung zurueck.
+        csv.Should().Contain("h1;;CPU;CPU;Ok;load 0.5;nein;nein;");
+    }
+
+    [Fact]
+    public void Display_name_column_carries_the_speaking_name()
+    {
+        var csv = CsvExporter.ToCsv([new ServiceStatus
+        {
+            HostName = "DCC-CMC01",
+            Description = "CMCIII-IO3 Input 1",
+            DisplayName = "USV Netzausfall (Input 1)",
+            State = (int)ServiceState.Ok
+        }]);
+
+        csv.Should().Contain("DCC-CMC01;;USV Netzausfall (Input 1);CMCIII-IO3 Input 1;Ok;");
     }
 
     [Fact]

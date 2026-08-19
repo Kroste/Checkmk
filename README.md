@@ -829,7 +829,7 @@ lässt sich damit abschreiben. Reihenfolge in der Liste = Reihenfolge im Grid.
 | `state_dot` | Ampelpunkt (Cockpit-eigen) |
 | `host` | Hostname |
 | `host_alias` | Host-Alias (Cockpit-eigen) |
-| `service_display_name` | Anzeigename des Service (Service-Alias, sonst = Beschreibung) |
+| `service_display_name` | Anzeigename des Service (sonst = Beschreibung, siehe unten) |
 | `service_description` | Service-Beschreibung |
 | `service_state` | OK / WARN / CRIT / UNKNOWN |
 | `service_plugin_output` | Prüfausgabe (nimmt den Restplatz ein) |
@@ -840,6 +840,32 @@ lässt sich damit abschreiben. Reihenfolge in der Liste = Reihenfolge im Grid.
 
 Ein unbekannter Schlüssel wird ignoriert und ins Log geschrieben; bleibt gar
 nichts übrig, greift der Standardsatz.
+
+#### `service_display_name` — wo der sprechende Name herkommt
+
+Bei den meisten Diensten ist der Anzeigename mit der Service-Beschreibung
+identisch. Interessant wird die Spalte bei SNMP-Geräten, die ihre Kanäle selbst
+benennen — etwa einem Rittal CMC III:
+
+| `service_description` | `service_display_name` |
+|---|---|
+| `CMCIII-IO3 Input 1` | `USV Netzausfall (Input 1)` |
+| `CMCIII-IO3 Input 3` | `USV Batterie low (Input 3)` |
+| `CMCIII-IO3 Input 6` | `NSV Diffstr Warnung (Input 6)` |
+| `Uptime` | `Uptime` |
+
+Es ist derselbe Wert, den die Checkmk-Weboberfläche in der Spalte „Display name"
+zeigt (Livestatus-Spalte `display_name`).
+
+> **Achtung beim Sortieren:** Wenn du nach Anzeigename sortierst, landen die
+> sprechenden Namen dort, wo ihr Anfangsbuchstabe hingehört — `USV …` unter U,
+> also weit hinter `CMCIII-…` und `Filesystem …`. Oben im Bild stehen dann nur
+> Dienste, bei denen beide Spalten gleich sind. Das sieht schnell so aus, als
+> würde die Spalte nicht funktionieren.
+
+Der Freitext-Filter durchsucht den Anzeigenamen mit — die Eingabe `USV` findet
+also die Zeilen, die man in der Spalte liest. Im CSV-Export ist er eine eigene
+Spalte.
 
 ### `view` — der Filter kommt ausschließlich aus dem Profil
 
