@@ -60,7 +60,8 @@ public partial class App : Application
             // Tray-Icon, Minimieren ins Tray, Status-Notifications.
             var status = Services.GetRequiredService<StatusViewModel>();
             var toast = Services.GetRequiredService<IToastNotifier>();
-            _trayController = new TrayController(this, window, status, toast);
+            var viewer = Services.GetRequiredService<ViewerMode>();
+            _trayController = new TrayController(this, window, status, toast, viewer);
         }
 
         base.OnFrameworkInitializationCompleted();

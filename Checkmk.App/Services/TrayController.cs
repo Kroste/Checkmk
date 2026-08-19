@@ -39,12 +39,21 @@ public sealed class TrayController
     /// am Tray-Icon (der Ampelstatus bleibt sichtbar).</summary>
     public DateTimeOffset? SnoozedUntil { get; private set; }
 
-    public TrayController(Application app, Window window, StatusViewModel status, IToastNotifier toast)
+    /// <summary>
+    /// Nur im Viewer-Modus und nur wenn das Profil es nicht abschaltet: bei einer
+    /// Verschlechterung das Fenster maximiert nach vorn holen. Fuer Ausgaben, die
+    /// dauerhaft auf einem Bildschirm laufen und wo ein Toast allein zu leise ist.
+    /// </summary>
+    private readonly bool _popUpOnProblem;
+
+    public TrayController(Application app, Window window, StatusViewModel status,
+        IToastNotifier toast, ViewerMode viewer)
     {
         _app = app;
         _window = window;
         _status = status;
         _toast = toast;
+        _popUpOnProblem = viewer.Profile?.PopUpOnProblem ?? false;
 
         // Tray-Icons zur Laufzeit rendern: App-Icon + farbiger Status-Dot unten
         // rechts. Damit bleibt im Tray erkennbar dass das der Checkmk Cockpit
@@ -159,6 +168,41 @@ public sealed class TrayController
         });
     }
 
+    /// <summary>
+    /// Holt das Fenster maximiert nach vorn und springt auf den betroffenen Service.
+    /// Greift auch, wenn das Fenster gar nicht im Tray liegt, sondern nur hinter
+    /// anderen Fenstern — „nicht uebersehen" ist der ganze Zweck.
+    /// </summary>
+    private void PopUpForProblem(ServiceStatus? problem)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            _restoreInProgress = true;
+            try
+            {
+                _window.Show();
+                _window.WindowState = WindowState.Maximized;
+
+                // Activate() allein holt unter Windows nicht zuverlaessig den
+                // Vordergrund, wenn eine andere Anwendung den Fokus hat. Der
+                // Topmost-Toggle erzwingt es, ohne das Fenster dauerhaft ueber
+                // alles andere zu nageln.
+                _window.Topmost = true;
+                _window.Activate();
+                _window.Topmost = false;
+
+                IsMinimizedToTray = false;
+            }
+            finally { _restoreInProgress = false; }
+
+            // Nach dem Hochholen die betroffene Zeile markieren und dorthin scrollen.
+            // Getrennt gepostet, damit das Grid das Layout nach dem Maximieren fertig hat.
+            if (problem is not null)
+                Dispatcher.UIThread.Post(() => _status.RequestSpotlight(problem),
+                    DispatcherPriority.Background);
+        });
+    }
+
     private void OnStatusRefreshed(IReadOnlyList<ServiceStatus> services, string? filterName)
     {
         // Ampelfarbe + Tooltip
@@ -187,6 +231,15 @@ public sealed class TrayController
             CancelSnooze();
 
         var change = _monitor.Diff(services);
+
+        // Immer mitschreiben: „warum kam kein Toast/kein Popup?" ist die haeufigste
+        // Rueckfrage, und ohne diese Zeile sieht man im Log nur Stille.
+        Log.Debug("Refresh-Diff: {Services} Services (CRIT {Crit}/WARN {Warn}/UNK {Unk}/OK {Ok}), "
+                + "Aenderungen={Changes} ({Text}), ImTray={Tray}, Snooze={Snooze}, PopUp={PopUp}.",
+            services.Count, crit, warn, unknown, ok,
+            change.Total, change.HasChanges ? change.ToText() : "keine",
+            IsMinimizedToTray, SnoozedUntil?.ToString("HH:mm") ?? "aus", _popUpOnProblem);
+
         if (change.HasChanges)
         {
             if (SnoozedUntil is not null)
@@ -206,6 +259,18 @@ public sealed class TrayController
             else
             {
                 Log.Debug("Statusaenderung erkannt — aber Fenster ist nicht ins Tray minimiert, kein Toast.");
+            }
+
+            // Viewer-Modus: zusaetzlich zum Toast das Fenster hochholen. Bewusst
+            // NICHT bei reinen Recoveries (HasWorsened) und nicht bei aktivem
+            // Snooze — sonst springt die Ausgabe auch dann auf, wenn sich gerade
+            // etwas erholt oder der Nutzer ausdruecklich Ruhe haben wollte.
+            if (_popUpOnProblem && change.HasWorsened && SnoozedUntil is null)
+            {
+                Log.Info("Viewer-Modus: Verschlechterung erkannt ({Text}) — hole Fenster nach vorn{Target}.",
+                    change.ToText(),
+                    change.WorstNewProblem is { } p ? $" und springe auf {p.HostName}/{p.Description}" : "");
+                PopUpForProblem(change.WorstNewProblem);
             }
         }
     }

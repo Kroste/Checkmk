@@ -65,7 +65,6 @@ public class ViewerProfileTests : IDisposable
         profile.View.HostRegex.Should().Be(".*sql.*");
         profile.View.FilterName.Should().Be("DB-Server");
         profile.View.RefreshSeconds.Should().Be(90);
-        profile.View.HasHostScope.Should().BeTrue();
     }
 
     [Fact]
@@ -254,6 +253,29 @@ public class ViewerProfileTests : IDisposable
         """);
 
         ViewerProfile.LoadFrom(path)!.Connection.IsComplete.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PopUpOnProblem_defaults_to_on()
+    {
+        var path = Write("""
+        { "connection": { "host": "h", "site": "s", "username": "u", "secret": "x" } }
+        """);
+
+        ViewerProfile.LoadFrom(path)!.PopUpOnProblem.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PopUpOnProblem_can_be_switched_off()
+    {
+        var path = Write("""
+        {
+          "connection": { "host": "h", "site": "s", "username": "u", "secret": "x" },
+          "popUpOnProblem": false
+        }
+        """);
+
+        ViewerProfile.LoadFrom(path)!.PopUpOnProblem.Should().BeFalse();
     }
 
     [Fact]

@@ -46,7 +46,7 @@ public class HostFilterCollectionSiteTests
             ActiveFilterName = "Clients"
         };
 
-        var collection = new HostFilterCollection(store, new FakeSettingsStore("LHP"));
+        var collection = new HostFilterCollection(store, new FakeSettingsStore("LHP"), new ViewerMode(null));
 
         // ComboBox-Verhalten nachstellen: beim Leeren der Liste (Clear) schreibt die
         // two-way-gebundene SelectedItem-Bindung Active=null zurueck.

@@ -47,9 +47,17 @@ public sealed partial class StatusViewModel : ViewModelBase
     /// Fuer Tray-Signal und Notifications.</summary>
     public event Action<IReadOnlyList<ServiceStatus>, string?>? Refreshed;
 
-    /// <summary>Wird gefeuert, wenn ein Service seit dem letzten Refresh NEU CRIT ist.
-    /// Der Handler kann z. B. im Grid dorthin scrollen und die Zeile hervorheben.</summary>
-    public event Action<ServiceStatus>? NewCriticalAppeared;
+    /// <summary>
+    /// Bitte, im Grid auf diesen Service zu scrollen und die Zeile zu markieren.
+    /// Wird gefeuert, wenn ein Service seit dem letzten Refresh neu CRIT ist — und
+    /// im Viewer-Modus zusaetzlich vom <see cref="TrayController"/>, wenn das Fenster
+    /// wegen einer Verschlechterung nach vorn geholt wird (dann auch bei WARN).
+    /// </summary>
+    public event Action<ServiceStatus>? SpotlightRequested;
+
+    /// <summary>Von aussen anstossbar (Tray/Notification-Weg), damit die Ansicht auf
+    /// den gemeldeten Service springt.</summary>
+    public void RequestSpotlight(ServiceStatus service) => SpotlightRequested?.Invoke(service);
 
     private HashSet<string> _previousCrits = new(StringComparer.OrdinalIgnoreCase);
 
@@ -178,14 +186,17 @@ public sealed partial class StatusViewModel : ViewModelBase
         }
         finally { _loadingState = false; }
 
-        if (!v.HasHostScope) return;
+        // Bewusst bedingungslos: ToHostFilter liefert auch ohne Regex/Liste einen
+        // Filter (= alle Hosts). Sonst bliebe der zuletzt aktive Filter aus der
+        // persoenlichen filter.json stehen und wuerde die Profilvorgabe ueberstimmen.
+        var preset = v.ToHostFilter();
+        Filters.ApplyPreset(preset);
 
-        Filters.ApplyPreset(new Models.HostFilter
-        {
-            Name = string.IsNullOrWhiteSpace(v.FilterName) ? "Vorgabe" : v.FilterName.Trim(),
-            HostNameRegex = v.HostRegex,
-            ExplicitHosts = [.. v.IncludeHosts]
-        });
+        // Beim Ausrollen die haeufigste Frage: „welcher Filter greift denn nun?"
+        Log.Info("Viewer-Vorgabe aktiv: Filter '{Filter}' (Regex={Regex}, {Hosts} Hosts explizit), "
+               + "NurProbleme={OnlyProblems}, NurOffen={OnlyOpen}, AutoRefresh={Auto}/{Sec}s.",
+            preset.Name, preset.HostNameRegex ?? "—", preset.ExplicitHosts.Count,
+            OnlyProblems, OnlyOpen, AutoRefresh, RefreshSeconds);
     }
 
     private void PersistState()
@@ -290,7 +301,7 @@ public sealed partial class StatusViewModel : ViewModelBase
                     .OrderByDescending(s => s.LastStateChangeUnix)
                     .FirstOrDefault();
                 if (freshCrit is not null)
-                    NewCriticalAppeared?.Invoke(freshCrit);
+                    SpotlightRequested?.Invoke(freshCrit);
             }
             _previousCrits = currentCrits;
         }

@@ -41,7 +41,7 @@ public class FilterManagerApplyTests
                 Filters = [new HostFilter { Name = "A" }, new HostFilter { Name = "B" }]
             }
         };
-        var collection = new HostFilterCollection(store, new FakeSettingsStore());
+        var collection = new HostFilterCollection(store, new FakeSettingsStore(), new ViewerMode(null));
         var vm = new FilterManagerViewModel(collection)
         {
             Selected = collection.Filters.First(f => f.Name == "A")
@@ -77,7 +77,7 @@ public class FilterManagerApplyTests
             }
         };
 
-        var collection = new HostFilterCollection(store, new FakeSettingsStore());
+        var collection = new HostFilterCollection(store, new FakeSettingsStore(), new ViewerMode(null));
 
         collection.Filters.Should().ContainSingle(f => f.Name == "Good");
         collection.Filters.Should().NotContainNulls();

@@ -40,7 +40,10 @@
         <ToggleButton Grid.Column="2" Content="Baumansicht" IsChecked="{Binding TreeView}"
                       VerticalAlignment="Center" />
         <Button Grid.Column="4" Content="CSV-Export…" Click="OnExportCsvClick" />
-        <Button Grid.Column="5" Content="Filter verwalten…" Click="OnManageFiltersClick" />
+        <!-- Im Viewer-Modus kommt die Filterliste aus viewer.json und wird nicht
+             persistiert — ein Verwalten-Dialog haette dort keinen Speicherort. -->
+        <Button Grid.Column="5" Content="Filter verwalten…" Click="OnManageFiltersClick"
+                IsVisible="{Binding CanWrite}" />
       </Grid>
     </Grid>
 
@@ -72,9 +75,11 @@
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Downtime…" Click="OnDowntimeClick" IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Kommentar…" Click="OnCommentClick" IsVisible="{Binding CanWrite}" />
-          <Separator />
-          <MenuItem Header="Zu Favorit hinzufügen…" Click="OnAddHostsToFavoriteClick" />
-          <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Zu Favorit hinzufügen…" Click="OnAddHostsToFavoriteClick"
+                    IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick"
+                    IsVisible="{Binding CanWrite}" />
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
           <Separator IsVisible="{Binding CanWrite}" />
@@ -129,9 +134,11 @@
           <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Downtime…" Click="OnDowntimeClick" IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Kommentar…" Click="OnCommentClick" IsVisible="{Binding CanWrite}" />
-          <Separator />
-          <MenuItem Header="Zu Favorit hinzufügen…" Click="OnAddHostsToFavoriteClick" />
-          <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Zu Favorit hinzufügen…" Click="OnAddHostsToFavoriteClick"
+                    IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick"
+                    IsVisible="{Binding CanWrite}" />
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
           <Separator IsVisible="{Binding CanWrite}" />

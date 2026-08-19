@@ -18,13 +18,15 @@ namespace Checkmk.App.Views;
 
 public partial class StatusView : UserControl
 {
+    private static readonly NLog.Logger Log = NLog.LogManager.GetCurrentClassLogger();
+
     public StatusView()
     {
         AvaloniaXamlLoader.Load(this);
         DataContextChanged += (_, _) =>
         {
             if (DataContext is StatusViewModel vm)
-                vm.NewCriticalAppeared += OnNewCritical;
+                vm.SpotlightRequested += OnSpotlightRequested;
         };
 
         // Viewer-Modus: Spaltensatz kommt aus viewer.json statt aus dem XAML oben.
@@ -51,14 +53,27 @@ public partial class StatusView : UserControl
     private void ApplyViewerColumns(ViewerProfile profile)
     {
         var grid = this.FindControl<DataGrid>("ServiceGrid");
-        if (grid is null) return;
+        if (grid is null)
+        {
+            Log.Warn("Viewer-Spalten: DataGrid 'ServiceGrid' nicht gefunden — "
+                   + "es bleibt beim Standard-Spaltensatz.");
+            return;
+        }
 
         var columns = StatusColumnFactory.Build(profile.Columns);
-        if (columns.Count == 0) return;
+        if (columns.Count == 0)
+        {
+            Log.Warn("Viewer-Spalten: keine baubare Spalte in {Configured} — "
+                   + "es bleibt beim Standard-Spaltensatz.", string.Join(", ", profile.Columns));
+            return;
+        }
 
         grid.Columns.Clear();
         foreach (var column in columns)
             grid.Columns.Add(column);
+
+        Log.Info("Viewer-Spalten gesetzt ({Count}): {Headers}",
+            columns.Count, string.Join(" | ", columns.Select(c => c.Header?.ToString())));
     }
 
     private ContextMenuTarget? BuildTargetForStatus()
@@ -74,7 +89,7 @@ public partial class StatusView : UserControl
             owner);
     }
 
-    private void OnNewCritical(ServiceStatus svc)
+    private void OnSpotlightRequested(ServiceStatus svc)
     {
         var grid = this.FindControl<DataGrid>("ServiceGrid");
         if (grid is null) return;
@@ -85,6 +100,8 @@ public partial class StatusView : UserControl
         {
             grid.ScrollIntoView(svc, null);
             grid.SelectedItem = svc;
+            Log.Debug("Spotlight auf {Host}/{Service} — markiert={Hit}.",
+                svc.HostName, svc.Description, ReferenceEquals(grid.SelectedItem, svc));
         }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
@@ -174,14 +191,14 @@ public partial class StatusView : UserControl
 
     private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
         await new FilterManagerWindow(vm.Filters).ShowDialog(owner);
     }
 
     private async void OnSaveHostsAsFavoriteClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
         var hosts = GetTargetHostNames();
@@ -204,7 +221,7 @@ public partial class StatusView : UserControl
 
     private async void OnAddHostsToFavoriteClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
         var hosts = GetTargetHostNames();

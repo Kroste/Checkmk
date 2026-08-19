@@ -130,9 +130,21 @@ public sealed class ViewerView
     public int RefreshSeconds { get; set; } = 60;
     public bool TreeView { get; set; }
 
-    [JsonIgnore]
-    public bool HasHostScope
-        => IncludeHosts.Count > 0 || !string.IsNullOrWhiteSpace(HostRegex);
+    /// <summary>
+    /// Baut den vorgegebenen Host-Filter. Liefert <b>immer</b> einen Filter, auch
+    /// wenn weder Regex noch Liste gesetzt sind — dann matcht er alle Hosts. Genau
+    /// so ist es gewollt: im Viewer-Modus muss immer ein Filter aus dem Profil aktiv
+    /// sein, sonst bliebe der zuletzt aktive aus der persoenlichen <c>filter.json</c>
+    /// stehen und wuerde die Vorgabe ueberstimmen.
+    /// </summary>
+    public Models.HostFilter ToHostFilter() => new()
+    {
+        Name = string.IsNullOrWhiteSpace(FilterName) ? "Vorgabe" : FilterName.Trim(),
+        // Leerstring -> null: ein leerer Regex ist kein Filter, sondern „alles".
+        HostNameRegex = string.IsNullOrWhiteSpace(HostRegex) ? null : HostRegex.Trim(),
+        ExplicitHosts = [.. IncludeHosts.Where(h => !string.IsNullOrWhiteSpace(h))
+                                        .Select(h => h.Trim())]
+    };
 }
 
 /// <summary>
@@ -172,6 +184,19 @@ public sealed class ViewerProfile
     public List<string> Columns { get; set; } = [];
 
     public ViewerView View { get; set; } = new();
+
+    /// <summary>
+    /// Holt das Fenster bei einer Verschlechterung nach vorn (maximiert) und springt
+    /// auf den betroffenen Service — zusaetzlich zur Toast-Benachrichtigung. Gedacht
+    /// fuer Ausgaben, die dauerhaft auf einem Bildschirm laufen (Wachschutz, Leitstand)
+    /// und wo eine Meldung nicht uebersehen werden darf.
+    /// <para>
+    /// Reine Recoveries loesen das <b>nicht</b> aus — sonst springt das Fenster auch
+    /// dann auf, wenn sich gerade etwas erholt. Ein aktiver Snooze unterdrueckt es
+    /// wie den Toast auch.
+    /// </para>
+    /// </summary>
+    public bool PopUpOnProblem { get; set; } = true;
 
     /// <summary>Voller Pfad der geladenen Datei (fuer Meldungen und die Über-Box).</summary>
     [JsonIgnore]

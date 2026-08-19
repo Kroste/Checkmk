@@ -196,9 +196,21 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   2. **Kaputtes JSON schaltet den Viewer-Modus NICHT ab** — `LoadFrom` gibt dann ein
      Profil mit `LoadError` zurück. Ein Tippfehler darf keinem Nur-Gucker die volle
      Oberfläche freischalten.
-  3. **`view`-Werte sind Startwerte** und werden nicht nach `statusview.json`
-     zurückgeschrieben (`PersistState` ist im Viewer-Modus No-Op); der Vorgabefilter
-     ist `HostFilter.IsTransient` und bleibt aus `filter.json` draußen.
+  Zusätzlich im Viewer-Modus: **`popUpOnProblem`** (Default true) holt bei einer
+  Verschlechterung das Fenster maximiert nach vorn (`TrayController.PopUpForProblem`)
+  und markiert die betroffene Zeile über `StatusViewModel.RequestSpotlight`. Nur bei
+  `ChangeSummary.HasWorsened` — reine Recoveries dürfen nichts aufreißen — und nie bei
+  aktivem Snooze. Der `Topmost`-Toggle in `PopUpForProblem` ist nötig, weil `Activate()`
+  allein unter Windows den Vordergrund nicht erzwingt; den Tastaturfokus vergibt Windows
+  trotzdem nach eigenen Regeln, sichtbar-und-oben ist garantiert, fokussiert nicht.
+  3. **Der Filterzustand kommt ausschließlich aus dem Profil.** `HostFilterCollection`
+     lädt im Viewer-Modus die persönliche `filter.json` gar nicht erst und persistiert
+     nie; `StatusViewModel` ruft `ApplyPreset(v.ToHostFilter())` **bedingungslos** —
+     auch bei leerem `hostRegex` (= alle Hosts). Ohne beides gewann die `filter.json`
+     des Rechners, auf dem das Profil gebaut wurde: deren `ActiveFilterName` überstimmte
+     die Vorgabe und die fremden Favoriten standen im Dropdown. Nicht auf „nur wenn ein
+     Host-Bezug da ist" zurückbauen. `view`-Werte im Übrigen sind Startwerte und gehen
+     nicht nach `statusview.json` (`PersistState` ist No-Op).
 - **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt
   via `WindowsDpapiProtector` (DPAPI-CurrentUser). Ablage user-lokal unter
   `%APPDATA%\Kroste\Checkmk\settings.json`. Zusätzlich `KnownSites: [...]` als

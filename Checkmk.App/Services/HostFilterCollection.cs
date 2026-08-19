@@ -15,6 +15,7 @@ public sealed class HostFilterCollection : ObservableObject
 {
     private readonly IHostFilterStore _store;
     private readonly IConnectionSettingsStore _settings;
+    private readonly bool _viewerMode;
     private string _currentSite;
     private bool _suppressPersist;
 
@@ -34,12 +35,21 @@ public sealed class HostFilterCollection : ObservableObject
         }
     }
 
-    public HostFilterCollection(IHostFilterStore store, IConnectionSettingsStore settings)
+    public HostFilterCollection(IHostFilterStore store, IConnectionSettingsStore settings,
+        ViewerMode viewer)
     {
         _store = store;
         _settings = settings;
+        _viewerMode = viewer.IsActive;
         _currentSite = _settings.Load().Site;
-        LoadFiltersForCurrentSite();
+
+        // Im Viewer-Modus bleibt die persoenliche filter.json komplett aussen vor:
+        // sie wird weder geladen noch geschrieben. Der Filterzustand kommt allein
+        // aus viewer.json (StatusViewModel ruft gleich ApplyPreset). Sonst haengen
+        // am Cockpit des Admins dessen eigene Favoriten mit drin — inklusive des
+        // dort zuletzt aktiven Filters, der die Vorgabe aus dem Profil ueberstimmt.
+        if (!_viewerMode)
+            LoadFiltersForCurrentSite();
     }
 
     private void LoadFiltersForCurrentSite()
@@ -93,9 +103,14 @@ public sealed class HostFilterCollection : ObservableObject
     public void Update() => Persist();
 
     /// <summary>
-    /// Setzt einen vorgegebenen Filter (Viewer-Modus) an den Anfang der Liste und
-    /// aktiviert ihn — <b>ohne</b> zu persistieren. Der Anwender darf danach frei
-    /// umschalten; beim naechsten Start gilt wieder die Vorgabe aus <c>viewer.json</c>.
+    /// Setzt den aus <c>viewer.json</c> vorgegebenen Filter und aktiviert ihn —
+    /// <b>ohne</b> zu persistieren.
+    /// <para>
+    /// Wird im Viewer-Modus <b>immer</b> aufgerufen, auch wenn das Profil gar keinen
+    /// Host-Bezug vorgibt (dann matcht der Filter alle Hosts). Genau das ist der
+    /// Punkt: es darf keinen Pfad geben, auf dem stattdessen ein Filter aus der
+    /// persoenlichen <c>filter.json</c> aktiv wird.
+    /// </para>
     /// </summary>
     public void ApplyPreset(HostFilter preset)
     {
@@ -118,11 +133,16 @@ public sealed class HostFilterCollection : ObservableObject
     }
 
     private void Persist()
-        => _store.Save(_currentSite, new HostFilterState
+    {
+        // Viewer-Modus schreibt grundsaetzlich nicht in die persoenliche filter.json.
+        if (_viewerMode) return;
+
+        _store.Save(_currentSite, new HostFilterState
         {
             // Transiente Vorgabe-Filter bleiben draussen — sie gehoeren dem Profil,
             // nicht der Favoritenbibliothek des Anwenders.
             Filters = Filters.Where(f => !f.IsTransient).ToList(),
             ActiveFilterName = _active is { IsTransient: false } ? _active.Name : null
         });
+    }
 }

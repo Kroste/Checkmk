@@ -745,8 +745,10 @@ demselben Binary.
 | RDP / SSH / Ping / Host-Einstellungen | da | weg |
 | Plugins aus `plugins\` | werden geladen | werden **nicht** geladen |
 | Spalten der Tabelle | fest | aus der Datei |
-| Start-Filter | zuletzt benutzter | aus der Datei |
-| Host-Details, Baumansicht, Favoriten, CSV-Export | da | bleiben da |
+| Host-Filter | persönliche `filter.json` | **nur** aus der Datei |
+| Bei neuem Problem | Toast (wenn im Tray) | Toast **+ Fenster springt auf** |
+| Favoriten anlegen / „Filter verwalten…" | da | weg |
+| Host-Details, Baumansicht, Freitext-Filter, CSV-Export | da | bleiben da |
 
 Der Host-Detail-Dialog geht weiter auf, zeigt aber ebenfalls keine
 Schreib-Buttons und kein ✕ an den Kommentaren.
@@ -839,13 +841,69 @@ lässt sich damit abschreiben. Reihenfolge in der Liste = Reihenfolge im Grid.
 Ein unbekannter Schlüssel wird ignoriert und ins Log geschrieben; bleibt gar
 nichts übrig, greift der Standardsatz.
 
-### `view` — Startwerte, keine Sperre
+### `view` — der Filter kommt ausschließlich aus dem Profil
 
-Alles unter `view` ist ein **Startwert**. Der Anwender darf umschalten; es wird
-nur nichts nach `statusview.json` zurückgeschrieben, damit jeder Start wieder
-mit der vorgesehenen Sicht beginnt. `hostRegex` bzw. `includeHosts` erscheinen
-als vorausgewählter Favorit unter dem Namen aus `filterName` — er landet
-bewusst **nicht** in der persönlichen `filter.json`.
+`hostRegex` bzw. `includeHosts` erscheinen als aktiver Filter unter dem Namen
+aus `filterName`. **Die persönliche `filter.json` wird im Viewer-Modus weder
+gelesen noch geschrieben** — sonst hingen auf dem Rechner, auf dem das Profil
+gebaut wurde, die eigenen Favoriten mit im Dropdown, und der dort zuletzt
+aktive Filter würde die Vorgabe überstimmen.
+
+Lässt man `hostRegex` leer (oder weg), heißt das **alle Hosts** — der Filter
+heißt dann trotzdem wie in `filterName`, ist aber ohne Einschränkung:
+
+```json
+"view": { "filterName": "Alles", "hostRegex": "", "onlyProblems": true }
+```
+
+`onlyProblems`, `onlyOpen`, `autoRefresh`, `refreshSeconds` und `treeView` sind
+**Startwerte** — der Anwender darf sie umschalten, es wird nur nichts nach
+`statusview.json` zurückgeschrieben, damit jeder Start wieder mit der
+vorgesehenen Sicht beginnt.
+
+### `popUpOnProblem` — Fenster springt bei Problemen auf
+
+Für Ausgaben, die dauerhaft auf einem Bildschirm laufen (Wachschutz, Leitstand),
+reicht ein Toast oft nicht. Mit `"popUpOnProblem": true` (Standard im
+Viewer-Modus) holt sich das Cockpit bei einer **Verschlechterung** selbst nach
+vorn: Fenster maximiert, ganz oben im Stapel, und die betroffene Zeile ist
+markiert. Kommt die App aus dem Tray, wird sie dabei wieder eingeblendet.
+
+Was es auslöst:
+
+| Ereignis | Fenster springt auf |
+|---|---|
+| OK → WARN/CRIT/UNKNOWN (neues Problem) | ja |
+| WARN → CRIT (Verschlechterung) | ja |
+| CRIT → OK (Recovery) | **nein** |
+| Snooze aktiv (Tray-Menü) | **nein** |
+
+Sind mehrere Dinge gleichzeitig kaputtgegangen, springt die Ansicht auf das
+schwerwiegendste. Abschalten mit `"popUpOnProblem": false` — der Toast bleibt
+davon unberührt.
+
+> Windows gibt einer Hintergrund-Anwendung nicht immer den Tastaturfokus. Das
+> Fenster wird zuverlässig sichtbar und nach ganz oben geholt; ob es zusätzlich
+> den Fokus bekommt, entscheidet Windows.
+
+### Log beim Start
+
+Welcher Filter und welche Spalten tatsächlich gegriffen haben, steht im Log:
+
+```
+INFO|StatusView|Viewer-Spalten gesetzt (7):  | Host | Anzeigename | Service | Status | …
+INFO|StatusViewModel|Viewer-Vorgabe aktiv: Filter 'Alles' (Regex=—, 0 Hosts explizit),
+NurProbleme=true, NurOffen=false, AutoRefresh=true/60s.
+```
+
+Und auf Debug-Ebene bei jedem Refresh, warum ein Toast/Popup kam oder eben nicht:
+
+```
+DEBUG|TrayController|Refresh-Diff: 3 Services (CRIT 1/WARN 0/UNK 0/OK 2),
+Aenderungen=1 (1 neues Problem), ImTray=false, Snooze=aus, PopUp=true.
+INFO |TrayController|Viewer-Modus: Verschlechterung erkannt (1 neues Problem) —
+hole Fenster nach vorn und springe auf TUER-CTRL02/Zutrittskontrolle.
+```
 
 | Feld | Default | Bedeutung |
 |---|---|---|

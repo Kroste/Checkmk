@@ -17,6 +17,13 @@
 
   "title": "Checkmk — Sicht Fachbereich",
 
+  // Bei einer Verschlechterung (neues Problem oder z. B. WARN -> CRIT) zusaetzlich
+  // zum Toast das Fenster maximiert nach vorn holen und auf den betroffenen Service
+  // springen. Fuer Ausgaben, die dauerhaft auf einem Bildschirm laufen.
+  // Reine Recoveries loesen es nicht aus; ein aktiver Snooze unterdrueckt es.
+  // Auf false setzen, wenn das Fenster nicht von selbst aufspringen soll.
+  "popUpOnProblem": true,
+
   "connection": {
     "host": "cmk.lhp.intern",
     "site": "LHP-Prod",
@@ -54,11 +61,13 @@
     "svc_state_age"
   ],
 
-  // Startwerte fuer die Sicht — der Anwender darf umschalten, es wird nur nichts
-  // gespeichert. Beim naechsten Start gilt wieder das hier Eingetragene.
+  // Der Host-Filter kommt AUSSCHLIESSLICH von hier — die persoenliche
+  // filter.json wird im Viewer-Modus weder gelesen noch geschrieben.
+  // Die uebrigen Werte sind Startwerte: umschaltbar, aber nicht gespeichert.
   "view": {
     "filterName": "Fachbereich",
     // Entweder ein Regex ...
+    // Leer lassen (oder weglassen) heisst: ALLE Hosts, unter obigem Namen.
     "hostRegex": ".*(sql|ora).*",
     // ... oder eine explizite Liste (hat Vorrang vor hostRegex):
     "includeHosts": [],

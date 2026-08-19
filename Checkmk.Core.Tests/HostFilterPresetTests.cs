@@ -36,7 +36,106 @@ public class HostFilterPresetTests
     }
 
     private static HostFilterCollection Build(FakeStore store)
-        => new(store, new FakeSettingsStore());
+        => new(store, new FakeSettingsStore(), new ViewerMode(null));
+
+    /// <summary>Collection so, wie sie im Viewer-Modus entsteht.</summary>
+    private static HostFilterCollection BuildViewer(FakeStore store)
+        => new(store, new FakeSettingsStore(),
+            new ViewerMode(new ViewerProfile()));
+
+    // --- Viewer-Modus: filter.json bleibt komplett aussen vor ------------
+
+    [Fact]
+    public void Viewer_mode_does_not_load_the_personal_favorites()
+    {
+        var store = new FakeStore
+        {
+            State = new HostFilterState
+            {
+                Filters = [new HostFilter { Name = "Datenbanken" }, new HostFilter { Name = "CTX" }],
+                ActiveFilterName = "Datenbanken"
+            }
+        };
+
+        var collection = BuildViewer(store);
+
+        collection.Filters.Should().BeEmpty();
+        collection.Active.Should().BeNull();
+    }
+
+    /// <summary>
+    /// Der gemeldete Fehler: Profil ohne Host-Bezug (<c>hostRegex: ""</c>), aber in
+    /// der persoenlichen filter.json steht „Datenbanken" als zuletzt aktiv. Vorher
+    /// gewann die filter.json und der Anwender sah nur die DB-Hosts.
+    /// </summary>
+    [Fact]
+    public void Viewer_preset_without_host_scope_wins_over_the_persisted_selection()
+    {
+        var store = new FakeStore
+        {
+            State = new HostFilterState
+            {
+                Filters = [new HostFilter { Name = "Datenbanken", HostNameRegex = "^DB" }],
+                ActiveFilterName = "Datenbanken"
+            }
+        };
+        var collection = BuildViewer(store);
+
+        collection.ApplyPreset(new ViewerView { FilterName = "Alles", HostRegex = "" }.ToHostFilter());
+
+        collection.Filters.Should().ContainSingle().Which.Name.Should().Be("Alles");
+        collection.Active!.Name.Should().Be("Alles");
+        collection.Active.Matches("DBSQL01").Should().BeTrue();
+        collection.Active.Matches("CTX-FARM-07").Should().BeTrue();
+        collection.Active.ToLivestatus().Should().BeNull("kein Regex => serverseitig ungefiltert");
+    }
+
+    [Fact]
+    public void Viewer_mode_never_writes_the_personal_filter_file()
+    {
+        var store = new FakeStore();
+        var collection = BuildViewer(store);
+        collection.ApplyPreset(new ViewerView { FilterName = "Alles" }.ToHostFilter());
+
+        collection.Add(new HostFilter { Name = "Spontan" });
+        collection.Active = collection.Filters.First(f => f.Name == "Spontan");
+        collection.Update();
+
+        store.LastSaved.Should().BeNull();
+    }
+
+    // --- ViewerView.ToHostFilter ----------------------------------------
+
+    [Fact]
+    public void Empty_host_regex_becomes_a_match_all_filter()
+    {
+        var filter = new ViewerView { FilterName = "Alles", HostRegex = "  " }.ToHostFilter();
+
+        filter.HostNameRegex.Should().BeNull();
+        filter.ExplicitHosts.Should().BeEmpty();
+        filter.Matches("irgendwas").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Missing_filter_name_falls_back_to_Vorgabe()
+        => new ViewerView { FilterName = "" }.ToHostFilter().Name.Should().Be("Vorgabe");
+
+    [Fact]
+    public void Include_hosts_are_trimmed_and_blanks_dropped()
+    {
+        var filter = new ViewerView { IncludeHosts = [" DBSQL01 ", "", "  ", "CTX07"] }.ToHostFilter();
+
+        filter.ExplicitHosts.Should().Equal("DBSQL01", "CTX07");
+    }
+
+    [Fact]
+    public void Host_regex_is_applied_when_set()
+    {
+        var filter = new ViewerView { HostRegex = "^CTX" }.ToHostFilter();
+
+        filter.Matches("CTX07").Should().BeTrue();
+        filter.Matches("DBSQL01").Should().BeFalse();
+    }
 
     [Fact]
     public void Preset_is_activated_and_listed_first()
