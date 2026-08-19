@@ -65,6 +65,7 @@ internal static class Program
         services.AddSingleton<IHostFilterStore, HostFilterStore>();
         services.AddSingleton<HostFilterCollection>();
         services.AddSingleton<IStatusViewStateStore, StatusViewStateStore>();
+        services.AddSingleton<IColumnLayoutStore, ColumnLayoutStore>();
         services.AddSingleton<CheckmkWebLinker>();
         services.AddSingleton<IHostDomainStore, HostDomainStore>();
         services.AddSingleton<IHostOsCache, HostOsCache>();

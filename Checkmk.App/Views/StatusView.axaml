@@ -63,6 +63,7 @@
               SelectedItem="{Binding SelectedService}"
               IsReadOnly="True" GridLinesVisibility="Horizontal"
               CanUserResizeColumns="True" CanUserSortColumns="True"
+              CanUserReorderColumns="True"
               SelectionMode="Extended"
               DoubleTapped="OnServiceDoubleTapped">
       <DataGrid.ContextMenu>
@@ -83,6 +84,10 @@
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
           <Separator IsVisible="{Binding CanWrite}" />
+          <!-- Dieselbe Spaltenliste wie im Header-Kontextmenue; der Rechtsklick auf
+               die Kopfzeile ist der kurze Weg, dieser hier der auffindbare. -->
+          <MenuItem Name="ColumnsSubmenu" Header="Spalten" IsVisible="{Binding CanWrite}" />
+          <Separator IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Remote-Shell öffnen (auto: RDP/SSH)" Click="OnRemoteShellClick"
                     IsVisible="{Binding CanWrite}" />
           <MenuItem Header="RDP öffnen" Click="OnRdpClick" IsVisible="{Binding CanWrite}" />
@@ -93,34 +98,10 @@
                     IsVisible="{Binding CanWrite}" />
         </ContextMenu>
       </DataGrid.ContextMenu>
-      <DataGrid.Columns>
-        <DataGridTemplateColumn Header="" Width="34">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate x:DataType="models:ServiceStatus">
-              <Border Width="14" Height="14" CornerRadius="7"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Background="{Binding ServiceState, Converter={StaticResource StateToBrush}}" />
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
-
-        <DataGridTextColumn Header="Host" Binding="{Binding HostName}" Width="160" />
-        <DataGridTextColumn Header="Alias" Binding="{Binding HostAlias}" Width="180" />
-        <DataGridTextColumn Header="Service" Binding="{Binding Description}" Width="200" />
-        <DataGridTextColumn Header="Status" Binding="{Binding ServiceState}" Width="90" />
-        <DataGridTextColumn Header="Ausgabe" Binding="{Binding PluginOutput}" Width="*" />
-        <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="50" />
-        <DataGridCheckBoxColumn Header="DT" Binding="{Binding InDowntime}" Width="50" />
-        <DataGridTemplateColumn Header="Age" Width="90" SortMemberPath="LastStateChange">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate x:DataType="models:ServiceStatus">
-              <TextBlock Text="{Binding Age}"
-                         Foreground="{Binding LastStateChange, Converter={StaticResource AgeToBrush}}"
-                         VerticalAlignment="Center" Margin="6,0" />
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
-      </DataGrid.Columns>
+      <!-- Keine Spalten im XAML: sie entstehen in StatusView.axaml.cs ueber
+           StatusColumnFactory — im Normalmodus aus columns.json (Rechtsklick auf
+           die Kopfzeile), im Viewer-Modus aus viewer.json. Zwei Quellen fuer
+           denselben Spaltensatz waeren sonst zwangslaeufig irgendwann uneinig. -->
     </DataGrid>
 
     <!-- Baum-Ansicht: Hosts -> Services -->

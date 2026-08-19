@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Checkmk.App;
 using Checkmk.App.Services;
 using Checkmk.App.Services.Plugins;
@@ -29,10 +32,7 @@ public partial class StatusView : UserControl
                 vm.SpotlightRequested += OnSpotlightRequested;
         };
 
-        // Viewer-Modus: Spaltensatz kommt aus viewer.json statt aus dem XAML oben.
-        // GetService statt GetRequiredService wegen des XAML-Previewers (kein DI).
-        if (App.Services?.GetService<ViewerMode>()?.Profile is { } viewerProfile)
-            ApplyViewerColumns(viewerProfile);
+        SetUpColumns();
 
         // Plugin-Kontextmenue-Eintraege dynamisch anhaengen (unten in beiden Menues).
         var gridMenu = this.FindControl<ContextMenu>("ServiceGridContextMenu");
@@ -45,35 +45,160 @@ public partial class StatusView : UserControl
                 () => BuildTargetForStatus());
     }
 
+    // --- Spalten: Aufbau, Kontextmenue, Persistenz -----------------------
+
+    private IColumnLayoutStore? _columnStore;
+    private bool _columnsLocked;   // Viewer-Modus: Auswahl kommt aus viewer.json
+    private bool _suppressColumnSave;
+
+    private DataGrid? Grid => this.FindControl<DataGrid>("ServiceGrid");
+
     /// <summary>
-    /// Ersetzt die im XAML deklarierten Spalten durch den Satz aus dem Viewer-Profil.
-    /// Liefert die Factory nichts Brauchbares, bleibt das Standard-Grid stehen —
-    /// eine Tabelle ganz ohne Spalten waere schlimmer als die falschen Spalten.
+    /// Baut den Spaltensatz. Im Viewer-Modus fest aus <c>viewer.json</c>, sonst aus
+    /// <c>columns.json</c> — dort darf der Anwender per Rechtsklick auf die Kopfzeile
+    /// ein-/ausblenden und per Drag umsortieren.
     /// </summary>
-    private void ApplyViewerColumns(ViewerProfile profile)
+    private void SetUpColumns()
     {
-        var grid = this.FindControl<DataGrid>("ServiceGrid");
+        var grid = Grid;
         if (grid is null)
         {
-            Log.Warn("Viewer-Spalten: DataGrid 'ServiceGrid' nicht gefunden — "
-                   + "es bleibt beim Standard-Spaltensatz.");
+            Log.Warn("DataGrid 'ServiceGrid' nicht gefunden — Tabelle bleibt ohne Spalten.");
             return;
         }
 
-        var columns = StatusColumnFactory.Build(profile.Columns);
-        if (columns.Count == 0)
+        // GetService statt GetRequiredService wegen des XAML-Previewers (kein DI).
+        var profile = App.Services?.GetService<ViewerMode>()?.Profile;
+        if (profile is not null)
         {
-            Log.Warn("Viewer-Spalten: keine baubare Spalte in {Configured} — "
-                   + "es bleibt beim Standard-Spaltensatz.", string.Join(", ", profile.Columns));
+            _columnsLocked = true;
+            grid.CanUserReorderColumns = false;
+            var keys = profile.Columns.Count > 0 ? profile.Columns : [.. ViewerProfile.DefaultColumns];
+            foreach (var column in StatusColumnFactory.Build(keys))
+                grid.Columns.Add(column);
+            Log.Info("Viewer-Spalten gesetzt ({Count}): {Headers}",
+                grid.Columns.Count, string.Join(" | ", grid.Columns.Select(c => c.Header?.ToString())));
             return;
         }
 
-        grid.Columns.Clear();
-        foreach (var column in columns)
-            grid.Columns.Add(column);
+        _columnStore = App.Services?.GetService<IColumnLayoutStore>();
+        var stored = _columnStore?.Load(StatusGridColumns.StatusViewId) ?? new ColumnLayout();
+        StatusGridColumns.Apply(grid, StatusGridColumns.Merge(stored));
 
-        Log.Info("Viewer-Spalten gesetzt ({Count}): {Headers}",
-            columns.Count, string.Join(" | ", columns.Select(c => c.Header?.ToString())));
+        // Vom Anwender gezogene Reihenfolge sofort sichern.
+        grid.ColumnDisplayIndexChanged += (_, _) => SaveColumnLayout();
+
+        // Rechtsklick auf die Kopfzeile -> Spaltenliste statt Zeilen-Kontextmenue.
+        grid.AddHandler(ContextRequestedEvent, OnGridContextRequested, RoutingStrategies.Tunnel);
+
+        // „Spalten"-Untermenue im Zeilen-Kontextmenue erst beim Aufklappen fuellen,
+        // damit die Haken den aktuellen Stand zeigen.
+        if (this.FindControl<MenuItem>("ColumnsSubmenu") is { } submenu)
+            submenu.SubmenuOpened += (_, _) => submenu.ItemsSource = BuildColumnMenuItems();
+    }
+
+    /// <summary>
+    /// Speichert Reihenfolge, Sichtbarkeit und Breiten. Wird vom MainWindow beim
+    /// Schliessen aufgerufen — Avalonias DataGrid meldet das Ende eines
+    /// Spalten-Resize nicht, deshalb fangen wir die Breiten dort ein.
+    /// </summary>
+    internal void SaveColumnLayout()
+    {
+        if (_columnsLocked || _suppressColumnSave || _columnStore is null) return;
+        if (Grid is not { } grid) return;
+        _columnStore.Save(StatusGridColumns.StatusViewId, StatusGridColumns.Capture(grid));
+    }
+
+    private void OnGridContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_columnsLocked) return;
+        if (e.Source is not Visual source) return;
+        if (!IsInsideColumnHeader(source)) return;   // Zeilen behalten ihr eigenes Menue
+
+        var menu = new ContextMenu { ItemsSource = BuildColumnMenuItems() };
+        menu.Open(Grid);
+        e.Handled = true;
+    }
+
+    /// <summary>Klick in der Kopfzeile? Der Visual-Tree-Walk trennt Header von Zellen —
+    /// beide liegen im selben DataGrid und liefern dasselbe ContextRequested.</summary>
+    private static bool IsInsideColumnHeader(Visual source)
+    {
+        for (Visual? v = source; v is not null; v = v.GetVisualParent())
+        {
+            if (v is DataGridColumnHeader or DataGridColumnHeadersPresenter)
+                return true;
+            if (v is DataGridRow)
+                return false;
+        }
+        return false;
+    }
+
+    private List<MenuItem> BuildColumnMenuItems()
+    {
+        var items = new List<MenuItem>();
+        if (Grid is not { } grid) return items;
+
+        foreach (var column in grid.Columns.OrderBy(c => c.DisplayIndex))
+        {
+            if (column.Tag is not string key) continue;
+            var item = new MenuItem
+            {
+                Header = StatusColumnFactory.LabelFor(key),
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = column.IsVisible,
+                StaysOpenOnClick = true
+            };
+            item.Click += (_, _) => ToggleColumn(column);
+            items.Add(item);
+        }
+
+        items.Add(new MenuItem { Header = "-" });
+
+        var showAll = new MenuItem { Header = "Alle einblenden" };
+        showAll.Click += (_, _) =>
+        {
+            foreach (var c in grid.Columns) c.IsVisible = true;
+            SaveColumnLayout();
+        };
+        items.Add(showAll);
+
+        var reset = new MenuItem { Header = "Auf Vorgabe zurücksetzen" };
+        reset.Click += (_, _) => ResetColumns();
+        items.Add(reset);
+
+        return items;
+    }
+
+    /// <summary>Letzte sichtbare Spalte nicht ausblenden lassen — eine Tabelle ohne
+    /// jede Spalte sieht wie ein Absturz aus und man kaeme per Rechtsklick auf die
+    /// dann fehlende Kopfzeile auch nicht mehr ans Menue.</summary>
+    private void ToggleColumn(DataGridColumn column)
+    {
+        if (Grid is not { } grid) return;
+
+        if (column.IsVisible && grid.Columns.Count(c => c.IsVisible) <= 1)
+        {
+            if (DataContext is StatusViewModel vm)
+                vm.StatusMessage = "Mindestens eine Spalte muss sichtbar bleiben.";
+            return;
+        }
+
+        column.IsVisible = !column.IsVisible;
+        SaveColumnLayout();
+    }
+
+    private void ResetColumns()
+    {
+        if (Grid is not { } grid) return;
+        _suppressColumnSave = true;
+        try
+        {
+            _columnStore?.Reset(StatusGridColumns.StatusViewId);
+            StatusGridColumns.Apply(grid, StatusGridColumns.Merge(new ColumnLayout()));
+        }
+        finally { _suppressColumnSave = false; }
+        Log.Info("Spaltenanordnung auf Vorgabe zurueckgesetzt.");
     }
 
     private ContextMenuTarget? BuildTargetForStatus()

@@ -40,6 +40,11 @@ public partial class MainWindow : ChromeWindow
             RemoveNonViewerTabs();
 
         Opened += (_, _) => AddPluginTabs();
+
+        // Spaltenbreiten einfangen: Avalonias DataGrid meldet das Ende eines
+        // Spalten-Resize nicht, Reihenfolge und Sichtbarkeit speichern sich dagegen
+        // sofort. Beim Schliessen holen wir deshalb den kompletten Stand nach.
+        Closing += (_, _) => this.FindDescendantOfType<StatusView>()?.SaveColumnLayout();
     }
 
     /// <summary>Entfernt Hosts- und Dashboard-Tab. Der Hosts-Tab kann Config

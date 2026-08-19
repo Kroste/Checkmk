@@ -9,67 +9,99 @@ using Checkmk.Core.Models;
 
 namespace Checkmk.App.Services;
 
+/// <summary>Ein waehlbarer Spaltentyp — Schluessel plus der Text, unter dem er im
+/// Spalten-Kontextmenue erscheint.</summary>
+public sealed record ColumnChoice(string Key, string Label);
+
 /// <summary>
-/// Baut die Spalten der Service-Tabelle aus den Schluesseln eines
-/// <see cref="ViewerProfile"/>. Die Schluessel sind bewusst die Namen aus den
-/// Checkmk-Sichten (<c>host</c>, <c>service_description</c>, <c>svc_state_age</c> …),
-/// damit man eine vorhandene Web-Sicht 1:1 abschreiben kann; dazu kommen ein paar
-/// Cockpit-Eigene (<c>state_dot</c>, <c>host_alias</c>).
+/// Katalog aller Spalten der Service-Tabelle. Die Schluessel sind bewusst die Namen
+/// aus den Checkmk-Sichten (<c>host</c>, <c>service_description</c>,
+/// <c>svc_state_age</c> …), damit man eine vorhandene Web-Sicht 1:1 abschreiben kann;
+/// dazu kommen ein paar Cockpit-Eigene (<c>state_dot</c>, <c>host_alias</c>).
 /// <para>
-/// Wird nur im Viewer-Modus benutzt — ohne <c>viewer.json</c> bleibt das in
-/// <c>StatusView.axaml</c> deklarierte Standard-Grid unangetastet.
+/// Zwei Nutzer: der Viewer-Modus baut den Satz aus <c>viewer.json</c>, der normale
+/// Modus aus der vom Anwender im Header-Kontextmenue gewaehlten und in
+/// <c>columns.json</c> gesicherten Auswahl. Beide Wege laufen durch
+/// <see cref="Build"/> — es gibt keinen zweiten, im XAML deklarierten Spaltensatz mehr.
 /// </para>
 /// </summary>
 public static class StatusColumnFactory
 {
-    private sealed record ColumnSpec(string Header, Func<DataGridColumn> Create);
+    private sealed record ColumnSpec(string Header, string MenuLabel, Func<DataGridColumn> Create);
 
-    private static readonly IReadOnlyDictionary<string, ColumnSpec> Specs =
-        new Dictionary<string, ColumnSpec>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["state_dot"] = new("", () => DotColumn()),
-            ["host"] = new("Host", () => Text("Host", nameof(ServiceStatus.HostName), 160)),
-            ["host_alias"] = new("Alias", () => Text("Alias", nameof(ServiceStatus.HostAlias), 180)),
-            ["service_display_name"] = new("Anzeigename",
-                () => Text("Anzeigename", nameof(ServiceStatus.DisplayNameOrDescription), 200)),
-            ["service_description"] = new("Service",
-                () => Text("Service", nameof(ServiceStatus.Description), 200)),
-            ["service_state"] = new("Status",
-                () => Text("Status", nameof(ServiceStatus.ServiceState), 90)),
-            ["service_plugin_output"] = new("Ausgabe",
-                () => Star("Ausgabe", nameof(ServiceStatus.PluginOutput))),
-            ["svc_acknowledged"] = new("Ack",
-                () => Check("Ack", nameof(ServiceStatus.IsAcknowledged))),
-            ["svc_in_downtime"] = new("DT",
-                () => Check("DT", nameof(ServiceStatus.InDowntime))),
-            // Bewusst OHNE Alters-Einfaerbung: bei svc_check_age ist "frisch" gut und
-            // "alt" schlecht — genau umgekehrt zu svc_state_age, wofuer AgeToBrush
-            // gebaut ist. Rot fuer einen Check, der gerade eben lief, waere irrefuehrend.
-            ["svc_check_age"] = new("Letzter Check",
-                () => Text("Letzter Check", nameof(ServiceStatus.CheckAge), 110,
-                    nameof(ServiceStatus.LastCheckUnix))),
-            ["svc_state_age"] = new("Alter Status",
-                () => AgeColumn("Alter Status", nameof(ServiceStatus.Age),
-                    nameof(ServiceStatus.LastStateChange), nameof(ServiceStatus.LastStateChangeUnix)))
-        };
+    /// <summary>Property-Name, unter dem der Spaltenschluessel in
+    /// <see cref="DataGridColumn.Tag"/> steckt — so findet das Speichern spaeter
+    /// zurueck vom Control zum Schluessel.</summary>
+    private static readonly Dictionary<string, ColumnSpec> Specs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["state_dot"] = new("", "Status-Punkt (Ampel)", () => DotColumn()),
+        ["host"] = new("Host", "Host", () => Text("Host", nameof(ServiceStatus.HostName), 160)),
+        ["host_alias"] = new("Alias", "Host-Alias",
+            () => Text("Alias", nameof(ServiceStatus.HostAlias), 180)),
+        ["service_display_name"] = new("Anzeigename", "Anzeigename",
+            () => Text("Anzeigename", nameof(ServiceStatus.DisplayNameOrDescription), 200)),
+        ["service_description"] = new("Service", "Service-Beschreibung",
+            () => Text("Service", nameof(ServiceStatus.Description), 200)),
+        ["service_state"] = new("Status", "Status (OK/WARN/CRIT)",
+            () => Text("Status", nameof(ServiceStatus.ServiceState), 90)),
+        ["service_plugin_output"] = new("Ausgabe", "Ausgabe der Prüfung",
+            () => Star("Ausgabe", nameof(ServiceStatus.PluginOutput))),
+        ["svc_acknowledged"] = new("Ack", "Acknowledged",
+            () => Check("Ack", nameof(ServiceStatus.IsAcknowledged))),
+        ["svc_in_downtime"] = new("DT", "In Wartung",
+            () => Check("DT", nameof(ServiceStatus.InDowntime))),
+        // Bewusst OHNE Alters-Einfaerbung: bei svc_check_age ist "frisch" gut und
+        // "alt" schlecht — genau umgekehrt zu svc_state_age, wofuer AgeToBrush
+        // gebaut ist. Rot fuer einen Check, der gerade eben lief, waere irrefuehrend.
+        ["svc_check_age"] = new("Letzter Check", "Zeit seit letztem Check",
+            () => Text("Letzter Check", nameof(ServiceStatus.CheckAge), 110,
+                nameof(ServiceStatus.LastCheckUnix))),
+        ["svc_state_age"] = new("Alter Status", "Zeit seit Statuswechsel",
+            () => AgeColumn("Alter Status", nameof(ServiceStatus.Age),
+                nameof(ServiceStatus.LastStateChange), nameof(ServiceStatus.LastStateChangeUnix)))
+    };
+
+    /// <summary>
+    /// Spaltensatz, mit dem der normale Modus startet, solange der Anwender nichts
+    /// eigenes gewaehlt hat. Entspricht dem, was die Tabelle vor der
+    /// Spaltenkonfiguration fest im XAML hatte — ein Update darf niemandem die
+    /// gewohnte Ansicht umbauen.
+    /// </summary>
+    public static readonly string[] DefaultLayout =
+    [
+        "state_dot", "host", "host_alias", "service_description", "service_state",
+        "service_plugin_output", "svc_acknowledged", "svc_in_downtime", "svc_state_age"
+    ];
+
+    /// <summary>Alle waehlbaren Spalten in Menue-Reihenfolge (= Definitionsreihenfolge oben).</summary>
+    public static IReadOnlyList<ColumnChoice> Catalog { get; } =
+        [.. Specs.Select(kv => new ColumnChoice(kv.Key, kv.Value.MenuLabel))];
 
     /// <summary>Alle unterstuetzten Schluessel — fuer Logmeldungen und Doku.</summary>
     public static IReadOnlyCollection<string> KnownKeys { get; } = [.. Specs.Keys];
 
     public static bool IsKnown(string key) => Specs.ContainsKey(key);
 
+    /// <summary>Menue-Beschriftung zu einem Schluessel; faellt auf den Schluessel zurueck.</summary>
+    public static string LabelFor(string key)
+        => Specs.TryGetValue(key, out var spec) ? spec.MenuLabel : key;
+
     /// <summary>
-    /// Erzeugt die Spalten in der Reihenfolge der uebergebenen Schluessel.
-    /// Unbekannte Schluessel sind bereits beim Laden des Profils aussortiert worden;
-    /// falls doch einer durchrutscht, wird er hier still uebersprungen.
+    /// Erzeugt die Spalten in der Reihenfolge der uebergebenen Schluessel. Jede Spalte
+    /// traegt ihren Schluessel in <see cref="DataGridColumn.Tag"/>, damit das Speichern
+    /// der Anordnung vom Control auf den Schluessel zurueckschliessen kann.
+    /// Unbekannte Schluessel werden still uebersprungen.
     /// </summary>
     public static IReadOnlyList<DataGridColumn> Build(IEnumerable<string> keys)
     {
         var columns = new List<DataGridColumn>();
         foreach (var key in keys)
         {
-            if (Specs.TryGetValue(key, out var spec))
-                columns.Add(spec.Create());
+            if (!Specs.TryGetValue(key, out var spec))
+                continue;
+            var column = spec.Create();
+            column.Tag = key;
+            columns.Add(column);
         }
         return columns;
     }

@@ -98,6 +98,23 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   werden geloggt und am Ende summiert. Spalte **Age** (Zeit seit letzter Statusänderung)
   statt „Letzter Check". **CSV-Export** der gefilterten Ansicht via `CsvExporter`
   (Semikolon, UTF-8-BOM, RFC-4180-Quoting).
+- **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
+  **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal
+  aus `columns.json` (Normalmodus, `StatusGridColumns.Merge/Apply/Capture`) und einmal
+  aus `viewer.json` (Viewer-Modus, dort gesperrt). Zwei Quellen für denselben
+  Spaltensatz wären zwangsläufig irgendwann uneinig; nicht wieder ins XAML zurückbauen.
+  Bedienung: Rechtsklick auf die Kopfzeile → Checkbox-Liste, Drag am Kopf sortiert um.
+  Drei Fallen, die schon zugeschnappt sind:
+  1. **Breiten aus `Column.Width`, nicht `ActualWidth`.** Spalten, die rechts aus dem
+     sichtbaren Bereich ragen, sind nicht gemessen und liefern Unsinn (20 px für eine
+     110-px-Spalte) — gespeichert schrumpft die Tabelle bei jedem Start weiter.
+     Stern-Breiten (Ausgabe-Spalte) werden als `null` gesichert, sonst frieren sie fest.
+  2. **`ContextRequested` per Visual-Tree-Walk trennen** (`IsInsideColumnHeader`):
+     Kopfzeile und Zellen liefern dasselbe Event am selben DataGrid, sonst bekommt man
+     auf dem Header das Zeilen-Menü.
+  3. **Neue Katalog-Spalten kommen ausgeblendet dazu** (`Merge`) — ein Update darf
+     niemandem die gewohnte Ansicht umbauen. `DefaultLayout` ist exakt der alte
+     XAML-Satz.
 - **Baumansicht** (Umschalter Tabelle ⇄ Baum, im Status-Tab): Hosts als oberste Knoten mit
   **OS-Pictogramm** (`Assets/os/windows.png` bzw. Tux-Vektor, „?" bei unbekanntem OS),
   Ampelpunkt, Problem-Zähler; aufgeklappt die Services mit Ausgabe. OS-Familie wird aus

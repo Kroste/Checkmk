@@ -189,6 +189,49 @@ werden gesammelt und am Ende gemeldet.
 
 ## 5. Tabellen- und Baumansicht
 
+### Spalten anpassen
+
+**Rechtsklick auf die Kopfzeile** der Tabelle öffnet eine Liste aller verfügbaren
+Spalten mit Häkchen. Anklicken blendet ein oder aus; das Menü bleibt dabei offen,
+man kann also mehrere hintereinander umschalten. Denselben Eintrag gibt es als
+Untermenü **„Spalten"** im normalen Rechtsklick-Menü einer Zeile.
+
+**Reihenfolge**: Spaltenköpfe lassen sich mit der Maus an die gewünschte Stelle
+ziehen. **Breite**: den Trenner zwischen zwei Köpfen ziehen.
+
+Alles davon ist **persistent** — Reihenfolge und Sichtbarkeit werden sofort
+gespeichert, die Breiten beim Schließen der App. Ablage:
+`%APPDATA%\Kroste\Checkmk\columns.json`.
+
+Zwei Einträge unten im Menü: **„Alle einblenden"** und **„Auf Vorgabe
+zurücksetzen"**. Mindestens eine Spalte bleibt immer sichtbar — sonst käme man
+an die Kopfzeile und damit ans Menü nicht mehr heran.
+
+| Spalte | Inhalt |
+|---|---|
+| Status-Punkt (Ampel) | farbiger Punkt nach Service-Status |
+| Host | Hostname |
+| Host-Alias | Alias aus Checkmk |
+| Anzeigename | sprechender Name, siehe [Abschnitt 18](#service_display_name--wo-der-sprechende-name-herkommt) |
+| Service-Beschreibung | technische Service-Kennung |
+| Status (OK/WARN/CRIT) | Statustext |
+| Ausgabe der Prüfung | Plugin-Output, nimmt den Restplatz ein |
+| Acknowledged | Ack-Häkchen |
+| In Wartung | Downtime-Häkchen |
+| Zeit seit letztem Check | wie lange der Check her ist |
+| Zeit seit Statuswechsel | eingefärbt nach Frische |
+
+Standardmäßig sind alle außer *Anzeigename* und *Zeit seit letztem Check*
+eingeblendet — das ist genau die Ansicht, die es vor der Spaltenkonfiguration
+schon gab. Kommt in einer neuen Version eine Spalte dazu, taucht sie
+**ausgeblendet** im Menü auf und baut die gewohnte Ansicht nicht um.
+
+> Im [Viewer-Modus](#18-viewer-modus-nur-lesen-ausgabe-an-fachbereiche) gibt es
+> das nicht: dort bestimmt `viewer.json` den Spaltensatz, und weder Umsortieren
+> noch das Menü sind verfügbar.
+
+
+
 Der Status-Tab kann die Services entweder als flache Tabelle oder als **Baum
 (Hosts → Services)** zeigen. Umschalter oben in der Toolbar.
 
@@ -577,6 +620,7 @@ Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update au
 | Filter/Favoriten (pro Site) | `%APPDATA%\Kroste\Checkmk\filter.json` | lokal |
 | Übersprungene Update-Version | `%APPDATA%\Kroste\Checkmk\updates.json` | lokal |
 | UI-Zustand (Auto-Refresh, Baum/Tabelle, letzter Filter) | `%APPDATA%\Kroste\Checkmk\statusview.json` | lokal |
+| Spalten (Reihenfolge, Sichtbarkeit, Breiten) | `%APPDATA%\Kroste\Checkmk\columns.json` | lokal |
 | Logs | `logs\` neben `Checkmk.App.exe` | lokal |
 
 **Grundregel**: alles was mehreren Nutzern nutzt und **keine Secrets** enthält,
