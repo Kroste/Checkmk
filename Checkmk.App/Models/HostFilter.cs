@@ -22,6 +22,15 @@ public sealed class HostFilter
     public string? HostNameRegex { get; set; }
     public List<string> ExplicitHosts { get; set; } = new();
 
+    /// <summary>
+    /// Nur zur Laufzeit vorhanden, nie in <c>filter.json</c>. Gesetzt fuer den aus
+    /// <c>viewer.json</c> vorgegebenen Filter: er soll in der ComboBox auswaehlbar
+    /// sein, aber nicht in die Favoritenbibliothek des Anwenders einsickern —
+    /// sonst bliebe er dort stehen, nachdem der Admin das Profil geaendert hat.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsTransient { get; set; }
+
     public bool Matches(string hostName)
     {
         if (ExplicitHosts.Count > 0)

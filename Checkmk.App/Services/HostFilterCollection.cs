@@ -92,10 +92,37 @@ public sealed class HostFilterCollection : ObservableObject
     /// <summary>Nach externer Bearbeitung eines Filters aufrufen, um den Store zu aktualisieren.</summary>
     public void Update() => Persist();
 
+    /// <summary>
+    /// Setzt einen vorgegebenen Filter (Viewer-Modus) an den Anfang der Liste und
+    /// aktiviert ihn — <b>ohne</b> zu persistieren. Der Anwender darf danach frei
+    /// umschalten; beim naechsten Start gilt wieder die Vorgabe aus <c>viewer.json</c>.
+    /// </summary>
+    public void ApplyPreset(HostFilter preset)
+    {
+        preset.IsTransient = true;
+        _suppressPersist = true;
+        try
+        {
+            // Gleichnamigen Bestandsfilter entfernen, damit die ComboBox keine
+            // zwei optisch identischen Eintraege zeigt.
+            var clash = Filters.FirstOrDefault(f =>
+                string.Equals(f.Name, preset.Name, StringComparison.OrdinalIgnoreCase));
+            if (clash is not null)
+                Filters.Remove(clash);
+
+            Filters.Insert(0, preset);
+            _active = preset;
+        }
+        finally { _suppressPersist = false; }
+        OnPropertyChanged(nameof(Active));
+    }
+
     private void Persist()
         => _store.Save(_currentSite, new HostFilterState
         {
-            Filters = Filters.ToList(),
-            ActiveFilterName = _active?.Name
+            // Transiente Vorgabe-Filter bleiben draussen — sie gehoeren dem Profil,
+            // nicht der Favoritenbibliothek des Anwenders.
+            Filters = Filters.Where(f => !f.IsTransient).ToList(),
+            ActiveFilterName = _active is { IsTransient: false } ? _active.Name : null
         });
 }

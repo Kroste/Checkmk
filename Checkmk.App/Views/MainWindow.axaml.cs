@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using Checkmk.App.Controls;
+using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
 using Checkmk.PluginContracts;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,11 +23,39 @@ public partial class MainWindow : ChromeWindow
     // weiteren Satz Plugin-Tabs (z. B. dreifaches "vSphere Baseimages").
     private bool _pluginTabsAdded;
 
+    // Im Viewer-Modus (viewer.json neben der Exe) faellt alles Schreibende weg —
+    // gecacht, weil OnKeyDown das bei jedem Tastendruck braucht.
+    private readonly bool _canWrite;
+
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+
+        // GetService statt GetRequiredService: der XAML-Previewer instanziiert das
+        // Fenster ohne DI-Container. Ohne Container gilt der normale Vollmodus.
+        var viewer = App.Services?.GetService<ViewerMode>();
+        _canWrite = viewer?.CanWrite ?? true;
+        if (viewer?.IsActive == true)
+            RemoveNonViewerTabs();
+
         Opened += (_, _) => AddPluginTabs();
+    }
+
+    /// <summary>Entfernt Hosts- und Dashboard-Tab. Der Hosts-Tab kann Config
+    /// schreiben (Discovery, Host anlegen, Aenderungen aktivieren), das Dashboard
+    /// haengt an Filtern, die es im Viewer-Modus so nicht gibt.</summary>
+    private void RemoveNonViewerTabs()
+    {
+        var tabs = this.FindControl<TabControl>("MainTabs");
+        if (tabs is null) return;
+
+        foreach (var name in new[] { "HostsTab", "DashboardTab" })
+        {
+            if (this.FindControl<TabItem>(name) is { } tab)
+                tabs.Items.Remove(tab);
+        }
+        tabs.SelectedIndex = 0;
     }
 
     /// <summary>Fuegt Tabs, die von Plugins beigesteuert werden, rechts von den
@@ -131,8 +160,10 @@ public partial class MainWindow : ChromeWindow
                 return;
         }
 
-        // Modifier-Hotkeys (Ctrl+K/D/A) sollen nicht in TextBoxen greifen.
-        if (focusIsTextInput) return;
+        // Modifier-Hotkeys (Ctrl+K/D/A) sollen nicht in TextBoxen greifen — und im
+        // Viewer-Modus gar nicht, sonst gaebe es einen Tastenweg an der
+        // ausgeblendeten Aktions-UI vorbei.
+        if (focusIsTextInput || !_canWrite) return;
 
         switch (e.Key)
         {

@@ -1,0 +1,72 @@
+{
+  // Vorlage fuer den Viewer-Modus. Kopieren, ausfuellen und als "viewer.json"
+  // NEBEN Checkmk.App.exe legen. Liegt die Datei da, laeuft das Cockpit als reine
+  // Guck-Ausgabe: nur Status-Tab, keine Schreibaktionen, keine Einstellungen,
+  // keine Plugins. Ohne die Datei verhaelt sich die App unveraendert wie bisher.
+  //
+  // ACHTUNG: "secretBase64" ist MASKIERUNG, keine Verschluesselung — Base64 ist
+  // mit einem Einzeiler wieder Klartext. Es verhindert das Mitlesen beim
+  // Ueberfliegen der Datei, mehr nicht. Echte Verschluesselung geht hier nicht
+  // (DPAPI ist user-gebunden, die Datei wird verteilt). Die einzige echte Grenze
+  // ist die Checkmk-Rolle: der hier hinterlegte Automation-User MUSS eine reine
+  // Lese-Rolle haben. Die ausgeblendete Oberflaeche ist Bedienkomfort, kein
+  // Zugriffsschutz.
+  //
+  // Kommentare und nachgestellte Kommas sind erlaubt — die Datei wird von Hand
+  // gepflegt, kein Werkzeug schreibt sie.
+
+  "title": "Checkmk — Sicht Fachbereich",
+
+  "connection": {
+    "host": "cmk.lhp.intern",
+    "site": "LHP-Prod",
+    "username": "cockpit_viewer",
+
+    // Base64 des Secrets (UTF-8). Erzeugen in PowerShell:
+    //   [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('DAS-SECRET'))
+    // Gegenprobe (zeigt das Secret wieder im Klartext an):
+    //   [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('...'))
+    "secretBase64": "REFTLUFVVE9NQVRJT04tU0VDUkVULUhJRVI=",
+
+    // Alternativ Klartext — funktioniert weiterhin, ist aber nur ohne
+    // "secretBase64" wirksam (Base64 gewinnt, wenn beide gesetzt sind).
+    // "secret": "DAS-AUTOMATION-SECRET-HIER",
+
+    "useHttps": true,
+    "ignoreCertificateErrors": false,
+    // "AutomationBearer" (Automation-User + Secret) oder "UserBasic"
+    // (Windows-/LDAP-Anmeldung). Fuer eine verteilte Datei ist der
+    // Automation-User mit Lese-Rolle das Richtige.
+    "authMode": "AutomationBearer"
+  },
+
+  // Spalten in Anzeigereihenfolge. Namen wie in den Checkmk-Sichten.
+  // Moeglich: state_dot, host, host_alias, service_display_name,
+  //           service_description, service_state, service_plugin_output,
+  //           svc_acknowledged, svc_in_downtime, svc_check_age, svc_state_age
+  "columns": [
+    "state_dot",
+    "host",
+    "service_display_name",
+    "service_description",
+    "service_state",
+    "svc_check_age",
+    "svc_state_age"
+  ],
+
+  // Startwerte fuer die Sicht — der Anwender darf umschalten, es wird nur nichts
+  // gespeichert. Beim naechsten Start gilt wieder das hier Eingetragene.
+  "view": {
+    "filterName": "Fachbereich",
+    // Entweder ein Regex ...
+    "hostRegex": ".*(sql|ora).*",
+    // ... oder eine explizite Liste (hat Vorrang vor hostRegex):
+    "includeHosts": [],
+    "filterText": "",
+    "onlyProblems": true,
+    "onlyOpen": false,
+    "autoRefresh": true,
+    "refreshSeconds": 60,
+    "treeView": false
+  }
+}

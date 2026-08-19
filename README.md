@@ -29,6 +29,7 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 15. [Wo liegen meine Daten](#15-wo-liegen-meine-daten)
 16. [Wenn etwas nicht funktioniert](#16-wenn-etwas-nicht-funktioniert)
 17. [Hilfe und Kontakt](#17-hilfe-und-kontakt)
+18. [Viewer-Modus: nur-lesen-Ausgabe an Fachbereiche](#18-viewer-modus-nur-lesen-ausgabe-an-fachbereiche)
 
 ---
 
@@ -722,6 +723,148 @@ Ab v1.7.0 ist die Funktion ins externe Plugin ausgezogen. Siehe [Abschnitt 11](#
 - **Fachbereich:** 5424 IT-Basis-Dienste
 - **GitHub-Repo:** <https://github.com/Kroste/Checkmk>
 - **Bugs, Feature-Wünsche:** dort als Issue oder direkt an Lars.
+
+---
+
+## 18. Viewer-Modus: nur-lesen-Ausgabe an Fachbereiche
+
+Für Leute, die **nur gucken** sollen — Fachbereiche, Bereitschaft, Leitstand —
+gibt es eine zweite Betriebsart. Sie wird allein dadurch aktiviert, dass eine
+Datei `viewer.json` **neben `Checkmk.App.exe`** liegt. Ohne die Datei verhält
+sich die App exakt wie bisher; beide Modi existieren also parallel aus
+demselben Binary.
+
+### Was sich im Viewer-Modus ändert
+
+| | ohne `viewer.json` | mit `viewer.json` |
+|---|---|---|
+| Verbindung | Einstellungen-Dialog, `%APPDATA%\…\settings.json` (DPAPI) | aus der Datei |
+| Tabs | Status, Hosts, Dashboard | nur **Status** |
+| Einstellungen-Button | da | weg |
+| Ack / Downtime / Kommentar | da | weg (Toolbar, Kontextmenü **und** Hotkeys Ctrl+A/D/K) |
+| RDP / SSH / Ping / Host-Einstellungen | da | weg |
+| Plugins aus `plugins\` | werden geladen | werden **nicht** geladen |
+| Spalten der Tabelle | fest | aus der Datei |
+| Start-Filter | zuletzt benutzter | aus der Datei |
+| Host-Details, Baumansicht, Favoriten, CSV-Export | da | bleiben da |
+
+Der Host-Detail-Dialog geht weiter auf, zeigt aber ebenfalls keine
+Schreib-Buttons und kein ✕ an den Kommentaren.
+
+### Das Secret: Base64-maskiert
+
+Das Secret gehört in **`secretBase64`**. Erzeugen in PowerShell:
+
+```powershell
+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('DAS-SECRET'))
+```
+
+Gegenprobe (zeigt es wieder im Klartext):
+
+```powershell
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('REFTLVNFQ1JFVA=='))
+```
+
+Das Klartext-Feld `secret` funktioniert weiterhin. Sind beide gesetzt, gewinnt
+`secretBase64` und `secret` wird ignoriert (mit Hinweis im Log).
+
+Tippt sich jemand bei der Kodierung — oder pastet den Klartext versehentlich ins
+Base64-Feld — startet die App nicht stumm mit kaputten Zugangsdaten, sondern
+meldet es in der Statusleiste samt PowerShell-Zeile zum Erzeugen. Das ist
+deshalb geprüft, weil der Server sonst nur „401 Wrong credentials" sagt und man
+lange am falschen Ende sucht.
+
+### ⚠️ Base64 ist Maskierung, keine Verschlüsselung
+
+Base64 ist mit einem Einzeiler wieder Klartext. Es verhindert das Mitlesen beim
+Überfliegen der Datei — mehr nicht, und mehr geht hier auch nicht: die Datei
+wird mit der Exe an viele Leute verteilt, DPAPI scheidet damit aus
+(user-gebunden), und ein Schlüssel im Binary wäre genauso trivial auslesbar.
+
+**Deshalb gilt: der in `viewer.json` hinterlegte Automation-User muss in Checkmk
+eine reine Lese-Rolle haben.** Die ausgeblendete Oberfläche ist Bedienkomfort,
+kein Zugriffsschutz — wer die Datei lesen kann, kann auch `curl` gegen die
+REST-API werfen. Ist die Rolle richtig gesetzt, ist das unkritisch: mehr als
+Gucken geht mit diesen Zugangsdaten ohnehin nicht.
+
+### Beispiel
+
+Vorlage im Repo: [`viewer.example.json`](viewer.example.json) — kopieren,
+ausfüllen, als `viewer.json` neben die Exe legen.
+
+```json
+{
+  "title": "Checkmk — Sicht Fachbereich 42",
+  "connection": {
+    "host": "cmk.lhp.intern",
+    "site": "LHP-Prod",
+    "username": "cockpit_viewer",
+    "secretBase64": "REFTLUFVVE9NQVRJT04tU0VDUkVU",
+    "useHttps": true,
+    "authMode": "AutomationBearer"
+  },
+  "columns": [
+    "state_dot", "host", "service_display_name", "service_description",
+    "service_state", "svc_check_age", "svc_state_age"
+  ],
+  "view": {
+    "filterName": "Fachbereich 42",
+    "hostRegex": ".*(sql|ora).*",
+    "onlyProblems": true,
+    "autoRefresh": true,
+    "refreshSeconds": 60
+  }
+}
+```
+
+### Verfügbare Spalten
+
+Die Schlüssel sind die Namen aus den Checkmk-Sichten — eine vorhandene Web-Sicht
+lässt sich damit abschreiben. Reihenfolge in der Liste = Reihenfolge im Grid.
+
+| Schlüssel | Spalte |
+|---|---|
+| `state_dot` | Ampelpunkt (Cockpit-eigen) |
+| `host` | Hostname |
+| `host_alias` | Host-Alias (Cockpit-eigen) |
+| `service_display_name` | Anzeigename des Service (Service-Alias, sonst = Beschreibung) |
+| `service_description` | Service-Beschreibung |
+| `service_state` | OK / WARN / CRIT / UNKNOWN |
+| `service_plugin_output` | Prüfausgabe (nimmt den Restplatz ein) |
+| `svc_acknowledged` | Ack-Häkchen |
+| `svc_in_downtime` | Wartungs-Häkchen |
+| `svc_check_age` | Zeit seit dem letzten Check |
+| `svc_state_age` | Zeit seit der letzten Statusänderung (eingefärbt nach Frische) |
+
+Ein unbekannter Schlüssel wird ignoriert und ins Log geschrieben; bleibt gar
+nichts übrig, greift der Standardsatz.
+
+### `view` — Startwerte, keine Sperre
+
+Alles unter `view` ist ein **Startwert**. Der Anwender darf umschalten; es wird
+nur nichts nach `statusview.json` zurückgeschrieben, damit jeder Start wieder
+mit der vorgesehenen Sicht beginnt. `hostRegex` bzw. `includeHosts` erscheinen
+als vorausgewählter Favorit unter dem Namen aus `filterName` — er landet
+bewusst **nicht** in der persönlichen `filter.json`.
+
+| Feld | Default | Bedeutung |
+|---|---|---|
+| `filterName` | `Vorgabe` | Name des vorgewählten Filters in der ComboBox |
+| `hostRegex` | — | Host-Regex (case-insensitive) |
+| `includeHosts` | `[]` | explizite Hostliste; hat Vorrang vor `hostRegex` |
+| `filterText` | `""` | Freitext-Filter |
+| `onlyProblems` | `true` | „Nur Probleme" vorbelegen |
+| `onlyOpen` | `false` | „Nur offen" vorbelegen |
+| `autoRefresh` | `true` | Auto-Refresh an |
+| `refreshSeconds` | `60` | Intervall |
+| `treeView` | `false` | mit Baumansicht statt Tabelle starten |
+
+### Wenn die Datei kaputt ist
+
+Ein Tippfehler im JSON schaltet den Viewer-Modus **nicht** ab — sonst hätte
+jemand, der nur gucken soll, nach einem Syntaxfehler plötzlich die volle
+Oberfläche. Stattdessen startet die App im Viewer-Modus ohne Verbindung und
+schreibt in die Statusleiste, welche Datei betroffen ist. Details stehen im Log.
 
 ---
 

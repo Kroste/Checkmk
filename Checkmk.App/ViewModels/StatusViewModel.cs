@@ -104,14 +104,21 @@ public sealed partial class StatusViewModel : ViewModelBase
 
     private readonly IStatusViewStateStore _stateStore;
     private bool _loadingState;
+    private readonly bool _isViewerMode;
+
+    /// <summary>false im Viewer-Modus — blendet Ack/Downtime/Kommentar aus.
+    /// Reiner Bedienschutz; die echte Grenze ist die Checkmk-Rolle des Users.</summary>
+    public bool CanWrite { get; }
 
     public StatusViewModel(ICheckmkClientProvider clients, HostFilterCollection filters,
-        IStatusViewStateStore stateStore, IHostOsCache osCache)
+        IStatusViewStateStore stateStore, IHostOsCache osCache, ViewerMode viewer)
     {
         _clients = clients;
         Filters = filters;
         _stateStore = stateStore;
         _osCache = osCache;
+        _isViewerMode = viewer.IsActive;
+        CanWrite = viewer.CanWrite;
 
         // Timer VOR dem State-Load anlegen — sonst greifen die generierten
         // Property-Setter fuer AutoRefresh/RefreshSeconds im OnAutoRefreshChanged/
@@ -133,6 +140,13 @@ public sealed partial class StatusViewModel : ViewModelBase
         AutoRefresh = s.AutoRefresh;         // startet/stoppt _timer
         _loadingState = false;
 
+        // Viewer-Modus: die Vorgaben aus viewer.json ueberschreiben den zuletzt
+        // gespeicherten Zustand. Sie sind Startwerte, keine Sperre — der Anwender
+        // darf umschalten, es wird nur nichts zurueckgeschrieben (PersistState()
+        // ist im Viewer-Modus ein No-Op).
+        if (viewer.Profile is { } profile)
+            ApplyViewerPreset(profile);
+
         Filters.PropertyChanged += async (_, e) =>
         {
             // Filter-Wechsel triggert einen neuen Server-Call — sonst blieben in
@@ -143,9 +157,43 @@ public sealed partial class StatusViewModel : ViewModelBase
         };
     }
 
+    /// <summary>
+    /// Uebernimmt Sicht-Vorgaben aus dem Viewer-Profil. Laeuft im Ctor, bevor der
+    /// Filters-PropertyChanged-Handler haengt — sonst loeste das Setzen des
+    /// Vorgabefilters einen Refresh aus, bevor ueberhaupt ein Client konfiguriert ist.
+    /// </summary>
+    private void ApplyViewerPreset(ViewerProfile profile)
+    {
+        var v = profile.View;
+
+        _loadingState = true;
+        try
+        {
+            TreeView = v.TreeView;
+            FilterText = v.FilterText;
+            OnlyProblems = v.OnlyProblems;
+            OnlyOpen = v.OnlyOpen;
+            RefreshSeconds = v.RefreshSeconds;   // setzt _timer.Interval
+            AutoRefresh = v.AutoRefresh;         // startet/stoppt _timer
+        }
+        finally { _loadingState = false; }
+
+        if (!v.HasHostScope) return;
+
+        Filters.ApplyPreset(new Models.HostFilter
+        {
+            Name = string.IsNullOrWhiteSpace(v.FilterName) ? "Vorgabe" : v.FilterName.Trim(),
+            HostNameRegex = v.HostRegex,
+            ExplicitHosts = [.. v.IncludeHosts]
+        });
+    }
+
     private void PersistState()
     {
-        if (_loadingState) return;
+        // Im Viewer-Modus nichts nach statusview.json schreiben: die Vorgabe soll
+        // bei jedem Start wieder greifen, auch wenn der Anwender zwischendurch
+        // umgeschaltet hat.
+        if (_loadingState || _isViewerMode) return;
         _stateStore.Save(new StatusViewState
         {
             TreeView = TreeView,
@@ -258,12 +306,14 @@ public sealed partial class StatusViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Acknowledged das aktuell gewaehlte Service-Problem und aktualisiert.</summary>
+    /// <summary>Acknowledged das aktuell gewaehlte Service-Problem und aktualisiert.
+    /// Die <c>CanWrite</c>-Pruefung ist Absicherung gegen Wege, die an der
+    /// ausgeblendeten UI vorbeigehen (Hotkeys, Plugins).</summary>
     public async Task PerformAcknowledgeAsync(string comment)
     {
         var client = _clients.Current;
         var svc = SelectedService;
-        if (client is null || svc is null) return;
+        if (!CanWrite || client is null || svc is null) return;
 
         try
         {
@@ -285,7 +335,7 @@ public sealed partial class StatusViewModel : ViewModelBase
     {
         var client = _clients.Current;
         var svc = SelectedService;
-        if (client is null || svc is null) return;
+        if (!CanWrite || client is null || svc is null) return;
 
         try
         {
@@ -307,7 +357,7 @@ public sealed partial class StatusViewModel : ViewModelBase
     {
         var client = _clients.Current;
         var svc = SelectedService;
-        if (client is null || svc is null) return;
+        if (!CanWrite || client is null || svc is null) return;
 
         try
         {
@@ -328,7 +378,7 @@ public sealed partial class StatusViewModel : ViewModelBase
     public async Task PerformBulkAcknowledgeAsync(IReadOnlyList<ServiceStatus> services, string comment)
     {
         var client = _clients.Current;
-        if (client is null || services.Count == 0) return;
+        if (!CanWrite || client is null || services.Count == 0) return;
 
         var errors = 0;
         var done = 0;
@@ -362,7 +412,7 @@ public sealed partial class StatusViewModel : ViewModelBase
         string comment, DateTimeOffset start, DateTimeOffset end)
     {
         var client = _clients.Current;
-        if (client is null || services.Count == 0) return;
+        if (!CanWrite || client is null || services.Count == 0) return;
 
         var errors = 0;
         var done = 0;

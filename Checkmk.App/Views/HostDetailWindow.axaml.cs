@@ -48,7 +48,7 @@ public partial class HostDetailWindow : ChromeWindow
 
     private async void OnDeleteCommentClick(object? sender, RoutedEventArgs e)
     {
-        if (_vm is null) return;
+        if (_vm is null || !_vm.CanWrite) return;
         if (sender is not Button { Tag: string id } || string.IsNullOrEmpty(id)) return;
         await _vm.PerformDeleteCommentAsync(id);
     }
@@ -62,6 +62,7 @@ public partial class HostDetailWindow : ChromeWindow
 
     private void OnOpenHostInWebClick(object? sender, RoutedEventArgs e)
     {
+        // Kein CanWrite-Guard: das oeffnet nur den Browser, schreibt nichts.
         if (_vm is null) return;
         var web = App.Services!.GetRequiredService<CheckmkWebLinker>();
         web.OpenHostView(_vm.HostName);
@@ -69,7 +70,7 @@ public partial class HostDetailWindow : ChromeWindow
 
     private async System.Threading.Tasks.Task ShowCommentDialogAsync(bool onSelectedService)
     {
-        if (_vm is null) return;
+        if (_vm is null || !_vm.CanWrite) return;
 
         string target;
         if (onSelectedService)
@@ -91,7 +92,7 @@ public partial class HostDetailWindow : ChromeWindow
 
     private async System.Threading.Tasks.Task ShowServiceActionAsync(ServiceActionMode mode)
     {
-        if (_vm is null) return;
+        if (_vm is null || !_vm.CanWrite) return;
         var selected = GetSelectedServices();
         if (selected.Count == 0) return;
 
@@ -125,7 +126,7 @@ public partial class HostDetailWindow : ChromeWindow
 
     private async System.Threading.Tasks.Task ShowHostActionAsync(ServiceActionMode mode)
     {
-        if (_vm is null) return;
+        if (_vm is null || !_vm.CanWrite) return;
 
         // Fuer Host-Aktionen zeigen wir denselben Dialog, aber ohne Service-Description im Target.
         var dialogVm = new ServiceActionDialogViewModel(mode, _vm.HostName, serviceDescription: null);

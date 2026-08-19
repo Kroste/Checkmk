@@ -143,9 +143,12 @@ public sealed class CheckmkClient
     public async Task<IReadOnlyList<ServiceStatus>> GetServiceStatusesAsync(
         LivestatusHostFilter? filter, CancellationToken ct = default)
     {
+        // display_name ist eine Standard-Livestatus-Spalte (Service-Alias, sonst
+        // identisch mit description) — sie kostet nichts und die Viewer-Sicht
+        // „service_display_name" braucht sie.
         var cols = new[]
         {
-            "host_name", "host_alias", "description", "state", "plugin_output",
+            "host_name", "host_alias", "description", "display_name", "state", "plugin_output",
             "acknowledged", "scheduled_downtime_depth", "last_check", "last_state_change"
         };
         var url = "domain-types/service/collections/all?" + ColumnsQuery(cols);

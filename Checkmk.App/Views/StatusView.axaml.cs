@@ -27,6 +27,11 @@ public partial class StatusView : UserControl
                 vm.NewCriticalAppeared += OnNewCritical;
         };
 
+        // Viewer-Modus: Spaltensatz kommt aus viewer.json statt aus dem XAML oben.
+        // GetService statt GetRequiredService wegen des XAML-Previewers (kein DI).
+        if (App.Services?.GetService<ViewerMode>()?.Profile is { } viewerProfile)
+            ApplyViewerColumns(viewerProfile);
+
         // Plugin-Kontextmenue-Eintraege dynamisch anhaengen (unten in beiden Menues).
         var gridMenu = this.FindControl<ContextMenu>("ServiceGridContextMenu");
         if (gridMenu is not null)
@@ -36,6 +41,24 @@ public partial class StatusView : UserControl
         if (treeMenu is not null)
             PluginContextMenuAdapter.Attach(treeMenu, ContextMenuLocation.StatusHostNode,
                 () => BuildTargetForStatus());
+    }
+
+    /// <summary>
+    /// Ersetzt die im XAML deklarierten Spalten durch den Satz aus dem Viewer-Profil.
+    /// Liefert die Factory nichts Brauchbares, bleibt das Standard-Grid stehen —
+    /// eine Tabelle ganz ohne Spalten waere schlimmer als die falschen Spalten.
+    /// </summary>
+    private void ApplyViewerColumns(ViewerProfile profile)
+    {
+        var grid = this.FindControl<DataGrid>("ServiceGrid");
+        if (grid is null) return;
+
+        var columns = StatusColumnFactory.Build(profile.Columns);
+        if (columns.Count == 0) return;
+
+        grid.Columns.Clear();
+        foreach (var column in columns)
+            grid.Columns.Add(column);
     }
 
     private ContextMenuTarget? BuildTargetForStatus()
@@ -73,7 +96,7 @@ public partial class StatusView : UserControl
 
     private async void OnCommentClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
         var svc = GetTargetService();
@@ -104,7 +127,7 @@ public partial class StatusView : UserControl
 
     private async void OnHostSettingsClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite || vm.SelectedService is null) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
         var dialog = new HostSettingsDialog(
             vm.SelectedService.HostName,
@@ -121,22 +144,23 @@ public partial class StatusView : UserControl
         web.OpenServiceView(svc.HostName, svc.Description);
     }
 
+    // Remote-Tools sind Admin-Handgriffe, kein „Gucken" — im Viewer-Modus zu.
     private void OnRdpClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite || vm.SelectedService is null) return;
         App.Services!.GetRequiredService<RemoteTools>().StartRdp(vm.SelectedService.HostName);
     }
 
     private void OnSshClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite || vm.SelectedService is null) return;
         // Kein User-Argument in Commit B — wird in Commit C aus SshCredentialStore geholt.
         App.Services!.GetRequiredService<RemoteTools>().StartSsh(vm.SelectedService.HostName, null);
     }
 
     private void OnRemoteShellClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite || vm.SelectedService is null) return;
         var host = vm.SelectedService.HostName;
         var os = vm.OsFor(host);
         App.Services!.GetRequiredService<RemoteTools>().StartRemoteShell(host, os, null);
@@ -144,7 +168,7 @@ public partial class StatusView : UserControl
 
     private void OnPingClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not StatusViewModel vm || vm.SelectedService is null) return;
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite || vm.SelectedService is null) return;
         App.Services!.GetRequiredService<RemoteTools>().StartPing(vm.SelectedService.HostName);
     }
 
@@ -256,20 +280,24 @@ public partial class StatusView : UserControl
 
     private void OpenHostDetails()
     {
-        if (DataContext is not StatusViewModel) return;
+        if (DataContext is not StatusViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
         var host = GetTargetHostName();
         if (host is null) return;
 
         var clients = App.Services!.GetRequiredService<ICheckmkClientProvider>();
-        var detailVm = new HostDetailViewModel(clients, host);
+        // CanWrite weiterreichen: das Detailfenster zeigt sonst Ack/Downtime/
+        // Kommentar-Buttons, obwohl der Status-Tab sie gerade ausblendet.
+        var detailVm = new HostDetailViewModel(clients, host, vm.CanWrite);
         new HostDetailWindow(detailVm).Show(owner);
     }
 
     private async Task ShowActionAsync(ServiceActionMode mode)
     {
-        if (DataContext is not StatusViewModel vm) return;
+        // CanWrite blockt hier zusaetzlich zur ausgeblendeten UI — der Weg ueber
+        // Hotkeys und Plugin-Kontextmenues laeuft ebenfalls hier durch.
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
         var selected = GetTargetServices();

@@ -173,6 +173,32 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json`.
   Anwendung ist rein clientside (bei ≤ ein paar tausend Hosts problemlos);
   Livestatus-Query-serverside kann später kommen, wenn nötig.
+- **Viewer-Modus** (`viewer.json` **neben der Exe**, `ViewerProfile.LoadOrNull`):
+  zweite Betriebsart für Leute, die nur gucken sollen. Liegt die Datei da, kommt die
+  Verbindung aus ihr (`ViewerConnectionSettingsStore` statt `ConnectionSettingsStore`),
+  der Spaltensatz der Service-Tabelle wird aus `columns` gebaut (`StatusColumnFactory`,
+  Schlüssel = Checkmk-Sichtnamen wie `svc_state_age`) und `view` liefert Start-Filter.
+  Lockdown: nur Status-Tab (Hosts/Dashboard werden in `MainWindow.axaml.cs` **entfernt**,
+  nicht `IsVisible`-versteckt — sonst bleiben sie per Ctrl+Tab erreichbar), kein
+  Einstellungen-Button, kein Ack/Downtime/Kommentar/Remote-Tool, keine Hotkeys,
+  **keine Plugins** (`PluginLoader` wird übersprungen — sonst hebelt ein Plugin-Tab
+  den Lockdown aus). Fehlt die Datei, ändert sich nichts; beide Modi laufen aus
+  demselben Binary. Drei Punkte, die nicht „aufgeräumt" werden dürfen:
+  1. **`secretBase64` ist Maskierung, keine Verschlüsselung** — nie als „Secret ist
+     geschützt" dokumentieren. DPAPI ist user-gebunden, die Datei wird verteilt; AES mit
+     Key im Binary wäre der SharedAes-Trick aus §8.20, den wir verworfen haben. Die echte
+     Grenze ist die **Checkmk-Lese-Rolle** des Users im Profil. Die UI-Sperren sind
+     Bedienkomfort, kein Zugriffsschutz — deshalb sitzen zusätzlich `CanWrite`-Guards in
+     den ViewModels, nicht nur `IsVisible` im XAML. Base64 wird **strikt** als UTF-8
+     dekodiert (`throwOnInvalidBytes`): der häufigste Bedienfehler ist Klartext im
+     Base64-Feld, und wenn der zufällig gültiges Base64 ist, gäbe es sonst nur ein
+     nichtssagendes `401 Wrong credentials` vom Server.
+  2. **Kaputtes JSON schaltet den Viewer-Modus NICHT ab** — `LoadFrom` gibt dann ein
+     Profil mit `LoadError` zurück. Ein Tippfehler darf keinem Nur-Gucker die volle
+     Oberfläche freischalten.
+  3. **`view`-Werte sind Startwerte** und werden nicht nach `statusview.json`
+     zurückgeschrieben (`PersistState` ist im Viewer-Modus No-Op); der Vorgabefilter
+     ist `HostFilter.IsTransient` und bleibt aus `filter.json` draußen.
 - **Settings:** Verbindung (Host/Site/User/Secret/HTTPS/Cert), Secret verschlüsselt
   via `WindowsDpapiProtector` (DPAPI-CurrentUser). Ablage user-lokal unter
   `%APPDATA%\Kroste\Checkmk\settings.json`. Zusätzlich `KnownSites: [...]` als
@@ -286,6 +312,11 @@ den Commit-Log an.
     Anmeldedaten gehören pro Nutzer; der SharedAes-Trick war nur Zufalls-Einsichts-Schutz,
     kein echter Zugriffsschutz. `hosts.json` (Domain-Zuordnung) bleibt zentral —
     das sind Metadaten, keine Secrets.
+21. ✅ **Viewer-Modus für Nur-Gucker** — `viewer.json` neben der Exe (Verbindung,
+    Spaltensatz, Start-Filter) schaltet Kiosk-Betrieb: nur Status-Tab, keine
+    Schreibaktionen, keine Plugins. Details und die drei Nicht-Aufräumen-Punkte
+    in §4. Ein Profil-Manager mit mehreren benannten Viewer-Sichten in *einer*
+    Datei wurde nicht gebaut — eine Sicht pro Ausgabe ist die Verteil-Einheit.
 
 ## 9 · Deal
 

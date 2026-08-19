@@ -47,9 +47,19 @@ internal static class Program
     {
         var services = new ServiceCollection();
 
+        // Viewer-Profil: optionale viewer.json NEBEN der Exe. Liegt sie da, kommt die
+        // Verbindung aus ihr (statt %APPDATA%\...\settings.json) und die App laeuft
+        // im reinen Guck-Modus. Fehlt sie, aendert sich nichts am bisherigen Verhalten.
+        var viewerProfile = ViewerProfile.LoadOrNull();
+        services.AddSingleton(new ViewerMode(viewerProfile));
+
         services.AddSingleton<ISecretProtector>(_ => SecretProtectorFactory.Create());
-        services.AddSingleton<IConnectionSettingsStore>(_ =>
-            new ConnectionSettingsStore(SecretProtectorFactory.Create()));
+        if (viewerProfile is not null)
+            services.AddSingleton<IConnectionSettingsStore>(
+                new ViewerConnectionSettingsStore(viewerProfile));
+        else
+            services.AddSingleton<IConnectionSettingsStore>(_ =>
+                new ConnectionSettingsStore(SecretProtectorFactory.Create()));
         services.AddSingleton<ICheckmkClientProvider, CheckmkClientProvider>();
         services.AddSingleton<IToastNotifier, WindowsToastNotifier>();
         services.AddSingleton<IHostFilterStore, HostFilterStore>();
@@ -119,8 +129,16 @@ internal static class Program
                 dataDir);
         };
 
-        var loadedPlugins = PluginLoader.DiscoverAndRegister(pluginsDir, services, contextFactory);
-        services.AddSingleton<IReadOnlyList<LoadedPlugin>>(loadedPlugins);
+        // Im Viewer-Modus werden Plugins bewusst NICHT geladen: sie steuern eigene
+        // Tabs und Kontextmenue-Aktionen bei (z. B. der AgentUpdater mit Admin-
+        // Credentials). Das wuerde den Lockdown an der Oberflaeche vorbei aushebeln.
+        IReadOnlyList<LoadedPlugin> loadedPlugins = [];
+        if (viewerProfile is null)
+            loadedPlugins = PluginLoader.DiscoverAndRegister(pluginsDir, services, contextFactory);
+        else
+            LogManager.GetCurrentClassLogger()
+                .Info("Viewer-Modus: Plugin-Ordner {Dir} wird nicht geladen.", pluginsDir);
+        services.AddSingleton(loadedPlugins);
 
         var provider = services.BuildServiceProvider();
         lateBound.SetInner(provider);

@@ -13,8 +13,10 @@
         <TextBox Name="FilterTextBox" Grid.Column="0" Text="{Binding FilterText}"
                  PlaceholderText="Freitext-Filter (Host/Service/Ausgabe, case-insensitive Contains)… — Ctrl+F fokussiert, Esc leert" />
         <Button Grid.Column="1" Content="Acknowledge…" Click="OnAcknowledgeClick"
+                IsVisible="{Binding CanWrite}"
                 IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <Button Grid.Column="2" Content="Downtime…" Click="OnDowntimeClick"
+                IsVisible="{Binding CanWrite}"
                 IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <CheckBox Grid.Column="3" Content="Nur Probleme" IsChecked="{Binding OnlyProblems}"
                   VerticalAlignment="Center" />
@@ -61,24 +63,29 @@
               SelectionMode="Extended"
               DoubleTapped="OnServiceDoubleTapped">
       <DataGrid.ContextMenu>
+        <!-- CanWrite ist im Viewer-Modus false: Ack/Downtime/Kommentar schreiben in
+             Checkmk, Remote-Shell/RDP/SSH/Ping und die Host-Einstellungen sind
+             Admin-Handgriffe — beides gehoert nicht in eine reine Guck-Sicht. -->
         <ContextMenu x:Name="ServiceGridContextMenu">
           <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
-          <Separator />
-          <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
-          <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
-          <MenuItem Header="Kommentar…" Click="OnCommentClick" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Downtime…" Click="OnDowntimeClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Kommentar…" Click="OnCommentClick" IsVisible="{Binding CanWrite}" />
           <Separator />
           <MenuItem Header="Zu Favorit hinzufügen…" Click="OnAddHostsToFavoriteClick" />
           <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick" />
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
-          <Separator />
-          <MenuItem Header="Remote-Shell öffnen (auto: RDP/SSH)" Click="OnRemoteShellClick" />
-          <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
-          <MenuItem Header="SSH öffnen" Click="OnSshClick" />
-          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
-          <Separator />
-          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Remote-Shell öffnen (auto: RDP/SSH)" Click="OnRemoteShellClick"
+                    IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="RDP öffnen" Click="OnRdpClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="SSH öffnen" Click="OnSshClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" IsVisible="{Binding CanWrite}" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick"
+                    IsVisible="{Binding CanWrite}" />
         </ContextMenu>
       </DataGrid.ContextMenu>
       <DataGrid.Columns>
@@ -118,22 +125,24 @@
       <TreeView.ContextMenu>
         <ContextMenu x:Name="ServiceTreeContextMenu">
           <MenuItem Header="Host-Details…" Click="OnOpenHostDetailsClick" />
-          <Separator />
-          <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" />
-          <MenuItem Header="Downtime…" Click="OnDowntimeClick" />
-          <MenuItem Header="Kommentar…" Click="OnCommentClick" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Acknowledge…" Click="OnAcknowledgeClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Downtime…" Click="OnDowntimeClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Kommentar…" Click="OnCommentClick" IsVisible="{Binding CanWrite}" />
           <Separator />
           <MenuItem Header="Zu Favorit hinzufügen…" Click="OnAddHostsToFavoriteClick" />
           <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick" />
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
-          <Separator />
-          <MenuItem Header="Remote-Shell öffnen (auto: RDP/SSH)" Click="OnRemoteShellClick" />
-          <MenuItem Header="RDP öffnen" Click="OnRdpClick" />
-          <MenuItem Header="SSH öffnen" Click="OnSshClick" />
-          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
-          <Separator />
-          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Remote-Shell öffnen (auto: RDP/SSH)" Click="OnRemoteShellClick"
+                    IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="RDP öffnen" Click="OnRdpClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="SSH öffnen" Click="OnSshClick" IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" IsVisible="{Binding CanWrite}" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Host-Einstellungen (Domain/SSH)…" Click="OnHostSettingsClick"
+                    IsVisible="{Binding CanWrite}" />
         </ContextMenu>
       </TreeView.ContextMenu>
       <TreeView.DataTemplates>

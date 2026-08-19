@@ -13,6 +13,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     private readonly ICheckmkClientProvider _clients;
     private readonly IUpdateChecker _updateChecker;
     private readonly IUpdatePreferences _updatePrefs;
+    private readonly ViewerMode _viewer;
 
     // Verhindert, dass der Site-Setter waehrend Initialize/Reconnect einen echten
     // Switch triggert — wir wollen nur bei User-Auswahl reagieren.
@@ -33,7 +34,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string? _activeSite;
 
-    public bool IsSiteSwitcherVisible => KnownSites.Count > 1;
+    /// <summary>Im Viewer-Modus gibt das Profil genau eine Site vor — kein Umschalter.</summary>
+    public bool IsSiteSwitcherVisible => KnownSites.Count > 1 && !IsViewerMode;
+
+    /// <summary>true, wenn <c>viewer.json</c> neben der Exe liegt.</summary>
+    public bool IsViewerMode => _viewer.IsActive;
+
+    /// <summary>Steuert den „Einstellungen"-Button in der Titelleiste — im
+    /// Viewer-Modus weg, weil die Verbindung aus dem Profil kommt.</summary>
+    public bool ShowSettings => !IsViewerMode;
+
+    /// <summary>Fenster-/Titelleisten-Text. Aus dem Viewer-Profil uebernehmbar,
+    /// damit der Anwender sieht, welche Sicht er vor sich hat.</summary>
+    public string AppTitle => _viewer.Profile is { } p && !string.IsNullOrWhiteSpace(p.Title)
+        ? p.Title.Trim()
+        : "Checkmk Cockpit";
 
     [ObservableProperty]
     private string _connectionInfo = "Nicht verbunden";
@@ -70,7 +85,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         IConnectionSettingsStore store,
         ICheckmkClientProvider clients,
         IUpdateChecker updateChecker,
-        IUpdatePreferences updatePrefs)
+        IUpdatePreferences updatePrefs,
+        ViewerMode viewer)
     {
         Status = status;
         Config = config;
@@ -79,6 +95,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _clients = clients;
         _updateChecker = updateChecker;
         _updatePrefs = updatePrefs;
+        _viewer = viewer;
     }
 
     /// <summary>Wird nach dem Anzeigen des Fensters aufgerufen.</summary>
@@ -94,9 +111,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             _clients.Configure(settings, secret);
             var scheme = settings.UseHttps ? "https" : "http";
             ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
-            await Status.RefreshCommand.ExecuteAsync(null);
-            await Config.RefreshHostsCommand.ExecuteAsync(null);
-            await Dashboard.RefreshCommand.ExecuteAsync(null);
+            await RefreshAllTabsAsync();
+        }
+        else if (_viewer.Profile is { } profile)
+        {
+            // Viewer-Modus ohne brauchbare Verbindung: der Anwender kann das nicht
+            // reparieren (kein Einstellungen-Dialog), also muss die Meldung sagen,
+            // WO der Admin nachsehen muss.
+            ConnectionInfo = "Profil unvollständig";
+            StatusMessage = profile.LoadError is { } err
+                ? $"Viewer-Profil fehlerhaft: {err} — Datei: {profile.FilePath}"
+                : $"Viewer-Profil ohne vollständige Verbindung — Datei: {profile.FilePath}";
         }
         else
         {
@@ -106,6 +131,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase
 
         // Update-Check laeuft im Hintergrund, blockiert das UI nicht.
         _ = CheckForUpdatesAsync();
+    }
+
+    /// <summary>Refresh aller sichtbaren Tabs. Im Viewer-Modus existieren Hosts- und
+    /// Dashboard-Tab nicht — deren Server-Calls waeren nur unnoetige Last (und der
+    /// Hosts-Endpunkt braucht Setup-Rechte, die der Viewer-User nicht haben soll).</summary>
+    private async Task RefreshAllTabsAsync()
+    {
+        await Status.RefreshCommand.ExecuteAsync(null);
+        if (_viewer.IsActive) return;
+        await Config.RefreshHostsCommand.ExecuteAsync(null);
+        await Dashboard.RefreshCommand.ExecuteAsync(null);
     }
 
     private void RefreshKnownSitesFrom(ConnectionSettings settings)
@@ -155,9 +191,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             var scheme = settings.UseHttps ? "https" : "http";
             ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
             StatusMessage = $"Site gewechselt auf {newSite} — lade Daten…";
-            await Status.RefreshCommand.ExecuteAsync(null);
-            await Config.RefreshHostsCommand.ExecuteAsync(null);
-            await Dashboard.RefreshCommand.ExecuteAsync(null);
+            await RefreshAllTabsAsync();
         }
         catch (Exception ex)
         {
@@ -210,9 +244,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         {
             var scheme = settings.UseHttps ? "https" : "http";
             ConnectionInfo = $"{scheme}://{settings.Host}/{settings.Site} ({settings.Username})";
-            await Status.RefreshCommand.ExecuteAsync(null);
-            await Config.RefreshHostsCommand.ExecuteAsync(null);
-            await Dashboard.RefreshCommand.ExecuteAsync(null);
+            await RefreshAllTabsAsync();
         }
     }
 

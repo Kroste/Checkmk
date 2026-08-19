@@ -46,10 +46,15 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     [ObservableProperty] private int _servicesCrit;
     [ObservableProperty] private int _servicesUnknown;
 
-    public HostDetailViewModel(ICheckmkClientProvider clients, string hostName)
+    /// <summary>false im Viewer-Modus — blendet Ack/Downtime/Kommentar (Host wie
+    /// Service) und das Loeschen von Kommentaren aus.</summary>
+    public bool CanWrite { get; }
+
+    public HostDetailViewModel(ICheckmkClientProvider clients, string hostName, bool canWrite = true)
     {
         _clients = clients;
         HostName = hostName;
+        CanWrite = canWrite;
     }
 
     [RelayCommand]
@@ -133,7 +138,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     {
         var client = _clients.Current;
         var svc = SelectedService;
-        if (client is null || svc is null) return;
+        if (!CanWrite || client is null || svc is null) return;
 
         try
         {
@@ -155,7 +160,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     {
         var client = _clients.Current;
         var svc = SelectedService;
-        if (client is null || svc is null) return;
+        if (!CanWrite || client is null || svc is null) return;
 
         try
         {
@@ -176,7 +181,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     public async Task PerformBulkServiceAcknowledgeAsync(IReadOnlyList<ServiceStatus> services, string comment)
     {
         var client = _clients.Current;
-        if (client is null || services.Count == 0) return;
+        if (!CanWrite || client is null || services.Count == 0) return;
 
         var errors = 0;
         var done = 0;
@@ -210,7 +215,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
         string comment, DateTimeOffset start, DateTimeOffset end)
     {
         var client = _clients.Current;
-        if (client is null || services.Count == 0) return;
+        if (!CanWrite || client is null || services.Count == 0) return;
 
         var errors = 0;
         var done = 0;
@@ -243,7 +248,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     public async Task PerformHostAcknowledgeAsync(string comment)
     {
         var client = _clients.Current;
-        if (client is null) return;
+        if (!CanWrite || client is null) return;
 
         try
         {
@@ -264,7 +269,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     public async Task PerformHostDowntimeAsync(string comment, DateTimeOffset start, DateTimeOffset end)
     {
         var client = _clients.Current;
-        if (client is null) return;
+        if (!CanWrite || client is null) return;
 
         try
         {
@@ -285,7 +290,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     public async Task PerformDeleteCommentAsync(string commentId)
     {
         var client = _clients.Current;
-        if (client is null || string.IsNullOrWhiteSpace(commentId)) return;
+        if (!CanWrite || client is null || string.IsNullOrWhiteSpace(commentId)) return;
 
         try
         {
@@ -306,7 +311,7 @@ public sealed partial class HostDetailViewModel : ViewModelBase
     public async Task PerformAddCommentAsync(string comment, bool persistent, bool onSelectedService)
     {
         var client = _clients.Current;
-        if (client is null) return;
+        if (!CanWrite || client is null) return;
 
         try
         {
