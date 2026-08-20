@@ -148,8 +148,12 @@ BEGIN
         HostNameRegex nvarchar(400) NULL,
         ChangedAtUtc  datetime2(0)  NOT NULL CONSTRAINT DF_HostFilter_ChangedAtUtc DEFAULT SYSUTCDATETIME(),
         ChangedBy     nvarchar(128) NOT NULL CONSTRAINT DF_HostFilter_ChangedBy    DEFAULT SUSER_SNAME(),
+        -- Genau eins von beidem. Ausgeschrieben, weil T-SQL keinen Boolean-Typ
+        -- kennt: "(TeamId IS NULL) <> (OwnerUserName IS NULL)" ist zwar
+        -- Standard-SQL, hier aber ein Syntaxfehler.
         CONSTRAINT CK_HostFilter_Owner CHECK
-            ((TeamId IS NULL) <> (OwnerUserName IS NULL)),
+            (   (TeamId IS NULL     AND OwnerUserName IS NOT NULL)
+             OR (TeamId IS NOT NULL AND OwnerUserName IS NULL)),
         -- Kein CASCADE: sonst entstünden über TeamView zwei Löschpfade zu Team,
         -- und die lehnt SQL Server ab. Ein Team räumt die Anwendung in einer
         -- Transaktion ab.
@@ -213,14 +217,46 @@ BEGIN
 END
 GO
 
-MERGE dbo.SchemaVersion AS target
-USING (SELECT 1 AS Id, 2 AS Version) AS source
-    ON target.Id = source.Id
-WHEN MATCHED AND target.Version < source.Version THEN
-    UPDATE SET Version = source.Version, AppliedAtUtc = SYSUTCDATETIME(), AppliedBy = SUSER_SNAME()
-WHEN NOT MATCHED THEN
-    INSERT (Id, Version) VALUES (source.Id, source.Version);
-GO
+/* ---------------------------------------------------------------------------
+   Version erst stempeln, wenn wirklich alles steht.
 
-PRINT '002-map-teams.sql angewendet.';
+   Beim ersten Lauf dieses Skripts brach eine Tabelle mit einem Syntaxfehler ab,
+   zwei Folgetabellen scheiterten an deren Fremdschluessel — und die
+   Versionsmarke wurde trotzdem gesetzt. Damit haette die Anwendung ein
+   vollstaendiges Schema angenommen und waere erst beim ersten Zugriff
+   gestolpert. Jede Batch ist eine eigene Fehlerdomaene, also muss am Ende
+   nachgezaehlt werden.
+--------------------------------------------------------------------------- */
+DECLARE @missing nvarchar(1000) = N'';
+
+IF OBJECT_ID(N'dbo.Team',           N'U') IS NULL SET @missing += N'Team, ';
+IF OBJECT_ID(N'dbo.TeamMember',     N'U') IS NULL SET @missing += N'TeamMember, ';
+IF OBJECT_ID(N'dbo.AppAdmin',       N'U') IS NULL SET @missing += N'AppAdmin, ';
+IF OBJECT_ID(N'dbo.Area',           N'U') IS NULL SET @missing += N'Area, ';
+IF OBJECT_ID(N'dbo.HostArea',       N'U') IS NULL SET @missing += N'HostArea, ';
+IF OBJECT_ID(N'dbo.HostFilter',     N'U') IS NULL SET @missing += N'HostFilter, ';
+IF OBJECT_ID(N'dbo.HostFilterHost', N'U') IS NULL SET @missing += N'HostFilterHost, ';
+IF OBJECT_ID(N'dbo.TeamView',       N'U') IS NULL SET @missing += N'TeamView, ';
+
+IF LEN(@missing) > 0
+BEGIN
+    /* Version bewusst NICHT setzen — lieber meldet die Anwendung beim Start
+       "Schema zu alt", als dass sie auf fehlende Tabellen laeuft. */
+    DECLARE @msg nvarchar(1200) =
+        N'002-map-teams.sql UNVOLLSTAENDIG. Es fehlen: '
+        + LEFT(@missing, LEN(@missing) - 1)
+        + N'. SchemaVersion wurde nicht hochgesetzt — Fehler oben pruefen und Skript erneut ausfuehren.';
+    RAISERROR(@msg, 16, 1);
+END
+ELSE
+BEGIN
+    IF EXISTS (SELECT 1 FROM dbo.SchemaVersion WHERE Id = 1)
+        UPDATE dbo.SchemaVersion
+           SET Version = 2, AppliedAtUtc = SYSUTCDATETIME(), AppliedBy = SUSER_SNAME()
+         WHERE Id = 1 AND Version < 2;
+    ELSE
+        INSERT dbo.SchemaVersion (Id, Version) VALUES (1, 2);
+
+    PRINT '002-map-teams.sql angewendet (SchemaVersion = 2).';
+END
 GO

@@ -76,15 +76,32 @@ BEGIN
 END
 GO
 
-/* Version eintragen bzw. hochsetzen. */
-MERGE dbo.SchemaVersion AS target
-USING (SELECT 1 AS Id, 1 AS Version) AS source
-    ON target.Id = source.Id
-WHEN MATCHED AND target.Version < source.Version THEN
-    UPDATE SET Version = source.Version, AppliedAtUtc = SYSUTCDATETIME(), AppliedBy = SUSER_SNAME()
-WHEN NOT MATCHED THEN
-    INSERT (Id, Version) VALUES (source.Id, source.Version);
-GO
+/* Version erst stempeln, wenn alle Tabellen dieses Skripts wirklich stehen —
+   jede Batch ist eine eigene Fehlerdomaene, ein Abbruch weiter oben stoppt
+   den Rest nicht. */
+DECLARE @missing nvarchar(1000) = N'';
 
-PRINT '001-initial.sql angewendet.';
+IF OBJECT_ID(N'dbo.SchemaVersion', N'U') IS NULL SET @missing += N'SchemaVersion, ';
+IF OBJECT_ID(N'dbo.GlobalSetting', N'U') IS NULL SET @missing += N'GlobalSetting, ';
+IF OBJECT_ID(N'dbo.HostDomain',    N'U') IS NULL SET @missing += N'HostDomain, ';
+
+IF LEN(@missing) > 0
+BEGIN
+    DECLARE @msg nvarchar(1200) =
+        N'001-initial.sql UNVOLLSTAENDIG. Es fehlen: '
+        + LEFT(@missing, LEN(@missing) - 1)
+        + N'. SchemaVersion wurde nicht gesetzt.';
+    RAISERROR(@msg, 16, 1);
+END
+ELSE
+BEGIN
+    IF EXISTS (SELECT 1 FROM dbo.SchemaVersion WHERE Id = 1)
+        UPDATE dbo.SchemaVersion
+           SET Version = 1, AppliedAtUtc = SYSUTCDATETIME(), AppliedBy = SUSER_SNAME()
+         WHERE Id = 1 AND Version < 1;
+    ELSE
+        INSERT dbo.SchemaVersion (Id, Version) VALUES (1, 1);
+
+    PRINT '001-initial.sql angewendet (SchemaVersion >= 1).';
+END
 GO
