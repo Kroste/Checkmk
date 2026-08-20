@@ -87,9 +87,11 @@ public sealed class CheckmkClient
             + $"?effective_attributes={effectiveAttributes.ToString().ToLowerInvariant()}", ct);
 
     /// <summary>Live-Status aller Hosts (Monitoring/Livestatus), optional
-    /// serverseitig gefiltert (Regex oder Include-Liste).</summary>
+    /// serverseitig gefiltert (Regex oder Include-Liste).
+    /// <paramref name="progress"/> meldet den Download-Fortschritt in Bytes.</summary>
     public async Task<IReadOnlyList<HostStatus>> GetHostStatusesAsync(
-        LivestatusHostFilter? filter = null, CancellationToken ct = default)
+        LivestatusHostFilter? filter = null, CancellationToken ct = default,
+        IProgress<TransferProgress>? progress = null)
     {
         var cols = new[] { "name", "state", "plugin_output", "acknowledged", "scheduled_downtime_depth" };
         var url = "domain-types/host/collections/all?" + ColumnsQuery(cols, hostNameCol: "name");
@@ -103,7 +105,8 @@ public sealed class CheckmkClient
             url += "&query=" + Uri.EscapeDataString(queryJson);
         }
 
-        var result = await GetAsync<CheckmkCollection<HostStatusEnvelope>>(url, ct);
+        var result = await GetAsync<CheckmkCollection<HostStatusEnvelope>>(url, ct, progress)
+            .ConfigureAwait(false);
         return result.Value.Select(v => v.Extensions).ToList();
     }
 
@@ -139,9 +142,13 @@ public sealed class CheckmkClient
     /// Live-Status von Services mit serverseitig-filternder Livestatus-Query
     /// (Regex oder Include-Liste auf host_name). Reduziert bei grossen
     /// Installationen die Antwortgroesse drastisch.
+    /// <paramref name="progress"/> meldet den Download-Fortschritt in Bytes —
+    /// das ist der Abruf, der bei ungefiltertem Blick auf zehntausende Checks
+    /// mehrere Sekunden laeuft.
     /// </summary>
     public async Task<IReadOnlyList<ServiceStatus>> GetServiceStatusesAsync(
-        LivestatusHostFilter? filter, CancellationToken ct = default)
+        LivestatusHostFilter? filter, CancellationToken ct = default,
+        IProgress<TransferProgress>? progress = null)
     {
         // display_name ist eine Standard-Livestatus-Spalte (Service-Alias, sonst
         // identisch mit description) — sie kostet nichts und die Viewer-Sicht
@@ -156,7 +163,8 @@ public sealed class CheckmkClient
         if (filter?.ToJson() is { } queryJson)
             url += "&query=" + Uri.EscapeDataString(queryJson);
 
-        var result = await GetAsync<CheckmkCollection<ServiceStatusEnvelope>>(url, ct);
+        var result = await GetAsync<CheckmkCollection<ServiceStatusEnvelope>>(url, ct, progress)
+            .ConfigureAwait(false);
         return result.Value.Select(v => v.Extensions).ToList();
     }
 
@@ -438,21 +446,39 @@ public sealed class CheckmkClient
     // Helpers
     // ---------------------------------------------------------------------
 
-    private async Task<T> GetAsync<T>(string relativeUrl, CancellationToken ct)
+    /// <summary>
+    /// GET + Deserialisieren. Die Antwort wird <b>gestreamt</b> statt erst
+    /// komplett in einen String zu lesen: bei zehntausenden Services sind das
+    /// zweistellige Megabytes, und der alte Weg
+    /// (<c>ReadAsStringAsync</c> + synchrones <c>Deserialize</c>) lief nach dem
+    /// <c>await</c> auf dem UI-Thread wieder an — die App stand fuer die Dauer
+    /// des Parsens. <c>DeserializeAsync</c> + durchgaengiges
+    /// <c>ConfigureAwait(false)</c> haelt die Arbeit auf dem ThreadPool und
+    /// erlaubt nebenbei den Byte-Fortschritt fuer die Statusleiste.
+    /// </summary>
+    private async Task<T> GetAsync<T>(string relativeUrl, CancellationToken ct,
+        IProgress<TransferProgress>? progress = null)
     {
-        using var resp = await _http.GetAsync(relativeUrl, ct);
-        await EnsureSuccessAsync(resp, ct);
-        var body = await resp.Content.ReadAsStringAsync(ct);
+        using var resp = await _http
+            .GetAsync(relativeUrl, HttpCompletionOption.ResponseHeadersRead, ct)
+            .ConfigureAwait(false);
+        await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
+
+        var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        await using var counting = new CountingStream(stream, resp.Content.Headers.ContentLength, progress);
         try
         {
-            return JsonSerializer.Deserialize<T>(body, JsonOpts)
-                ?? throw new CheckmkApiException("Antwort war leer/null.", resp.StatusCode, body);
+            return await JsonSerializer.DeserializeAsync<T>(counting, JsonOpts, ct).ConfigureAwait(false)
+                ?? throw new CheckmkApiException("Antwort war leer/null.",
+                    resp.StatusCode, counting.HeadSnippet);
         }
         catch (JsonException ex)
         {
+            // Kein vollstaendiger Body mehr (der wird bewusst nicht gepuffert) —
+            // der Kopf-Ausschnitt reicht, um Loginseite/Proxy-HTML zu erkennen.
             throw new CheckmkApiException(
                 $"Antwort konnte nicht deserialisiert werden: {ex.Message}",
-                resp.StatusCode, body, ex);
+                resp.StatusCode, counting.HeadSnippet, ex);
         }
     }
 

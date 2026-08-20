@@ -15,6 +15,15 @@ public sealed class StatusViewState
     public bool OnlyOpen { get; set; }
     public bool AutoRefresh { get; set; }
     public int RefreshSeconds { get; set; } = 30;
+
+    /// <summary>Antwortgroesse des letzten Host- bzw. Service-Abrufs in Bytes.
+    /// Checkmk liefert bei den grossen Livestatus-Antworten kein
+    /// <c>Content-Length</c> — ohne diesen Schaetzer aus der Vorsitzung liefe
+    /// ausgerechnet der langsame Refresh beim Start nur als Marquee-Balken.
+    /// 0 = noch keine Messung.</summary>
+    public long LastHostBytes { get; set; }
+
+    public long LastServiceBytes { get; set; }
 }
 
 public interface IStatusViewStateStore

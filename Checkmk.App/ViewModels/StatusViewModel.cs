@@ -1,6 +1,8 @@
-using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Threading;
+using Checkmk.App.Models;
 using Checkmk.App.Services;
+using Checkmk.Core;
 using Checkmk.Core.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -30,10 +32,13 @@ public sealed partial class StatusViewModel : ViewModelBase
 
     public HostFilterCollection Filters { get; }
 
-    public ObservableCollection<ServiceStatus> Services { get; } = [];
+    /// <summary>Sichtbare Zeilen der Service-Tabelle. <see cref="BulkObservableCollection{T}"/>
+    /// statt <c>ObservableCollection</c>, weil hier bei ungefiltertem Blick
+    /// zehntausende Zeilen auf einmal ausgetauscht werden.</summary>
+    public BulkObservableCollection<ServiceStatus> Services { get; } = [];
 
     /// <summary>Baum-Ansicht: Hosts als Knoten (OS-Pictogram + Problem-Zaehler), Services als Kinder.</summary>
-    public ObservableCollection<HostNodeViewModel> HostTree { get; } = [];
+    public BulkObservableCollection<HostNodeViewModel> HostTree { get; } = [];
 
     /// <summary>false = Tabelle, true = Baum.</summary>
     [ObservableProperty]
@@ -61,7 +66,9 @@ public sealed partial class StatusViewModel : ViewModelBase
 
     private HashSet<string> _previousCrits = new(StringComparer.OrdinalIgnoreCase);
 
-    private static string CritKey(ServiceStatus s) => s.HostName + "\0" + s.Description;
+    /// <summary>Identitaet einer Zeile ueber Refreshs hinweg — die
+    /// <see cref="ServiceStatus"/>-Instanzen sind nach jedem Abruf neu.</summary>
+    private static string ServiceKey(ServiceStatus s) => s.HostName + "\0" + s.Description;
 
     [ObservableProperty]
     private ServiceStatus? _selectedService;
@@ -110,9 +117,42 @@ public sealed partial class StatusViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isBackendHealthy;
 
+    /// <summary>Fortschritt des laufenden Refreshs, 0..1 — Balken in der Statusleiste.</summary>
+    [ObservableProperty]
+    private double _refreshProgress;
+
+    /// <summary>true, solange keine Groessen-Schaetzung existiert (allererster
+    /// Abruf ohne Vorsitzung): dann laeuft der Balken als Marquee.</summary>
+    [ObservableProperty]
+    private bool _refreshIndeterminate;
+
     private readonly IStatusViewStateStore _stateStore;
     private bool _loadingState;
     private readonly bool _isViewerMode;
+
+    // --- Refresh-Zustand (Hintergrund-Lauf) ---
+    private CancellationTokenSource? _refreshCts;
+    private readonly Stopwatch _refreshClock = new();
+
+    /// <summary>Laufende Nummer des aktuellen Refreshs. Fortschrittsmeldungen
+    /// eines abgebrochenen Laufs treffen verzoegert ein und wuerden sonst den
+    /// Balken des Nachfolgers verstellen.</summary>
+    private int _refreshRun;
+
+    /// <summary>Antwortgroessen des letzten Laufs — Nenner fuer den Balken, weil
+    /// Checkmk die grossen Livestatus-Antworten chunked ohne Content-Length liefert.</summary>
+    private long _lastHostBytes;
+    private long _lastServiceBytes;
+
+    /// <summary>Der Baum wird nur gebaut, wenn er sichtbar ist. Steht die Flagge,
+    /// muss beim Umschalten nachgezogen werden.</summary>
+    private bool _treeStale = true;
+
+    // Segmentgrenzen des Balkens: Hosts sind eine kleine Antwort, die Services
+    // sind der lange Teil, danach kommt nur noch Auswerten/Anzeigen.
+    private const double HostSegmentEnd = 0.10;
+    private const double ServiceSegmentEnd = 0.80;
+    private const double ProjectSegmentEnd = 0.95;
 
     /// <summary>false im Viewer-Modus — blendet Ack/Downtime/Kommentar aus.
     /// Reiner Bedienschutz; die echte Grenze ist die Checkmk-Rolle des Users.</summary>
@@ -134,7 +174,14 @@ public sealed partial class StatusViewModel : ViewModelBase
         // (NullReferenceException beim Start, wenn statusview.json AutoRefresh=true
         // gespeichert hatte).
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _timer.Tick += async (_, _) => await RefreshAsync();
+        _timer.Tick += async (_, _) =>
+        {
+            // Laeuft der vorige Refresh noch (grosse Installation, kurzes
+            // Intervall), wird der Tick verworfen statt ihn abzubrechen —
+            // sonst kaeme bei 32.000 Checks nie einer bis zum Ende durch.
+            if (IsBusy) return;
+            await RefreshAsync();
+        };
 
         // UI-Praeferenzen aus letzter Sitzung wieder herstellen. _loadingState
         // verhindert, dass die Load-Zuweisungen ihrerseits ein Save triggern.
@@ -147,6 +194,11 @@ public sealed partial class StatusViewModel : ViewModelBase
         RefreshSeconds = s.RefreshSeconds;   // setzt _timer.Interval
         AutoRefresh = s.AutoRefresh;         // startet/stoppt _timer
         _loadingState = false;
+
+        // Groessen-Schaetzung aus der Vorsitzung: ohne sie liefe ausgerechnet der
+        // erste (und langsamste) Refresh nach dem Start nur als Marquee-Balken.
+        _lastHostBytes = s.LastHostBytes;
+        _lastServiceBytes = s.LastServiceBytes;
 
         // Viewer-Modus: die Vorgaben aus viewer.json ueberschreiben den zuletzt
         // gespeicherten Zustand. Sie sind Startwerte, keine Sperre — der Anwender
@@ -212,14 +264,23 @@ public sealed partial class StatusViewModel : ViewModelBase
             OnlyProblems = OnlyProblems,
             OnlyOpen = OnlyOpen,
             AutoRefresh = AutoRefresh,
-            RefreshSeconds = RefreshSeconds
+            RefreshSeconds = RefreshSeconds,
+            LastHostBytes = _lastHostBytes,
+            LastServiceBytes = _lastServiceBytes
         });
     }
 
     partial void OnFilterTextChanged(string value) { ApplyFilter(); PersistState(); }
     partial void OnOnlyProblemsChanged(bool value) { ApplyFilter(); PersistState(); }
     partial void OnOnlyOpenChanged(bool value) { ApplyFilter(); PersistState(); }
-    partial void OnTreeViewChanged(bool value) => PersistState();
+
+    partial void OnTreeViewChanged(bool value)
+    {
+        // Der Baum wird nur gebaut, wenn er auch zu sehen ist (siehe BuildTreeIfVisible).
+        // Beim Einschalten also nachziehen.
+        if (value && _treeStale) BuildTree();
+        PersistState();
+    }
 
     partial void OnAutoRefreshChanged(bool value)
     {
@@ -234,6 +295,26 @@ public sealed partial class StatusViewModel : ViewModelBase
         PersistState();
     }
 
+    /// <summary>
+    /// Ergebnis eines Hintergrund-Refreshs. Alles, was der UI-Thread danach nur
+    /// noch zuweisen muss — inklusive der fertig gefilterten und sortierten
+    /// Zeilenliste. So bleibt auf dem UI-Thread nur der Collection-Austausch.
+    /// </summary>
+    private sealed record RefreshSnapshot(
+        List<ServiceStatus> All,
+        List<ServiceStatus> Visible,
+        Dictionary<string, OsFamily> OsByHost,
+        int HostCount, int HostsUp, int HostsDown,
+        int ServicesOk, int ServicesWarn, int ServicesCrit,
+        long HostBytes, long ServiceBytes);
+
+    /// <summary>
+    /// Holt Host- und Service-Status neu. Der teure Teil — HTTP, JSON-Parse,
+    /// Zaehlen, Filtern, Sortieren — laeuft komplett auf dem ThreadPool; auf dem
+    /// UI-Thread bleibt nur der Austausch der Collections. Vorher lief das
+    /// Deserialisieren nach dem <c>await</c> wieder auf dem UI-Thread und die
+    /// 32.000 Einzel-<c>Add</c>s dazu: die App stand mehrere Sekunden.
+    /// </summary>
     [RelayCommand]
     private async Task RefreshAsync()
     {
@@ -244,11 +325,25 @@ public sealed partial class StatusViewModel : ViewModelBase
             return;
         }
 
+        // Ein noch laufender Refresh wird abgebrochen, nicht eingereiht: wer neu
+        // anstoesst (Button, Filterwechsel), will den aktuellen Stand — und ein
+        // abgebrochener Download spart Sekunden. Nur abbrechen, nicht entsorgen:
+        // die Quelle gehoert dem alten Lauf, der sie in seinem eigenen finally
+        // freigibt — ein Dispose von hier aus faellt dem noch abbauenden
+        // HttpClient in die Token-Registrierungen.
+        var cts = new CancellationTokenSource();
+        Interlocked.Exchange(ref _refreshCts, cts)?.Cancel();
+        var ct = cts.Token;
+        var run = ++_refreshRun;
+
+        IsBusy = true;
+        _refreshClock.Restart();
+        RefreshProgress = 0;
+        RefreshIndeterminate = _lastServiceBytes <= 0;
+        StatusMessage = "Aktualisiere…";
+
         try
         {
-            IsBusy = true;
-            StatusMessage = "Aktualisiere…";
-
             // Serverseitig filtern — bei grossen Installationen (Zehntausende Checks)
             // spart das ein Vielfaches an Netzwerklast. Regex/Include-Liste geht
             // direkt in die Livestatus-Query, Freitext + „Nur Probleme" bleiben
@@ -256,66 +351,228 @@ public sealed partial class StatusViewModel : ViewModelBase
             // Datensatzes).
             var livestatusFilter = Filters.Active?.ToLivestatus();
 
-            var hosts = await client.GetHostStatusesAsync(livestatusFilter);
-            var services = await client.GetServiceStatusesAsync(livestatusFilter);
+            // Ansichtsfilter als Wert einfrieren, damit die Projektion im
+            // Hintergrund laufen kann, ohne auf UI-State zuzugreifen.
+            var criteria = CurrentCriteria();
 
-            HostsUp = hosts.Count(h => h.HostState == HostState.Up);
-            HostsDown = hosts.Count(h => h.HostState != HostState.Up);
-            ServicesOk = services.Count(s => s.ServiceState == ServiceState.Ok);
-            ServicesWarn = services.Count(s => s.ServiceState == ServiceState.Warning);
-            ServicesCrit = services.Count(s => s.ServiceState == ServiceState.Critical);
+            var hostSegment = new RefreshSegment(this, run, 0.0, HostSegmentEnd, _lastHostBytes);
+            var serviceSegment = new RefreshSegment(this, run, HostSegmentEnd, ServiceSegmentEnd, _lastServiceBytes);
 
-            _allServices = [.. services];
+            var snapshot = await Task.Run(async () =>
+            {
+                var hosts = await client.GetHostStatusesAsync(livestatusFilter, ct, hostSegment)
+                    .ConfigureAwait(false);
+                var services = await client.GetServiceStatusesAsync(livestatusFilter, ct, serviceSegment)
+                    .ConfigureAwait(false);
 
-            // OS-Familie je Host aus der "Check_MK Agent"-Service-Ausgabe (z. B. "OS: windows").
-            _osByHost = _allServices
-                .Where(s => s.Description == "Check_MK Agent")
-                .Select(s => (s.HostName, Os: OsDetection.ParseFamily(s.PluginOutput)))
-                .Where(x => x.Os != OsFamily.Unknown)
-                .GroupBy(x => x.HostName)
-                .ToDictionary(g => g.Key, g => g.First().Os);
+                ReportStage(run, ServiceSegmentEnd, "Werte aus…");
 
-            ApplyFilter();
+                var all = services.ToList();
+
+                // OS-Familie je Host aus der "Check_MK Agent"-Service-Ausgabe (z. B. "OS: windows").
+                var osByHost = all
+                    .Where(s => s.Description == "Check_MK Agent")
+                    .Select(s => (s.HostName, Os: OsDetection.ParseFamily(s.PluginOutput)))
+                    .Where(x => x.Os != OsFamily.Unknown)
+                    .GroupBy(x => x.HostName)
+                    .ToDictionary(g => g.Key, g => g.First().Os);
+
+                var visible = Project(all, criteria);
+
+                ct.ThrowIfCancellationRequested();
+                ReportStage(run, ProjectSegmentEnd, "Zeige an…");
+
+                return new RefreshSnapshot(
+                    all, visible, osByHost,
+                    hosts.Count,
+                    hosts.Count(h => h.HostState == HostState.Up),
+                    hosts.Count(h => h.HostState != HostState.Up),
+                    all.Count(s => s.ServiceState == ServiceState.Ok),
+                    all.Count(s => s.ServiceState == ServiceState.Warning),
+                    all.Count(s => s.ServiceState == ServiceState.Critical),
+                    hostSegment.BytesRead, serviceSegment.BytesRead);
+            }, ct).ConfigureAwait(true);
+
+            ct.ThrowIfCancellationRequested();
+
+            HostsUp = snapshot.HostsUp;
+            HostsDown = snapshot.HostsDown;
+            ServicesOk = snapshot.ServicesOk;
+            ServicesWarn = snapshot.ServicesWarn;
+            ServicesCrit = snapshot.ServicesCrit;
+
+            _allServices = snapshot.All;
+            _osByHost = snapshot.OsByHost;
+            RememberPayloadSizes(snapshot.HostBytes, snapshot.ServiceBytes);
+
+            ApplyVisible(snapshot.Visible);
 
             // Fuer Tray/Notifications: die Services sind bereits auf den aktiven
             // Filter beschraenkt (serverseitig gefiltert oben) — direkt weiterreichen.
             Refreshed?.Invoke(_allServices, Filters.Active?.Name);
 
+            RefreshProgress = 1;
             StatusMessage = $"Aktualisiert {DateTime.Now:HH:mm:ss} — "
-                          + $"{services.Count} Services, {hosts.Count} Hosts.";
+                          + $"{snapshot.All.Count} Services, {snapshot.HostCount} Hosts "
+                          + $"in {_refreshClock.Elapsed.TotalSeconds:F1} s.";
             var scope = Filters.Active is { } f ? f.Name : "—";
-            FilterInfo = $"Filter: {scope} · {services.Count} Services";
+            FilterInfo = $"Filter: {scope} · {snapshot.All.Count} Services";
             IsBackendHealthy = true;
 
-            // Neue CRITs seit dem letzten Refresh erkennen und den juengsten
-            // per Event melden — StatusView scrollt dorthin.
-            var currentCrits = _allServices
-                .Where(s => s.ServiceState == ServiceState.Critical)
-                .Select(CritKey)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            if (_previousCrits.Count > 0)
-            {
-                var freshCrit = _allServices
-                    .Where(s => s.ServiceState == ServiceState.Critical
-                             && !_previousCrits.Contains(CritKey(s)))
-                    .OrderByDescending(s => s.LastStateChangeUnix)
-                    .FirstOrDefault();
-                if (freshCrit is not null)
-                    SpotlightRequested?.Invoke(freshCrit);
-            }
-            _previousCrits = currentCrits;
+            SpotlightFreshCrits();
+        }
+        catch (OperationCanceledException)
+        {
+            // Abgeloest durch einen neueren Refresh — der besitzt jetzt Balken und
+            // Statustext, hier also nichts mehr anfassen.
+            Log.Debug("Status-Refresh abgebrochen (Lauf {Run}).", run);
         }
         catch (Exception ex)
         {
             Log.Warn(ex, "Status-Refresh fehlgeschlagen.");
-            StatusMessage = $"Fehler: {ex.Message}";
-            IsBackendHealthy = false;
+            if (IsCurrentRun(run))
+            {
+                StatusMessage = $"Fehler: {ex.Message}";
+                IsBackendHealthy = false;
+            }
         }
         finally
         {
-            IsBusy = false;
+            // Balken und Busy-Flag nur zuruecksetzen, wenn wir noch der aktuelle
+            // Lauf sind — sonst loescht ein abgebrochener Vorgaenger die Anzeige
+            // seines Nachfolgers.
+            if (IsCurrentRun(run))
+            {
+                IsBusy = false;
+                RefreshIndeterminate = false;
+                _refreshClock.Stop();
+                Interlocked.CompareExchange(ref _refreshCts, null, cts);
+            }
+            cts.Dispose();
         }
     }
+
+    private bool IsCurrentRun(int run) => _refreshRun == run;
+
+    /// <summary>Neue CRITs seit dem letzten Refresh erkennen und den juengsten
+    /// per Event melden — StatusView scrollt dorthin.</summary>
+    private void SpotlightFreshCrits()
+    {
+        var currentCrits = _allServices
+            .Where(s => s.ServiceState == ServiceState.Critical)
+            .Select(ServiceKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (_previousCrits.Count > 0)
+        {
+            var freshCrit = _allServices
+                .Where(s => s.ServiceState == ServiceState.Critical
+                         && !_previousCrits.Contains(ServiceKey(s)))
+                .OrderByDescending(s => s.LastStateChangeUnix)
+                .FirstOrDefault();
+            if (freshCrit is not null)
+                SpotlightRequested?.Invoke(freshCrit);
+        }
+        _previousCrits = currentCrits;
+    }
+
+    /// <summary>Merkt sich die Antwortgroessen als Nenner fuer den naechsten
+    /// Balken. Geschrieben wird nur bei spuerbarer Abweichung — sonst ginge bei
+    /// eingeschaltetem Auto-Refresh alle 30 s eine Datei auf die Platte.</summary>
+    private void RememberPayloadSizes(long hostBytes, long serviceBytes)
+    {
+        var changed = Deviates(_lastHostBytes, hostBytes) || Deviates(_lastServiceBytes, serviceBytes);
+        if (hostBytes > 0) _lastHostBytes = hostBytes;
+        if (serviceBytes > 0) _lastServiceBytes = serviceBytes;
+        if (changed) PersistState();
+
+        static bool Deviates(long old, long fresh)
+            => fresh > 0 && (old <= 0 || Math.Abs(fresh - old) > old * 0.1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Fortschritt
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Uebersetzt den Byte-Fortschritt eines Abrufs in ein Segment des
+    /// Gesamtbalkens. Checkmk schickt die grossen Livestatus-Antworten chunked,
+    /// also ohne <c>Content-Length</c> — Nenner ist dann
+    /// <paramref name="estimate"/>, die Groesse aus dem letzten Lauf. Ohne
+    /// Schaetzung laeuft der Balken indeterminate und zeigt stattdessen die
+    /// geladenen Megabytes.
+    /// </summary>
+    private sealed class RefreshSegment(
+        StatusViewModel owner, int run, double from, double to, long estimate)
+        : IProgress<TransferProgress>
+    {
+        /// <summary>Tatsaechliche Antwortgroesse — Schaetzer fuer den naechsten Lauf.</summary>
+        public long BytesRead { get; private set; }
+
+        public void Report(TransferProgress value)
+        {
+            BytesRead = value.BytesRead;
+
+            var total = value.TotalBytes ?? estimate;
+            double? fraction = total > 0
+                ? from + (to - from) * Math.Clamp((double)value.BytesRead / total, 0, 1)
+                : null;
+
+            // Kommt vom ThreadPool (CountingStream meldet gedrosselt alle 256 KB) —
+            // ans UI marshallen. Ein eigenes IProgress statt Progress<T>, weil
+            // dessen Context-Capture hier nicht greift.
+            var bytes = value.BytesRead;
+            Dispatcher.UIThread.Post(() => owner.ShowProgress(run, fraction, bytes));
+        }
+    }
+
+    /// <summary>Meldet einen Abschnittswechsel ohne Byte-Bezug (Auswerten/Anzeigen).</summary>
+    private void ReportStage(int run, double fraction, string label)
+        => Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsCurrentRun(run)) return;
+            RefreshIndeterminate = false;
+            RefreshProgress = Math.Max(RefreshProgress, fraction);
+            StatusMessage = label;
+        });
+
+    /// <summary>Schreibt Balken und Statustext. Laeuft immer auf dem UI-Thread.</summary>
+    private void ShowProgress(int run, double? fraction, long bytesRead)
+    {
+        if (!IsCurrentRun(run)) return;
+
+        if (fraction is not { } f)
+        {
+            RefreshIndeterminate = true;
+            StatusMessage = $"Aktualisiere… {FormatBytes(bytesRead)} geladen";
+            return;
+        }
+
+        RefreshIndeterminate = false;
+        RefreshProgress = Math.Max(RefreshProgress, f);   // nie zurueckspringen
+        StatusMessage = "Aktualisiere… " + FormatProgress(RefreshProgress);
+    }
+
+    /// <summary>„45 % · noch ca. 3 s". Die Restzeit wird linear aus der bisher
+    /// verstrichenen Zeit hochgerechnet — grob, aber genau die Auskunft, die
+    /// beim Warten fehlt. Erst ab 5 % und einer halben Sekunde, davor waere die
+    /// Hochrechnung reine Zahlenkosmetik.</summary>
+    private string FormatProgress(double fraction)
+    {
+        var text = fraction.ToString("P0");
+        var elapsed = _refreshClock.Elapsed;
+        if (fraction is >= 0.05 and < 1.0 && elapsed > TimeSpan.FromSeconds(0.5))
+        {
+            var remaining = elapsed.TotalSeconds * (1 - fraction) / fraction;
+            text += remaining < 1 ? " · gleich fertig" : $" · noch ca. {remaining:F0} s";
+        }
+        return text;
+    }
+
+    private static string FormatBytes(long bytes)
+        => bytes >= 1024 * 1024
+            ? $"{bytes / (1024.0 * 1024.0):F1} MB"
+            : $"{bytes / 1024.0:F0} KB";
 
     /// <summary>Acknowledged das aktuell gewaehlte Service-Problem und aktualisiert.
     /// Die <c>CanWrite</c>-Pruefung ist Absicherung gegen Wege, die an der
@@ -465,29 +722,65 @@ public sealed partial class StatusViewModel : ViewModelBase
            || (s.HostAlias?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false)
            || (s.PluginOutput?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false);
 
-    private void ApplyFilter()
-    {
-        IEnumerable<ServiceStatus> q = _allServices;
+    /// <summary>Die clientseitigen Ansichtsfilter als Wert. Kopiert, damit die
+    /// Projektion auf einem Hintergrund-Thread laufen kann, ohne UI-State zu lesen.</summary>
+    private readonly record struct ViewCriteria(
+        HostFilter? Host, bool OnlyProblems, bool OnlyOpen, string Text);
 
-        if (Filters.Active is { } activeFilter)
+    private ViewCriteria CurrentCriteria()
+        => new(Filters.Active, OnlyProblems, OnlyOpen, FilterText?.Trim() ?? "");
+
+    /// <summary>Filtert und sortiert die Rohdaten. Bewusst statisch und ohne
+    /// Seiteneffekte — laeuft beim Refresh im Hintergrund und beim Tippen im
+    /// Freitextfeld direkt auf dem UI-Thread.</summary>
+    private static List<ServiceStatus> Project(IReadOnlyList<ServiceStatus> all, ViewCriteria c)
+    {
+        IEnumerable<ServiceStatus> q = all;
+
+        if (c.Host is { } activeFilter)
             q = q.Where(s => activeFilter.Matches(s.HostName));
 
-        if (OnlyProblems)
+        if (c.OnlyProblems)
             q = q.Where(s => s.ServiceState != ServiceState.Ok);
 
-        if (OnlyOpen)
+        if (c.OnlyOpen)
             q = q.Where(s => !s.IsAcknowledged && !s.InDowntime);
 
-        if (!string.IsNullOrWhiteSpace(FilterText))
+        if (c.Text.Length > 0)
+            q = q.Where(s => MatchesText(s, c.Text));
+
+        return [.. q.OrderByDescending(s => s.State).ThenBy(s => s.HostName)];
+    }
+
+    private void ApplyFilter() => ApplyVisible(Project(_allServices, CurrentCriteria()));
+
+    /// <summary>Tauscht die sichtbaren Zeilen aus — ein einziges Reset-Event statt
+    /// zehntausender <c>Add</c>s (siehe <see cref="BulkObservableCollection{T}"/>).</summary>
+    private void ApplyVisible(List<ServiceStatus> visible)
+    {
+        // Der Reset raeumt die Grid-Selektion ab, und die ServiceStatus-Instanzen
+        // sind nach einem Refresh ohnehin neu — deshalb ueber den Schluessel
+        // nachziehen. Sonst verliert ein Auto-Refresh alle 30 s die markierte Zeile.
+        var keep = SelectedService is { } sel ? ServiceKey(sel) : null;
+
+        Services.ReplaceAll(visible);
+
+        if (keep is not null)
+            SelectedService = visible.FirstOrDefault(s => ServiceKey(s) == keep);
+
+        BuildTreeIfVisible();
+    }
+
+    /// <summary>Der Baum kostet ein ViewModel je Host und ist meistens gar nicht
+    /// sichtbar. Dann bleibt er ungebaut und wird beim Umschalten nachgezogen
+    /// (<see cref="OnTreeViewChanged"/>).</summary>
+    private void BuildTreeIfVisible()
+    {
+        if (!TreeView)
         {
-            var f = FilterText.Trim();
-            q = q.Where(s => MatchesText(s, f));
+            _treeStale = true;
+            return;
         }
-
-        Services.Clear();
-        foreach (var s in q.OrderByDescending(s => s.State).ThenBy(s => s.HostName))
-            Services.Add(s);
-
         BuildTree();
     }
 
@@ -508,7 +801,7 @@ public sealed partial class StatusViewModel : ViewModelBase
             q = q.Where(s => MatchesText(s, f));
         }
 
-        HostTree.Clear();
+        var nodes = new List<HostNodeViewModel>();
         foreach (var group in q.GroupBy(s => s.HostName).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
             var all = group.ToList();
@@ -525,10 +818,13 @@ public sealed partial class StatusViewModel : ViewModelBase
 
             children = materialized.OrderByDescending(s => s.State).ThenBy(s => s.Description);
 
-            HostTree.Add(new HostNodeViewModel(
+            nodes.Add(new HostNodeViewModel(
                 group.Key,
                 OsFor(group.Key),
                 children));
         }
+
+        HostTree.ReplaceAll(nodes);
+        _treeStale = false;
     }
 }

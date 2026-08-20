@@ -98,6 +98,36 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   werden geloggt und am Ende summiert. Spalte **Age** (Zeit seit letzter Statusänderung)
   statt „Letzter Check". **CSV-Export** der gefilterten Ansicht via `CsvExporter`
   (Semikolon, UTF-8-BOM, RFC-4180-Quoting).
+- **Refresh läuft im Hintergrund** (seit v1.8.0). Bei ungefiltertem Blick auf ~32.000
+  Checks stand die App vorher mehrere Sekunden. Drei Ursachen, alle beseitigt — und
+  alle drei sind leicht wieder einzubauen:
+  1. **`CheckmkClient.GetAsync` streamt.** Vorher `ReadAsStringAsync` + synchrones
+     `JsonSerializer.Deserialize` — der Parse lief nach dem `await` wieder auf dem
+     UI-Thread. Jetzt `HttpCompletionOption.ResponseHeadersRead` +
+     `DeserializeAsync` + durchgängiges `ConfigureAwait(false)`. Nicht auf den
+     String-Weg zurückbauen: der puffert zweistellige Megabytes und blockiert.
+     Preis: bei kaputter Antwort gibt es keinen vollen Body mehr für die
+     Fehlermeldung — `CountingStream` schneidet dafür die ersten 2 KB mit
+     (reicht, um Proxy-HTML statt JSON zu erkennen).
+  2. **`BulkObservableCollection.ReplaceAll` statt `Clear()` + N × `Add()`.**
+     32.000 Zeilen einzeln einzufügen sind 32.000 `CollectionChanged`-Zustellungen
+     ans DataGrid; ein Reset kostet dank Zeilen-Virtualisierung fast nichts. Der
+     Reset räumt allerdings die Grid-Selektion ab — `ApplyVisible` zieht sie über
+     `ServiceKey` (Host + Description) nach, sonst verliert ein Auto-Refresh alle
+     30 s die markierte Zeile.
+  3. **Der Baum wird nur gebaut, wenn er sichtbar ist** (`BuildTreeIfVisible`,
+     `_treeStale`). In der Tabellenansicht war das ein ViewModel je Host für nichts.
+  Fortschritt: `CountingStream` meldet gedrosselt (alle 256 KB) Bytes, `RefreshSegment`
+  bildet sie auf ein Segment des Balkens ab (Hosts 0–10 %, Services 10–80 %,
+  Auswerten/Anzeigen bis 100 %). **Checkmk schickt die großen Livestatus-Antworten
+  chunked, also ohne `Content-Length`** — Nenner ist deshalb die Antwortgröße des
+  letzten Laufs aus `statusview.json` (`LastHostBytes`/`LastServiceBytes`); ohne
+  Schätzer läuft der Balken indeterminate. Restzeit wird linear hochgerechnet.
+  Ein neuer Refresh **bricht den laufenden ab** (`_refreshCts`), der Timer-Tick
+  dagegen **verwirft sich selbst**, solange `IsBusy` — sonst käme bei 32.000 Checks
+  und kurzem Intervall nie einer durch. `_refreshRun` verwirft verspätete
+  Fortschrittsmeldungen abgebrochener Läufe, sonst verstellen sie den Balken des
+  Nachfolgers.
 - **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
   **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal
   aus `columns.json` (Normalmodus, `StatusGridColumns.Merge/Apply/Capture`) und einmal
@@ -368,6 +398,9 @@ den Commit-Log an.
     Kopfzeile, Checkbox-Liste, Drag zum Umsortieren, persistent in `columns.json`.
     Details und die drei Fallen in §4. Für die Host-Detail-Tabelle bewusst *nicht*
     umgesetzt: dort ist der Spaltensatz kurz und `host` wäre redundant.
+23. ✅ **Refresh ohne Einfrieren** — Abruf/Parse/Filtern auf dem ThreadPool,
+    Fortschrittsbalken mit Restzeit in der Statusleiste, Collection-Austausch per
+    Reset statt Einzel-Adds. Details und die drei Nicht-Zurückbauen-Punkte in §4.
 
 ## 9 · Deal
 
