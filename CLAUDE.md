@@ -528,6 +528,37 @@ rechnen nichts räumlich — GeoJSON in `nvarchar(max)` reicht). Ein Dienst vor 
 Datenbank (die Sichten sollen nur in der Anwendung sichtbar sein, also verbinden
 sich die Clients direkt).
 
+### Nach der Karte
+
+29. **Update-Bezug über den Fileshare als Zweitweg.** Der Proxy blockt seit
+    2026-08-20 den Zugriff auf GitHub — und zwar **vollständig**, nicht nur die
+    Downloads. Gemessen: Der Proxy baut den CONNECT-Tunnel zu `api.github.com`
+    auf (`HTTP/1.1 200 Connection established`), dann scheitert TLS
+    (curl exit 35). `github.com` ebenso. Das ist ein anderes Muster als bei
+    nuget.org, wo Metadaten durchkommen und nur `.nupkg` mit 403 abgewiesen wird.
+
+    Daraus folgt für den Entwurf — **wichtig, weil es die naheliegende Lösung
+    kippt**: „Erst GitHub fragen, bei Fehler auf den Share ausweichen" bedeutet
+    bei jedem Start einen Verbindungsfehler samt Timeout, bevor überhaupt etwas
+    passiert. Der Share muss deshalb **beides** liefern können, Versionsangabe
+    und ZIP (kleines Manifest neben der Datei oder Version aus dem Dateinamen
+    `Checkmk-x.y.z-win-x64.zip`), und die Quelle gehört umschaltbar statt
+    fest verdrahtet. Timeout kurz halten.
+
+    Lars legt die von GitHub gebaute ZIP von Hand auf den Share (er kommt über
+    einen Citrix-Browser an die Releases und weiß, wann eine Version ausgeliefert
+    wird). **GitHub bleibt der primäre Weg**, sobald Downloads wieder erlaubt
+    sind — das ist ausdrücklich die bevorzugte Lösung, der Share ist der
+    Notbehelf, den die Netzwerk-Vorgaben erzwingen.
+
+    Der Share-Pfad kommt als weiterer Schlüssel in `GlobalSetting`. Kein DDL,
+    kein neuer Client: Die Quelle lässt sich später mit einem `UPDATE` auf eine
+    Zeile umstellen — genau wofür der Schlüssel/Wert-Schnitt aus §5 da ist.
+
+    **Priorität bewusst hinter der Karte**: Außer Lars nutzen aktuell zwei
+    Personen das Tool, die er notfalls von Hand aktualisiert. Der vorhandene
+    Stand reicht ihnen.
+
 ## 9 · Deal
 
 Lars liefert Ideen, Claude implementiert. Immer auf frischem `origin/main` aufsetzen, Änderungen

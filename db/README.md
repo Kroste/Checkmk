@@ -75,6 +75,12 @@ Checkmk.App.exe --protect-db "Server=FOC-SQL01;Database=CheckMK_Copilot;User Id=
 
 Das schreibt `database.json` neben die Exe. Optional lässt sich ein Zielpfad als
 zweites Argument angeben, um die Datei fürs Ausrollpaket woanders zu erzeugen.
+
+> **Gelesen wird sie nur neben `Checkmk.App.exe`.** Eine Kopie in diesem
+> `db/`-Verzeichnis ist ein Aufbewahrungsort (und per `.gitignore` vor dem
+> versehentlichen Commit geschützt) — beim Ausrollen muss sie in den Ordner
+> der Exe. Sonst startet das Cockpit ohne Datenbank und zeigt „Zentral: Cache".
+
 Ergebnis:
 
 ```json
