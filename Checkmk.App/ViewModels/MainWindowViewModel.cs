@@ -1,4 +1,5 @@
 using Checkmk.App.Services;
+using Checkmk.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLog;
@@ -14,6 +15,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     private readonly IUpdateChecker _updateChecker;
     private readonly IUpdatePreferences _updatePrefs;
     private readonly ViewerMode _viewer;
+    private readonly IGlobalSettingsProvider _globals;
+
+    /// <summary>Nur gesetzt, wenn eine zentrale Datenbank konfiguriert ist.</summary>
+    private readonly DbHostDomainStore? _hostDomains;
 
     // Verhindert, dass der Site-Setter waehrend Initialize/Reconnect einen echten
     // Switch triggert — wir wollen nur bei User-Auswahl reagieren.
@@ -53,6 +58,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _connectionInfo = "Nicht verbunden";
 
+    /// <summary>
+    /// Hinweis zur Herkunft der zentralen Einstellungen — leer, solange sie
+    /// frisch aus der Datenbank kommen. Gehoert sichtbar in die Statusleiste und
+    /// nicht nur ins Log: Wer mit einem Cache-Stand arbeitet, soll es wissen,
+    /// bevor er sich wundert, warum eine zentrale Aenderung nicht ankommt.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCentralInfo))]
+    private string _centralInfo = "";
+
+    public bool HasCentralInfo => !string.IsNullOrEmpty(CentralInfo);
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UpdateBadge))]
     private UpdateInfo? _availableUpdate;
@@ -86,7 +103,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         ICheckmkClientProvider clients,
         IUpdateChecker updateChecker,
         IUpdatePreferences updatePrefs,
-        ViewerMode viewer)
+        ViewerMode viewer,
+        IGlobalSettingsProvider globals,
+        DbHostDomainStore? hostDomains = null)
     {
         Status = status;
         Config = config;
@@ -96,11 +115,51 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _updateChecker = updateChecker;
         _updatePrefs = updatePrefs;
         _viewer = viewer;
+        _globals = globals;
+        _hostDomains = hostDomains;
+    }
+
+    /// <summary>
+    /// Holt die zentralen Daten von FOC-SQL01 nach. Laeuft im Hintergrund und
+    /// blockiert den Start nicht: Der Provider hat aus dem lokalen Cache bereits
+    /// einen brauchbaren Stand, hier wird er nur aktuell gemacht.
+    /// </summary>
+    private async Task LoadCentralDataAsync()
+    {
+        try
+        {
+            await _globals.LoadAsync().ConfigureAwait(true);
+
+            if (_hostDomains is not null)
+            {
+                // Einmalige Uebernahme vor dem ersten Lesen — sonst startet der
+                // erste Client mit leerer Zuordnung und jeder Host fiele auf die
+                // Default-Domain zurueck.
+                await _hostDomains.ImportLegacyIfEmptyAsync().ConfigureAwait(true);
+                await _hostDomains.RefreshAsync().ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Zentrale Daten sind Komfort, kein Startkriterium.
+            Log.Warn(ex, "Zentrale Daten konnten nicht geladen werden.");
+        }
+        finally
+        {
+            CentralInfo = _globals.StatusHint ?? "";
+        }
     }
 
     /// <summary>Wird nach dem Anzeigen des Fensters aufgerufen.</summary>
     public async Task InitializeAsync()
     {
+        // Zentrale Daten zuerst und abgewartet: HostContext.DefaultDomain und
+        // die OS-Attribut-Kandidaten haengen daran, und der erste Tab-Refresh
+        // gleich darunter benutzt beides. Der Provider hat aus dem Cache schon
+        // einen Stand — hier geht es nur um die paar hundert Millisekunden,
+        // die den aktuellen daraus machen.
+        await LoadCentralDataAsync();
+
         var settings = _store.Load();
         var secret = _store.LoadSecret(settings);
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Checkmk.App.Services;
 using Checkmk.Core;
 using Checkmk.Core.Models;
+using Checkmk.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLog;
@@ -18,9 +19,10 @@ public sealed partial class ConfigViewModel : ViewModelBase
 
     public HostFilterCollection Filters { get; }
 
-    /// <summary>Wird nur eingeblendet, wenn <see cref="Bootstrap"/>.ShowHostCreation true ist.
-    /// Steuert die Sichtbarkeit des Host-anlegen-Formulars im Konfig-Tab.</summary>
-    public bool IsHostCreationVisible { get; } = Bootstrap.LoadOrCreate().ShowHostCreation;
+    /// <summary>Wird nur eingeblendet, wenn die zentrale Einstellung
+    /// <c>ShowHostCreation</c> true ist. Steuert die Sichtbarkeit des
+    /// Host-anlegen-Formulars im Konfig-Tab.</summary>
+    public bool IsHostCreationVisible { get; }
 
     public ObservableCollection<CheckmkObject<HostConfigExtensions>> Hosts { get; } = [];
 
@@ -39,11 +41,13 @@ public sealed partial class ConfigViewModel : ViewModelBase
     [ObservableProperty]
     private string _newHostAlias = "";
 
-    public ConfigViewModel(ICheckmkClientProvider clients, HostFilterCollection filters, IHostOsCache osCache)
+    public ConfigViewModel(ICheckmkClientProvider clients, HostFilterCollection filters,
+        IHostOsCache osCache, IGlobalSettingsProvider globals)
     {
         _clients = clients;
         Filters = filters;
         _osCache = osCache;
+        IsHostCreationVisible = globals.Current.ShowHostCreation;
         Filters.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(HostFilterCollection.Active))

@@ -3,6 +3,7 @@ using Checkmk.App.Services;
 using Checkmk.App.Services.Plugins;
 using Checkmk.App.ViewModels;
 using Checkmk.App.Views;
+using Checkmk.Data;
 using Checkmk.PluginContracts;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
@@ -67,7 +68,33 @@ internal static class Program
         services.AddSingleton<IStatusViewStateStore, StatusViewStateStore>();
         services.AddSingleton<IColumnLayoutStore, ColumnLayoutStore>();
         services.AddSingleton<CheckmkWebLinker>();
-        services.AddSingleton<IHostDomainStore, HostDomainStore>();
+
+        // ---- Zentrale Datenbank (CheckMK_Copilot auf FOC-SQL01) ----
+        // Optional: ohne Verbindungsangabe laeuft das Cockpit weiter, dann aus
+        // dem lokalen Ausfall-Cache bzw. mit eingebauten Vorgaben. Die
+        // Verfuegbarkeit des Fileshares war der Grund fuer den Umzug — die
+        // Datenbank darf nicht der naechste Engpass werden.
+        var connectionString = DatabaseConnection.Resolve(
+            Bootstrap.LoadOrCreate().DatabaseConnectionString);
+        var cockpitDb = connectionString is null ? null : new CockpitDatabase(connectionString);
+        if (cockpitDb is not null) services.AddSingleton(cockpitDb);
+
+        services.AddSingleton<IGlobalSettingsProvider>(_ =>
+            new GlobalSettingsProvider(cockpitDb, DatabaseConnection.CachePath));
+
+        if (cockpitDb is not null)
+        {
+            // Die Datei-Variante bleibt als Quelle fuer die einmalige Uebernahme
+            // registriert — danach ist die Tabelle die Wahrheit.
+            services.AddSingleton<DbHostDomainStore>(sp =>
+                new DbHostDomainStore(cockpitDb, new HostDomainStore()));
+            services.AddSingleton<IHostDomainStore>(sp => sp.GetRequiredService<DbHostDomainStore>());
+        }
+        else
+        {
+            services.AddSingleton<IHostDomainStore, HostDomainStore>();
+        }
+
         services.AddSingleton<IHostOsCache, HostOsCache>();
         services.AddSingleton<HostContext>();
         services.AddSingleton<ISshCredentialStore, SshCredentialStore>();
@@ -85,7 +112,7 @@ internal static class Program
                 DefaultProxyCredentials = System.Net.CredentialCache.DefaultCredentials
             };
             var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
-            var url = Bootstrap.LoadOrCreate().UpdateChannelUrl;
+            var url = sp.GetRequiredService<IGlobalSettingsProvider>().Current.UpdateChannelUrl;
             return new GitHubReleasesUpdateChecker(http, url,
                 sp.GetRequiredService<IUpdatePreferences>());
         });

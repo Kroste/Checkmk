@@ -339,8 +339,28 @@ ab. Schema und Begründungen stehen in [`db/README.md`](db/README.md), die Skrip
    Datenbankrecht des Laufzeitkontos (dieselbe Ehrlichkeit wie bei
    `secretBase64` im Viewer-Profil, §4).
 
+5. **`DbHostDomainStore` hält eine Momentaufnahme im Speicher.** `Load()` macht
+   kein I/O — `HostContext.DomainFor` ruft es für *jeden* Hostnamen auf, als
+   Datenbank-Roundtrip wäre das absurd. Aktualisiert wird beim Start
+   (`RefreshAsync`) und nach jedem Schreiben. Schlägt das Lesen fehl, bleibt die
+   alte Momentaufnahme stehen: eine leere Zuordnung wäre schlimmer als eine
+   veraltete, weil dann jeder Host auf die Default-Domain fiele und Ping/RDP/SSH
+   ins Leere liefen. `Save()` diffed gegen die Tabelle statt alles
+   zurückzuschreiben — das war der Fehler der alten `hosts.json`.
+6. **Die Übernahme aus `hosts.json` läuft genau einmal** (`ImportLegacyIfEmptyAsync`,
+   nur bei komplett leerer Tabelle). Danach ist die Tabelle die Wahrheit und die
+   Datei wird nie wieder gelesen — sonst überschriebe ein Rechner mit altem
+   Dateistand später zentrale Änderungen.
+
 `DbContext` ist nicht threadsicher — deshalb `CockpitDatabase.CreateContext()`
 je Vorgang statt eines Singletons; Hintergrund-Refresh und UI greifen parallel zu.
+
+**Transitives Pinning ist Pflicht** (`CentralPackageTransitivePinningEnabled`).
+Ohne es verlangt der Graph `Microsoft.Extensions.*` in 9.0.11, 10.0.0 und 10.0.8
+nebeneinander, und jede dieser Versionen müsste in diesem Netz einzeln von Hand
+ins Offline-Bundle geholt werden. Mit Pinning gibt es genau eine Version je Paket.
+Die `Microsoft.Extensions.*`-Einträge in `Directory.Packages.props` stehen
+deshalb dort, obwohl kein Projekt sie direkt referenziert — nicht entfernen.
 
 **NuGet-Falle in diesem Netz:** Der Proxy liefert `.nupkg` von nuget.org mit
 **403** aus (Metadaten/`index.json` kommen durch). Pakete kommen deshalb aus dem

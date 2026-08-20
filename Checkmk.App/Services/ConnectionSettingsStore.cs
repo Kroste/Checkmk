@@ -218,8 +218,21 @@ internal sealed class Bootstrap
         DefaultLocalSettingsPath,
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
-    /// <summary>Zentrale, unverschluesselte Host-Metadaten-Datei (Domain je Host, spaeter
-    /// evtl. weitere Notizen). Alle Cockpit-Nutzer teilen dieselbe Zuordnung.</summary>
+    /// <summary>
+    /// Verbindung zur zentralen Datenbank (<c>CheckMK_Copilot</c> auf FOC-SQL01).
+    /// Leer = kein zentraler Betrieb; das Cockpit laeuft dann mit lokalem Cache
+    /// bzw. eingebauten Vorgaben weiter.
+    ///
+    /// Zur Ehrlichkeit: Der ausgelieferte String ist <b>Verschleierung, kein
+    /// Zugriffsschutz</b> — er liegt auf ~50 Arbeitsplaetzen. Die wirksame
+    /// Grenze ist das Recht des Laufzeitkontos (datareader/datawriter, kein
+    /// db_owner), siehe db/README.md.
+    /// </summary>
+    public string DatabaseConnectionString { get; set; } = "";
+
+    /// <summary>Zentrale, unverschluesselte Host-Metadaten-Datei (Domain je Host).
+    /// <b>Nur noch fuer die einmalige Uebernahme in die Datenbank</b> — die
+    /// Zuordnung lebt seit v1.9 in der Tabelle <c>HostDomain</c>.</summary>
     public string SharedHostsPath { get; set; } = DefaultSharedHostsPath;
 
     /// <summary>Default-Domain fuer Hosts ohne explizite Zuordnung. Wird an den

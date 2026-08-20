@@ -58,7 +58,7 @@
 
       <!-- Statusleiste -->
       <Border Grid.Row="2" Background="#123E6B">
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="10,0">
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Margin="10,0">
           <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5"
                   VerticalAlignment="Center" Margin="0,0,8,0"
                   Background="{Binding Status.IsBackendHealthy, Converter={StaticResource BoolToHealthBrush}}"
@@ -79,13 +79,22 @@
           <TextBlock Grid.Column="3" Text="{Binding Status.FilterInfo}"
                      VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0"
                      Foreground="#B5D0EA" />
-          <Button Grid.Column="4" Content="{Binding UpdateBadge}"
+          <!-- Nur sichtbar, wenn die zentralen Einstellungen NICHT frisch aus
+               der Datenbank kommen. Wer mit einem Cache-Stand arbeitet, soll das
+               sehen, bevor er sich wundert, warum eine zentrale Änderung fehlt. -->
+          <Border Grid.Column="4" Background="#8D6E13" CornerRadius="3" Padding="8,1"
+                  VerticalAlignment="Center" Margin="10,0,0,0"
+                  IsVisible="{Binding HasCentralInfo}"
+                  ToolTip.Tip="{Binding CentralInfo}">
+            <TextBlock Text="Zentral: Cache" FontSize="12" />
+          </Border>
+          <Button Grid.Column="5" Content="{Binding UpdateBadge}"
                   Command="{Binding OpenUpdateCommand}"
                   IsVisible="{Binding HasUpdate}"
                   Background="#F9A825" Foreground="#000000"
                   Padding="10,2" Margin="8,0,10,0" FontSize="12" FontWeight="SemiBold"
                   ToolTip.Tip="Klicken für Release-Notes und Download-Link." />
-          <TextBlock Grid.Column="5" Text="{Binding ConnectionInfo}"
+          <TextBlock Grid.Column="6" Text="{Binding ConnectionInfo}"
                      VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0" />
         </Grid>
       </Border>

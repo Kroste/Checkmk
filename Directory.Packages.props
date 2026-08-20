@@ -2,14 +2,40 @@
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!--
+      Transitives Pinning: JEDE transitive Abhaengigkeit wird auf die hier
+      angegebene Version gehoben, statt dass NuGet die niedrigste passende
+      auswaehlt.
+
+      In diesem Netz ist das nicht Kosmetik, sondern Voraussetzung: Der Proxy
+      liefert .nupkg von nuget.org mit 403 aus, Pakete kommen aus dem
+      Offline-Bundle C:\NuGet-Local. Ohne Pinning verlangt der Graph munter
+      Microsoft.Extensions.* in 9.0.11, 10.0.0 und 10.0.8 nebeneinander — jede
+      dieser Versionen muesste einzeln von Hand beschafft werden, obwohl 10.0.11
+      laengst dort liegt. Mit Pinning gibt es genau eine Version je Paket.
+    -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Core / DI / Logging -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+
+    <!-- Auf 10.0.11 gehoben, weil EF Core 10.0.11 mindestens das fordert.
+         Alle folgenden Eintraege sind transitiv und stehen nur hier, damit das
+         Pinning oben greift — nicht, weil ein Projekt sie direkt referenziert. -->
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.1.6" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.5" />
     <PackageVersion Include="NLog" Version="6.1.3" />
     <PackageVersion Include="NLog.Extensions.Logging" Version="6.1.3" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Checkmk.Core.Models;
+using Checkmk.Data;
 using NLog;
 
 namespace Checkmk.App.Services;
@@ -13,7 +14,7 @@ namespace Checkmk.App.Services;
 public interface IHostOsCache
 {
     /// <summary>Attributes vom Server anwenden — pro Host wird die OS-Familie
-    /// aus der Bootstrap-Kandidatenliste extrahiert und im Cache abgelegt.</summary>
+    /// aus der zentralen Kandidatenliste extrahiert und im Cache abgelegt.</summary>
     void ApplyFromHostConfigs(IEnumerable<CheckmkObject<HostConfigExtensions>> hosts);
 
     OsFamily OsFor(string hostName);
@@ -21,7 +22,7 @@ public interface IHostOsCache
     bool IsEmpty { get; }
 }
 
-public sealed class HostOsCache : IHostOsCache
+public sealed class HostOsCache(IGlobalSettingsProvider globals) : IHostOsCache
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
@@ -35,7 +36,7 @@ public sealed class HostOsCache : IHostOsCache
 
     public void ApplyFromHostConfigs(IEnumerable<CheckmkObject<HostConfigExtensions>> hosts)
     {
-        var keys = Bootstrap.LoadOrCreate().HostOsAttributeKeys;
+        var keys = globals.Current.HostOsAttributeKeys;
 
         var count = 0;
         var updated = 0;
@@ -57,7 +58,7 @@ public sealed class HostOsCache : IHostOsCache
 
         // Einmalig die tatsaechlich gesehenen Attribute-Keys ins Debug-Log —
         // damit im Fehlerfall (kein Kandidat greift) klar ist, wie das Attribut
-        // wirklich heisst und in bootstrap.json angepasst werden kann.
+        // wirklich heisst und in GlobalSetting.HostOsAttributeKeys angepasst werden kann.
         if (!_keysLoggedOnce && sample?.Extensions?.Attributes?.AdditionalProperties is { Count: > 0 } props)
         {
             Log.Debug("HostOsCache: Beispiel-Host '{Host}' hat Attribut-Keys: {Keys}. Aktive Kandidaten: {Cands}.",

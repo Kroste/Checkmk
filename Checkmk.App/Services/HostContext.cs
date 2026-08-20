@@ -1,20 +1,29 @@
+using Checkmk.Data;
+
 namespace Checkmk.App.Services;
 
 /// <summary>
 /// Liefert zu einem in Checkmk registrierten Hostnamen den fuer OS-Tools
 /// (Ping, RDP, SSH) verwendbaren FQDN: <c>host.domain.tld</c>. Die
 /// Zuordnung Host->Domain kommt zentral aus <see cref="IHostDomainStore"/>;
-/// fehlt sie, wird die Bootstrap-Default-Domain (aktuell <c>lhp.intern</c>)
-/// verwendet.
+/// fehlt sie, greift die zentrale Default-Domain aus
+/// <see cref="IGlobalSettingsProvider"/>.
 /// </summary>
 public sealed class HostContext
 {
     private readonly IHostDomainStore _store;
+    private readonly IGlobalSettingsProvider _globals;
 
-    public HostContext(IHostDomainStore store) => _store = store;
+    public HostContext(IHostDomainStore store, IGlobalSettingsProvider globals)
+    {
+        _store = store;
+        _globals = globals;
+    }
 
-    /// <summary>Aktueller Default (aus Bootstrap-JSON, ueberschreibbar).</summary>
-    public string DefaultDomain => Bootstrap.LoadOrCreate().HostDefaultDomain;
+    /// <summary>Aktueller Default aus den zentralen Einstellungen. Kein I/O —
+    /// der Provider haelt den Stand im Speicher (Datenbank, sonst Cache,
+    /// sonst Vorgabe).</summary>
+    public string DefaultDomain => _globals.Current.HostDefaultDomain;
 
     /// <summary>Domain fuer einen Host (explizit gespeichert oder Default).</summary>
     public string DomainFor(string host)
