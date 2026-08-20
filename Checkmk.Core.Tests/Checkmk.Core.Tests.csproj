@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Checkmk.Core/Checkmk.Core.csproj" />
+    <ProjectReference Include="../Checkmk.Data/Checkmk.Data.csproj" />
     <ProjectReference Include="../Checkmk.App/Checkmk.App.csproj" />
   </ItemGroup>
 

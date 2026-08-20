@@ -46,6 +46,7 @@ muss `dotnet build -c Release` sauber durchlaufen.
 | Projekt | Zweck |
 |---|---|
 | `Checkmk.Core` | REST-API-Client (`CheckmkClient`), Modelle, Optionen. **UI-unabhängig**, keine Avalonia-Abhängigkeit. |
+| `Checkmk.Data` | EF Core 10 auf die zentrale MSSQL-Datenbank `CheckMK_Copilot` (FOC-SQL01): globale Vorgaben, Host-Metadaten, Bereiche/Teams. UI-unabhängig; EF gehört **nicht** in `Checkmk.Core`, der bleibt reiner REST-Client. |
 | `Checkmk.App` | Avalonia-UI: Tabs, Dialoge, DI-Bootstrap. |
 | `Checkmk.Core.Tests` | xunit.v3 + FluentAssertions **v7** (v8 = kommerzielle Xceed-Lizenz, siehe §6). |
 
@@ -307,6 +308,48 @@ andere Nutzer erbte den Pfad und die App **starb** beim Speichern der Einstellun
   überschrieben — der Weg, auf dem der Fehler entstand.
 - Schreibende Zugriffe auf Settings **immer** absichern. `SettingsViewModel.Save`
   fängt jetzt und lässt den Dialog offen; ein Schreibfehler darf nie die App beenden.
+
+### Zentrale Datenbank (`CheckMK_Copilot` auf FOC-SQL01)
+
+Löst die geteilten Teile von `bootstrap.json` und `hosts.json` auf dem Samba-Share
+ab. Schema und Begründungen stehen in [`db/README.md`](db/README.md), die Skripte in
+`db/`. Vier Punkte, die nicht „aufgeräumt" werden dürfen:
+
+1. **Keine EF-Migrationen, kein `Database.Migrate()`.** Das Schema pflegen die
+   SQL-Skripte in `db/`, ausgeführt vom Admin mit `CheckMK_Copilot_SA` (db_owner).
+   Die App läuft als `CheckMK_Copilot_Worker` (nur datareader/datawriter) und
+   *prüft* nur `SchemaVersion` gegen `CockpitDbContext.ExpectedSchemaVersion`.
+   50 Clients, die beim Start gleichzeitig DDL versuchen, wären in keiner Lesart
+   gut — und die meisten dürfen es ohnehin nicht. Deshalb ist auch
+   `EntityFrameworkCore.Design` bewusst **nicht** referenziert.
+2. **Der Ausfall-Cache ist tragend, kein Beiwerk.** Der Grund, vom Share
+   wegzugehen, war dessen Verfügbarkeit — also darf die DB nicht der nächste
+   Engpass werden. `GlobalSettingsProvider` schreibt nach jedem Erfolg
+   `%APPDATA%\Kroste\Checkmk\globals-cache.json` und fällt beim Ausfall darauf
+   zurück (`SettingsOrigin.Cache`), erst danach auf eingebaute Vorgaben.
+3. **`GlobalSetting` ist Schlüssel/Wert, nicht eine Spalte je Einstellung.**
+   Eine neue Einstellung soll keinen DDL-Termin mit dem SA-Konto brauchen.
+   Fehlende, leere und kaputte Werte fallen einzeln auf ihren Default zurück
+   (`CockpitGlobals.FromRows`) — ein halb gepflegter Datenbestand darf den Start
+   nicht verhindern.
+4. **Secrets bleiben user-lokal.** Verbindungs-Secret (`settings.json`) und
+   SSH-Passwörter (`ssh-creds.json`) gehören nicht in eine Tabelle, die 48 Leute
+   lesen dürfen — unabhängig von TDE. Der Verbindungsstring neben der EXE ist
+   **Verschleierung, kein Zugriffsschutz**; die wirksame Grenze ist das
+   Datenbankrecht des Laufzeitkontos (dieselbe Ehrlichkeit wie bei
+   `secretBase64` im Viewer-Profil, §4).
+
+`DbContext` ist nicht threadsicher — deshalb `CockpitDatabase.CreateContext()`
+je Vorgang statt eines Singletons; Hintergrund-Refresh und UI greifen parallel zu.
+
+**NuGet-Falle in diesem Netz:** Der Proxy liefert `.nupkg` von nuget.org mit
+**403** aus (Metadaten/`index.json` kommen durch). Pakete kommen deshalb aus dem
+Offline-Bundle `C:\NuGet-Local`. `Microsoft.Data.SqlClient` zieht die komplette
+MSAL-/Azure-Identity-Kette nach (~15 Pakete), die wir bei einem SQL-Login nie
+anfassen — vermeidbar ist das nicht, EF Cores SqlServer-Provider setzt sie voraus.
+Und: NuGet löst transitive Abhängigkeiten auf die **niedrigste passende** Version
+auf, nicht auf die höchste lokal vorhandene — ein neueres Paket im Ordner ersetzt
+eine geforderte ältere Version also nicht.
 
 ## 6 · Abhängigkeiten — Fallen
 
