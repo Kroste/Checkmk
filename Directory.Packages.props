@@ -23,6 +23,12 @@
          Version hat GHSA-rxg9-xrhp-64gj (kritisch) -> auf .NET-10-Serie heben. -->
     <PackageVersion Include="System.Drawing.Common" Version="10.0.9" />
     <PackageVersion Include="MinVer" Version="7.0.0" />
+    <!-- Zentrale Konfiguration/Bereiche auf FOC-SQL01. Bewusst NUR das
+         SqlServer-Paket: Microsoft.EntityFrameworkCore.Design (Migrationen) zoege
+         Roslyn-Workspaces und MSBuild nach (~6 weitere Pakete), und das Schema
+         pflegen wir per SQL-Skript in db/ — Migrationen fahren ohnehin nur
+         Administratoren mit dem SA-Konto. Siehe db/README.md. -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
 
     <!-- MVVM / UI -->
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
