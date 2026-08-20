@@ -30,6 +30,7 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 16. [Wenn etwas nicht funktioniert](#16-wenn-etwas-nicht-funktioniert)
 17. [Hilfe und Kontakt](#17-hilfe-und-kontakt)
 18. [Viewer-Modus: nur-lesen-Ausgabe an Fachbereiche](#18-viewer-modus-nur-lesen-ausgabe-an-fachbereiche)
+19. [Zentrale Einstellungen in der Datenbank](#19-zentrale-einstellungen-in-der-datenbank)
 
 ---
 
@@ -45,17 +46,17 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 Das ZIP ist **self-contained** — es ist kein .NET-Runtime auf dem Rechner nötig,
 alles Nötige ist im Bundle. Rechnen etwa 130 MB.
 
-**Fileshare-Zugriff** ist für zwei Dinge nötig:
-
-- `\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\bootstrap.json` — App-Konfiguration
-  (Update-Kanal, OS-Attribut-Keys, Default-Domain, …), die alle Cockpit-Nutzer teilen.
-- `\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\hosts.json` — Domain-Zuordnung
-  pro Host (für FQDNs bei Ping/RDP/SSH).
+**Die gemeinsamen Daten** — Update-Kanal, OS-Attribut-Keys, Default-Domain und
+die Domain-Zuordnung je Host — kommen aus der Datenbank `CheckMK_Copilot` auf
+**FOC-SQL01**. Der Zugang dazu liegt als `database.json` im entpackten Ordner und
+kommt mit dem Ausrollpaket; du musst nichts einrichten. Ist die Datenbank mal
+nicht erreichbar, läuft das Cockpit mit der letzten bekannten Kopie weiter und
+zeigt **„Zentral: Cache"** in der Statusleiste
+([Abschnitt 19](#19-zentrale-einstellungen-in-der-datenbank)).
 
 **Deine persönliche Anmeldung** liegt **lokal** unter `%APPDATA%\Kroste\Checkmk\settings.json`
-— DPAPI-verschlüsselt (nur du kannst sie entschlüsseln). Ist der Fileshare mal
-nicht erreichbar (VPN weg), fällt das Cockpit auf einen lokalen Bootstrap-Cache
-zurück und läuft weiter.
+— DPAPI-verschlüsselt (nur du kannst sie entschlüsseln). Sie liegt bewusst nicht
+zentral: Anmeldedaten gehören pro Nutzer.
 
 **Hinter einem Proxy?** Der Update-Check nutzt automatisch die
 Windows-Standard-Anmeldedaten für den Proxy (Negotiate/NTLM). Am FortiProxy des
@@ -246,8 +247,8 @@ Der Status-Tab kann die Services entweder als flache Tabelle oder als **Baum
 Die **OS-Erkennung** liest primär das Custom Host Attribute (z. B.
 „Operation System"), das ihr auf Folder-Ebene setzt und das auf die Hosts
 vererbt wird. Fallback ist der Parse aus dem Check_MK-Agent-Service. Der
-Attribut-Key ist konfigurierbar in `bootstrap.json` unter
-`HostOsAttributeKeys` — Default probiert `tag_operation_system`,
+Attribut-Key ist konfigurierbar in der Tabelle `GlobalSetting` unter dem
+Schlüssel `HostOsAttributeKeys` — Default probiert `tag_operation_system`,
 `operation_system`, `operating_system` und `os_family` durch.
 
 ---
@@ -510,8 +511,8 @@ Nach jeder Änderung im Setup: **„Änderungen aktivieren"**.
 ### Host anlegen (standardmäßig ausgeblendet)
 
 Das Formular ist per Default **nicht sichtbar** — Setup läuft zentral. Zum
-Einblenden: in der zentralen `bootstrap.json` (auf Samba01) `"showHostCreation": true`
-setzen.
+Einblenden: in der Tabelle `GlobalSetting` den Schlüssel `ShowHostCreation`
+auf `true` setzen.
 
 Bei sichtbarem Formular:
 
@@ -622,8 +623,10 @@ Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update au
 
 | Was | Wo | Wer teilt sich das |
 |---|---|---|
-| App-Konfiguration (Update-Kanal, OS-Attribut-Keys, Default-Domain, …) | `\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\bootstrap.json` | zentral, alle Nutzer |
-| Domain-Zuordnung je Host | `\\Samba01\...\hosts.json` | zentral, alle Nutzer |
+| App-Konfiguration (Update-Kanal, OS-Attribut-Keys, Default-Domain, …) | Datenbank `CheckMK_Copilot` auf **FOC-SQL01**, Tabelle `GlobalSetting` | zentral, alle Nutzer |
+| Domain-Zuordnung je Host | Datenbank, Tabelle `HostDomain` | zentral, alle Nutzer |
+| Zugang zur Datenbank | `database.json` neben `Checkmk.App.exe` | kommt mit dem Ausrollpaket |
+| Kopie der zentralen Einstellungen (Ausfallschutz) | `%APPDATA%\Kroste\Checkmk\globals-cache.json` | lokal, automatisch |
 | Verbindung (Host/Site/User/Secret) | `%APPDATA%\Kroste\Checkmk\settings.json` | lokal, DPAPI-verschlüsselt |
 | SSH-Logins (User+Passwort je Host) | `%APPDATA%\Kroste\Checkmk\ssh-creds.json` | lokal, DPAPI-verschlüsselt |
 | Filter/Favoriten (pro Site) | `%APPDATA%\Kroste\Checkmk\filter.json` | lokal |
@@ -636,52 +639,11 @@ Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update au
 liegt zentral. User-spezifische Anmeldedaten, persönliche Favoriten und
 UI-Präferenzen liegen lokal.
 
-### Bootstrap-Datei — Overrides für Sonderfälle
-
-Die zentrale `bootstrap.json` enthält Optionen, für die es bewusst kein UI gibt:
-
-```json
-{
-  "SharedSettingsPath": "",
-  "SharedHostsPath":    "\\\\Samba01\\...\\hosts.json",
-  "HostDefaultDomain":  "lhp.intern",
-  "HostOsAttributeKeys": [
-    "tag_operation_system",
-    "operation_system",
-    "operating_system",
-    "os_family"
-  ],
-  "UpdateChannelUrl":   "https://api.github.com/repos/Kroste/Checkmk/releases/latest",
-  "ShowHostCreation":   false
-}
-```
-
-- **`SharedSettingsPath`** — Pfad zur Verbindungsdatei. **Leer lassen** (= jeder
-  Nutzer bekommt sein eigenes `%APPDATA%\Kroste\Checkmk\settings.json`).
-  Umgebungsvariablen werden expandiert, `"%APPDATA%\\Kroste\\Checkmk\\settings.json"`
-  ist also ebenfalls gültig.
-
-  > ⚠️ Diese Datei ist **zentral geteilt**. Hier darf niemals ein aufgelöster
-  > Profilpfad wie `C:\Users\Meier\AppData\Roaming\…` stehen — alle anderen
-  > Nutzer erben ihn dann und können ihre Einstellungen nicht speichern. Genau
-  > das war der Fehler, den v1.7.10 behebt: bis dahin *beendete* sich die App
-  > dabei sogar. Fremde Profilpfade werden seither beim Start erkannt, verworfen
-  > und im Log gemeldet.
-
-- **`SharedHostsPath`** — Pfad zur zentralen Domain-Zuordnung.
-- **`HostDefaultDomain`** — Fallback-Domain, wenn ein Host keinen expliziten
-  Eintrag in `hosts.json` hat.
-- **`HostOsAttributeKeys`** — Custom-Host-Attribute-Keys, unter denen das
-  Cockpit die OS-Familie sucht. Erster Treffer gewinnt. Wenn euer Attribut
-  anders heißt: hier ergänzen. Debug-Log zeigt die tatsächlich gesehenen Keys
-  beim ersten Refresh.
-- **`UpdateChannelUrl`** — anderer Update-Kanal (z. B. später ein interner
-  Server statt GitHub).
-- **`ShowHostCreation`** — auf `true` setzen, wenn das „Host anlegen"-Formular
-  im Hosts-Tab sichtbar sein soll.
-
-Beim ersten Start wird die zentrale Datei mit Default-Werten angelegt (Fallback
-auf lokal, wenn Samba01 nicht schreibbar).
+> **Seit v1.9 liegen die zentralen Daten in der Datenbank, nicht mehr auf dem
+> Fileshare.** Der Umzug passiert von selbst: Beim ersten Start mit
+> Datenbankzugang übernimmt das Cockpit die vorhandene `hosts.json` einmalig in
+> die Tabelle. Danach wird die Datei nicht mehr gelesen. Details in
+> [Abschnitt 19](#19-zentrale-einstellungen-in-der-datenbank).
 
 ---
 
@@ -732,8 +694,8 @@ Das Cockpit liest das OS aus dem Custom Host Attribute (Default: Suche in
 2. Wie heißt der interne Key? Im **Log** (Debug-Level) listet das Cockpit
    beim ersten Refresh alle gesehenen Attribute-Keys — dort taucht der echte
    Key auf.
-3. Nicht der erwartete Key dabei? In `bootstrap.json` unter
-   `HostOsAttributeKeys` den echten Key ergänzen.
+3. Nicht der erwartete Key dabei? In der Tabelle `GlobalSetting` unter dem
+   Schlüssel `HostOsAttributeKeys` den echten Key ergänzen (JSON-Liste).
 
 Fallback ist der Parse der Check_MK-Agent-Ausgabe („OS: windows/linux") — der
 greift nur, wenn kein Custom Attribute gesetzt ist.
@@ -1013,6 +975,92 @@ Ein Tippfehler im JSON schaltet den Viewer-Modus **nicht** ab — sonst hätte
 jemand, der nur gucken soll, nach einem Syntaxfehler plötzlich die volle
 Oberfläche. Stattdessen startet die App im Viewer-Modus ohne Verbindung und
 schreibt in die Statusleiste, welche Datei betroffen ist. Details stehen im Log.
+
+---
+
+## 19. Zentrale Einstellungen in der Datenbank
+
+Seit v1.9 liegen die Daten, die **alle** Cockpit-Nutzer teilen, in der Datenbank
+`CheckMK_Copilot` auf **FOC-SQL01** statt in JSON-Dateien auf dem Fileshare.
+
+### Warum der Umzug
+
+Der Fileshare hatte zwei Probleme, die im Alltag beide auftraten:
+
+- **Zugriff.** Lesen durften alle, schreiben nur wenige. Wer eine Domain-Zuordnung
+  korrigieren wollte, konnte es schlicht nicht.
+- **Gleichzeitiges Speichern.** Beim Speichern wurde die *komplette* `hosts.json`
+  zurückgeschrieben. Zwei Leute gleichzeitig, und der Eintrag des Ersten war
+  lautlos weg — ohne Fehlermeldung, ohne dass es jemandem auffiel.
+
+In der Datenbank ist jede Zuordnung eine eigene Zeile. Ein Änderung fasst nur
+diese Zeile an, und in `ChangedBy`/`ChangedAtUtc` steht, wer sie zuletzt
+angefasst hat.
+
+### Für dich ändert sich nichts
+
+Der Umzug passiert beim ersten Start automatisch: Ist die Tabelle noch leer,
+übernimmt das Cockpit die vorhandene `hosts.json` einmalig. Danach ist die
+Datenbank die Wahrheit und die Datei wird nie wieder gelesen.
+
+Kein Fileshare-Zugriff mehr nötig — außer für die alte `bootstrap.json`, solange
+sie noch existiert.
+
+### Wenn FOC-SQL01 nicht erreichbar ist
+
+Das Cockpit **startet trotzdem**. Nach jedem erfolgreichen Lesen legt es eine
+Kopie der zentralen Einstellungen unter
+`%APPDATA%\Kroste\Checkmk\globals-cache.json` ab und arbeitet damit weiter. In
+der Statusleiste erscheint dann ein Hinweis:
+
+> **Zentral: Cache**
+
+Das ist kein Fehler, sondern eine Ansage: Du arbeitest mit dem letzten bekannten
+Stand. Wenn ein Kollege gerade zentral etwas geändert hat, siehst du es noch
+nicht. Sobald die Datenbank wieder da ist, verschwindet der Hinweis beim nächsten
+Start von selbst.
+
+Gibt es weder Datenbank noch Cache (frisch installierter Rechner ohne
+Verbindung), läuft das Cockpit mit eingebauten Vorgaben — alle Alltagsfunktionen
+bleiben nutzbar, nur die zentralen Vorgaben fehlen.
+
+### Für Administratoren
+
+**Schema anlegen oder aktualisieren:** Die Skripte in [`db/`](db/) mit dem
+Konto `CheckMK_Copilot_SA` (db_owner) in der Reihenfolge ihrer Nummerierung
+ausführen. Sie sind idempotent, ein zweiter Lauf schadet nicht. Das Cockpit
+migriert **nicht** selbst — es prüft nur die Version und meldet, wenn sie nicht
+passt.
+
+**Zwei Konten, mit Absicht:**
+
+| Konto | Rechte | Wer benutzt es |
+|---|---|---|
+| `CheckMK_Copilot_SA` | `db_owner` | nur der Administrator, nur für die Skripte |
+| `CheckMK_Copilot_Worker` | `db_datareader` + `db_datawriter` | die ausgelieferte Anwendung |
+
+Die Anwendung braucht zur Laufzeit kein `db_owner`. Da der Verbindungsstring auf
+rund 50 Arbeitsplätzen liegt, entscheidet allein dieses Recht, was jemand
+anrichten kann, der ihn ausliest: Zeilen ändern ja, Tabellen löschen nein.
+
+**Verbindung ausrollen:** `database.json` neben die Exe legen. Erzeugt wird sie
+mit
+
+```
+Checkmk.App.exe --protect-db "Server=FOC-SQL01;Database=CheckMK_Copilot;User Id=CheckMK_Copilot_Worker;Password=…;Encrypt=True;TrustServerCertificate=True"
+```
+
+`TrustServerCertificate=True` gehört dazu, wenn FOC-SQL01 ein selbstsigniertes
+Zertifikat hat — sonst bricht der erste Verbindungsversuch mit einer Meldung ab,
+die nach einem Passwortproblem aussieht.
+
+> ⚠️ **Der Wert in `database.json` ist verschleiert, nicht geschützt.** Der
+> Schlüssel steckt im Programm, das daneben liegt. Das verhindert, dass ein
+> Passwort im Klartext in Backups und Ticketanhängen landet — es hält niemanden
+> auf, der es darauf anlegt. Wirksam ist allein das Recht des Laufzeitkontos.
+> Bitte nicht als „das Passwort ist ja verschlüsselt" weitererzählen.
+
+Technische Details und das Schema: [`db/README.md`](db/README.md).
 
 ---
 

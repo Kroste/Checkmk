@@ -469,6 +469,64 @@ den Commit-Log an.
 23. ✅ **Refresh ohne Einfrieren** — Abruf/Parse/Filtern auf dem ThreadPool,
     Fortschrittsbalken mit Restzeit in der Statusleiste, Collection-Austausch per
     Reset statt Einzel-Adds. Details und die drei Nicht-Zurückbauen-Punkte in §4.
+24. ✅ **Zentrale Datenbank statt Fileshare** (`CheckMK_Copilot` auf FOC-SQL01,
+    EF Core 10). Die geteilten Teile von `bootstrap.json` und `hosts.json` liegen
+    in Tabellen; `hosts.json` wird einmalig übernommen. Ausfall-Cache,
+    Zwei-Konten-Modell, `database.json` neben der EXE. Details in §5.
+    Gründe: Schreibrechte auf dem Share hatten nur wenige, und das
+    Read-Modify-Write der ganzen `hosts.json` verlor bei zwei gleichzeitigen
+    Bearbeitern lautlos Einträge.
+
+### In Arbeit: Standort-Karte (Punkte 25–28)
+
+Fachlicher Hintergrund: 1105 Hosts über Potsdam verteilt (Stadtverwaltung mit
+Außenstellen), 48 Nutzer in Teams von 2–3 Personen (DB, Netzwerk, Backup, ESX,
+Fileservice, AD, Exchange, …), Mehrfachmitgliedschaft normal. Ziel ist eine
+Karte, auf der ein Bereich grün/gelb/rot den schlechtesten Status seiner Hosts
+zeigt.
+
+**Die tragende Entscheidung: geteilte Karte, Linse pro Team.** Ein Serverraum ist
+ein physischer Ort — er wird **einmal** gezeichnet und ein Gerät **einmal**
+zugeordnet. Was ein Team davon sieht, entscheidet allein sein Host-Filter. Die
+Bereichsfarbe entsteht deshalb erst in der `TeamView`, nicht in `Area`:
+schlechtester Status der Hosts, die im Bereich stehen **und** auf den Filter der
+Sicht passen. Derselbe Raum ist für das DB-Team grün und für den Wachschutz rot,
+wenn die USV Netzausfall meldet. Nicht auf „jedes Team zeichnet seine eigene
+Karte" zurückbauen: dann driften acht Polygone desselben Raums auseinander, und
+wer einen Switch umträgt, müsste es acht Teams sagen. `HostArea.HostName` ist
+Primärschlüssel — genau ein Bereich pro Host — und trägt `AssignedBy`.
+
+Teams sind **Organisation, kein Zugriffsschutz** (alle 48 dürfen alle Hosts
+sehen, so gewollt). Admin-Zuordnung über `dbo.AppAdmin`; wer in keinem Team ist,
+sieht alles.
+
+25. **Bereiche ohne Karte** — Bereichsbaum, Zuweisung per Mehrfachauswahl
+    (die Geste „Auswahl als Favorit" gibt es schon; 1105 Hosts einzeln
+    zuzuweisen ist keine Option), Status-Rollup nach oben. Schon nutzbar,
+    bevor eine Karte existiert — deshalb bewusst **vor** Punkt 27.
+26. **Teams + geteilte Filter** — `filter.json` zieht in die DB, ein Filter
+    gehört entweder einem Team oder einer Person. Der Alltagsgewinn: heute baut
+    sich jeder der 48 seinen eigenen, und die Urlaubsvertretung fängt bei null an.
+27. **Karte** — eigenes Kachel-Canvas in Avalonia (Slippy-Map-Mathematik,
+    Polygone als Overlay, Treffer-Erkennung für den Rechtsklick). **Kein
+    WebView, kein Google Maps**: Maps Platform kostet pro Load, verbietet
+    Kachel-Caching und schickt die Standorte der eigenen IT-Infrastruktur an
+    Google — das übersteht keine Datenschutzprüfung einer Stadtverwaltung.
+    Stattdessen die **Geobasisdaten der LGB Brandenburg** (Open Data,
+    dl-de/by-2.0, WMS/WMTS über den Geobroker): amtliche Orthophotos von
+    Potsdam, dürfen gespiegelt und gecacht werden, verlassen das LVN nicht.
+    Für die Campus-Ebene ist ein Luftbild die Rasterquelle, `Area.MapLayerKey`
+    benennt sie je Bereich.
+28. **Team-Sichten/Kiosk** — Viewer-Modus um Startbereich + Zoom erweitern.
+    Wie beim Viewer-Modus gilt: Sichtbarkeitsgrenzen sind Bedienkomfort, die
+    echte Grenze ist die Checkmk-Rolle.
+
+**Nicht gebaut und warum:** Koordinate je Host (unnötig — Hosts hängen an
+Bereichen, Bereiche haben die Geometrie; spart Geocoding komplett).
+`geography`-Spaltentyp (bräuchte NetTopologySuite als weiteres Paket, und wir
+rechnen nichts räumlich — GeoJSON in `nvarchar(max)` reicht). Ein Dienst vor der
+Datenbank (die Sichten sollen nur in der Anwendung sichtbar sein, also verbinden
+sich die Clients direkt).
 
 ## 9 · Deal
 
