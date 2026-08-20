@@ -50,17 +50,52 @@ FOC-SQL01 nicht antwortet. Sichtbar wird das in der Statusleiste, nicht nur im L
 
 ## Verbindungsstring
 
-Zum Entwickeln liegt er user-lokal in `%APPDATA%\Kroste\Checkmk\db-dev.json` —
-außerhalb des Repos, damit er nicht versehentlich mitcommittet wird.
+Drei Quellen, in dieser Reihenfolge — die erste, die etwas liefert, gewinnt:
 
-```json
-{
-  "ConnectionString": "Server=FOC-SQL01;Database=CheckMK_Copilot;User Id=CheckMK_Copilot_Worker;Password=…;Encrypt=True;TrustServerCertificate=True"
-}
+| Reihenfolge | Datei | Wofür |
+|---|---|---|
+| 1 | `%APPDATA%\Kroste\Checkmk\db-dev.json` | Entwicklung. Überstimmt auf dem eigenen Rechner die ausgelieferte Datei. |
+| 2 | `database.json` **neben der Exe** | Der Ausrollweg. |
+| 3 | `bootstrap.json` → `DatabaseConnectionString` | Notnagel, falls der Wert doch zentral kommen soll. |
+
+`TrustServerCertificate=True` gehört in den String, weil `Microsoft.Data.SqlClient`
+seit Version 4 standardmäßig verschlüsselt und ein selbstsigniertes
+Serverzertifikat sonst den ersten Verbindungsversuch mit einer Meldung abbricht,
+die nach einem Passwortproblem aussieht. Hat FOC-SQL01 ein reguläres Zertifikat,
+kann die Option weg.
+
+### `database.json` erzeugen
+
+Der Wert darin ist verschleiert und lässt sich nicht von Hand schreiben. Dafür
+gibt es einen Schalter:
+
+```
+Checkmk.App.exe --protect-db "Server=FOC-SQL01;Database=CheckMK_Copilot;User Id=CheckMK_Copilot_Worker;Password=…;Encrypt=True;TrustServerCertificate=True"
 ```
 
-`TrustServerCertificate=True` steht dort, weil `Microsoft.Data.SqlClient` seit
-Version 4 standardmäßig verschlüsselt und ein selbstsigniertes Serverzertifikat
-sonst den ersten Verbindungsversuch mit einer Meldung abbricht, die nach einem
-Passwortproblem aussieht. Hat FOC-SQL01 ein reguläres Zertifikat, kann die
-Option weg.
+Das schreibt `database.json` neben die Exe. Optional lässt sich ein Zielpfad als
+zweites Argument angeben, um die Datei fürs Ausrollpaket woanders zu erzeugen.
+Ergebnis:
+
+```json
+{ "ProtectedConnectionString": "obf1:EPTlRSeAIAYIE9Ee…" }
+```
+
+Ein Feld `ConnectionString` mit Klartext wird ebenfalls gelesen — praktisch für
+eine schnell hingeschriebene Testdatei. Stehen beide drin, gewinnt der
+verschleierte Wert.
+
+### Was die Verschleierung leistet — und was nicht
+
+**Sie ist kein Zugriffsschutz.** Der Schlüssel steckt im Binary, das neben der
+Datei liegt; wer beides hat — und beides liegt auf ~50 Arbeitsplätzen — kommt an
+den Klartext. Die Methoden heißen deshalb `Obfuscate`/`Deobfuscate` und nicht
+Encrypt/Decrypt.
+
+Was sie verhindert: dass ein Passwort im Klartext in Backups, Ticketanhängen und
+über die Schulter landet. Zufallsfunde, keine Angreifer.
+
+Was tatsächlich schützt, ist das Recht des Laufzeitkontos (siehe oben): Zeilen
+lesen und schreiben in *einer* Datenbank, sonst nichts. Wer den String ausliest,
+kann Daten ändern — aber keine Tabellen löschen und an keine andere Datenbank.
+Genau dafür sind die zwei Konten da.

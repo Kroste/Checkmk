@@ -31,6 +31,9 @@ internal static class Program
 
         try
         {
+            // Werkzeug-Modus vor dem UI: erzeugt database.json neben der Exe.
+            if (TryRunProtectDb(args)) return;
+
             App.Services = BuildServiceProvider();
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
@@ -43,6 +46,56 @@ internal static class Program
             LogManager.Shutdown();
         }
     }
+
+    /// <summary>
+    /// <c>Checkmk.App.exe --protect-db "&lt;Verbindungsstring&gt;" [Zielpfad]</c>
+    ///
+    /// Schreibt <c>database.json</c> mit verschleiertem Wert neben die Exe. Ohne
+    /// diesen Schalter käme man an den Wert nicht heran — von Hand ist er nicht
+    /// zu erzeugen.
+    ///
+    /// Die Ausgabe geht bewusst auf eine Konsole, die eine WinExe normalerweise
+    /// nicht hat: <c>AttachConsole</c> hängt sich an die aufrufende cmd/PowerShell,
+    /// sonst sähe der Anwender gar nichts und wüsste nicht, ob es geklappt hat.
+    /// </summary>
+    private static bool TryRunProtectDb(string[] args)
+    {
+        var i = Array.FindIndex(args, a =>
+            string.Equals(a, "--protect-db", StringComparison.OrdinalIgnoreCase));
+        if (i < 0) return false;
+
+        AttachConsole(AttachParentProcess);
+
+        if (i + 1 >= args.Length || string.IsNullOrWhiteSpace(args[i + 1]))
+        {
+            Console.Error.WriteLine(
+                "Aufruf: Checkmk.App.exe --protect-db \"<Verbindungsstring>\" [Zielpfad]");
+            return true;
+        }
+
+        var target = i + 2 < args.Length && !args[i + 2].StartsWith('-')
+            ? args[i + 2]
+            : DatabaseConnection.DeployedConfigPath;
+
+        try
+        {
+            DatabaseConnection.WriteDeployedConfig(target, args[i + 1]);
+            Console.WriteLine($"Geschrieben: {target}");
+            Console.WriteLine(
+                "Hinweis: Der Wert ist verschleiert, nicht geschuetzt — der Schluessel steckt "
+              + "im Binary daneben. Wirksam ist allein das Datenbankrecht des Laufzeitkontos.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Fehlgeschlagen: {ex.Message}");
+        }
+        return true;
+    }
+
+    private const int AttachParentProcess = -1;
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool AttachConsole(int processId);
 
     private static IServiceProvider BuildServiceProvider()
     {

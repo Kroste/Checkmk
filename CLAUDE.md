@@ -334,10 +334,15 @@ ab. Schema und Begründungen stehen in [`db/README.md`](db/README.md), die Skrip
    nicht verhindern.
 4. **Secrets bleiben user-lokal.** Verbindungs-Secret (`settings.json`) und
    SSH-Passwörter (`ssh-creds.json`) gehören nicht in eine Tabelle, die 48 Leute
-   lesen dürfen — unabhängig von TDE. Der Verbindungsstring neben der EXE ist
-   **Verschleierung, kein Zugriffsschutz**; die wirksame Grenze ist das
-   Datenbankrecht des Laufzeitkontos (dieselbe Ehrlichkeit wie bei
-   `secretBase64` im Viewer-Profil, §4).
+   lesen dürfen — unabhängig von TDE. Der Verbindungsstring in `database.json`
+   **neben der EXE** ist **Verschleierung, kein Zugriffsschutz** — der Schlüssel
+   steckt im Binary daneben. Deshalb heißen die Methoden `Obfuscate`/
+   `Deobfuscate` und nicht Encrypt/Decrypt; nicht in „Verschlüsselung"
+   umbenennen, das ist dieselbe Ehrlichkeit wie bei `secretBase64` im
+   Viewer-Profil (§4). Erzeugt wird die Datei mit
+   `Checkmk.App.exe --protect-db "<String>"`. Quellenreihenfolge:
+   `db-dev.json` (%APPDATA%, Entwicklung) → `database.json` (neben der EXE,
+   Ausrollweg) → `bootstrap.json`.
 
 5. **`DbHostDomainStore` hält eine Momentaufnahme im Speicher.** `Load()` macht
    kein I/O — `HostContext.DomainFor` ruft es für *jeden* Hostnamen auf, als

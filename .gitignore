@@ -1,5 +1,9 @@
 bin/
 obj/
+# Verbindung zur zentralen Datenbank — gehoert zum Ausrollpaket, nie ins Repo.
+# Der Wert darin ist verschleiert, nicht geschuetzt (siehe db/README.md).
+database.json
+db-dev.json
 *.user
 .vs/
 [Ll]ogs/
