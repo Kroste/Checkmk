@@ -17,7 +17,8 @@ public sealed record AreaRow(
     string? ExternalSource = null,
     string? ExternalId = null,
     string? HostPattern = null,
-    string? ExternalCode = null)
+    string? ExternalCode = null,
+    string? HostTag = null)
 {
     /// <summary>Hat der Bereich ueberhaupt eine Lage auf der Karte?</summary>
     public bool HasPlace => !string.IsNullOrWhiteSpace(GeometryJson) || (Lat is not null && Lon is not null);
@@ -93,6 +94,12 @@ public interface IAreaStore
     /// <summary>Speichert das Host-Namensmuster. <c>null</c> entfernt es.</summary>
     Task SaveHostPatternAsync(int areaId, string? pattern, CancellationToken ct = default);
 
+    /// <summary>Setzt den Checkmk-Ortstag eines Bereichs. <c>null</c> entfernt ihn.</summary>
+    Task SaveHostTagAsync(int areaId, string? tag, CancellationToken ct = default);
+
+    /// <summary>Setzt Tags mehrerer Bereiche in einem Vorgang.</summary>
+    Task SaveHostTagsAsync(IReadOnlyDictionary<int, string?> tags, CancellationToken ct = default);
+
     /// <summary>
     /// Legt Bereiche aus einer externen Standortliste an bzw. gleicht sie ab.
     /// Der Abgleich läuft über <c>ExternalSource</c>+<c>ExternalId</c>, ein
@@ -155,30 +162,7 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         {
             await using var db = database.CreateContext();
 
-            List<AreaRow> areas;
-            try
-            {
-                areas = await db.Areas.AsNoTracking()
-                    .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
-                    .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
-                                             a.GeometryJson, a.MapLayerKey,
-                                             a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId,
-                                             a.HostPattern, a.ExternalCode))
-                    .ToListAsync(ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                // Skript 005 noch nicht gefahren: ohne diesen Rueckfall waere
-                // der Bereichsbaum bis dahin komplett leer — das sieht aus wie
-                // Datenverlust, obwohl nur eine Spalte fehlt.
-                Log.Debug(ex, "Spalten aus Schema 5 nicht lesbar — lade Bereiche ohne Muster.");
-                areas = await db.Areas.AsNoTracking()
-                    .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
-                    .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
-                                             a.GeometryJson, a.MapLayerKey,
-                                             a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId))
-                    .ToListAsync(ct).ConfigureAwait(false);
-            }
+            var areas = await LoadAreasAsync(db, ct).ConfigureAwait(false);
 
             var assignments = await db.HostAreas.AsNoTracking()
                 .Select(h => new { h.HostName, h.AreaId })
@@ -218,6 +202,58 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
             // als haette jemand alle Zuweisungen geloescht.
             Log.Warn(ex, "Bereiche konnten nicht gelesen werden — behalte den vorherigen Stand.");
         }
+    }
+
+    /// <summary>
+    /// Liest die Bereiche mit absteigendem Anspruch ans Schema.
+    ///
+    /// Der Grund fuer die Staffel: Die Skripte in <c>db/</c> fahren Admins von
+    /// Hand, und zwischen einem ausgerollten Client und dem naechsten
+    /// Wartungsfenster liegen manchmal Tage. Ohne den Rueckfall waere der
+    /// Bereichsbaum in dieser Zeit komplett leer — das sieht aus wie
+    /// Datenverlust, obwohl nur eine Spalte fehlt. Die fehlenden Felder bleiben
+    /// <c>null</c>, was fachlich genau richtig ist: kein Tag, kein Muster,
+    /// keine Vorschlaege.
+    ///
+    /// Neueste Stufe zuerst; die Liste waechst mit jedem Skript, das der Tabelle
+    /// Spalten hinzufuegt.
+    /// </summary>
+    private static async Task<List<AreaRow>> LoadAreasAsync(CockpitDbContext db, CancellationToken ct)
+    {
+        var ordered = db.Areas.AsNoTracking().OrderBy(a => a.SortOrder).ThenBy(a => a.Name);
+
+        (int Schema, Func<Task<List<AreaRow>>> Load)[] steps =
+        [
+            (6, () => ordered
+                .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
+                                         a.GeometryJson, a.MapLayerKey,
+                                         a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId,
+                                         a.HostPattern, a.ExternalCode, a.HostTag))
+                .ToListAsync(ct)),
+            (5, () => ordered
+                .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
+                                         a.GeometryJson, a.MapLayerKey,
+                                         a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId,
+                                         a.HostPattern, a.ExternalCode))
+                .ToListAsync(ct)),
+            (3, () => ordered
+                .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
+                                         a.GeometryJson, a.MapLayerKey,
+                                         a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId))
+                .ToListAsync(ct)),
+        ];
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            try { return await steps[i].Load().ConfigureAwait(false); }
+            catch (Exception ex) when (i < steps.Length - 1)
+            {
+                Log.Debug(ex, "Spalten aus Schema {Schema} nicht lesbar — versuche aelteren Satz.",
+                    steps[i].Schema);
+            }
+        }
+
+        return [];
     }
 
     public IReadOnlyList<string> SitesOf(int areaId)
@@ -414,6 +450,51 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         await RefreshAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task SaveHostTagAsync(int areaId, string? tag, CancellationToken ct = default)
+    {
+        await SaveHostTagsAsync(new Dictionary<int, string?> { [areaId] = tag }, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Setzt Tags fuer mehrere Bereiche in einem Vorgang — der Abgleich mit
+    /// Checkmk traegt typischerweise 49 auf einmal ein, und 49 Roundtrips samt
+    /// 49 <see cref="RefreshAsync"/>-Laeufen waeren dafuer absurd.
+    /// </summary>
+    public async Task SaveHostTagsAsync(IReadOnlyDictionary<int, string?> tags,
+        CancellationToken ct = default)
+    {
+        if (tags.Count == 0) return;
+
+        await using var db = database.CreateContext();
+
+        var ids = tags.Keys.ToList();
+        var rows = await db.Areas.Where(a => ids.Contains(a.AreaId))
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var now = DateTime.UtcNow;
+        var who = Environment.UserName;
+        var changed = 0;
+        foreach (var area in rows)
+        {
+            var value = tags[area.AreaId];
+            var clean = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            if (string.Equals(area.HostTag, clean, StringComparison.Ordinal)) continue;
+
+            area.HostTag = clean;
+            area.ChangedAtUtc = now;
+            area.ChangedBy = who;
+            changed++;
+        }
+
+        if (changed > 0)
+        {
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            Log.Info("Host-Tag an {Count} Bereich(en) gesetzt.", changed);
+            await RefreshAsync(ct).ConfigureAwait(false);
+        }
     }
 
     public async Task<ImportResult> ImportPlacesAsync(string source,

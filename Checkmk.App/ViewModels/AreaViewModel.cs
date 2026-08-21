@@ -20,6 +20,7 @@ public sealed partial class AreaViewModel : ViewModelBase
 
     private readonly IAreaStore _areas;
     private readonly StatusViewModel _status;
+    private readonly IHostLocationTags _locationTags;
 
     /// <summary>Knoten je Bereichs-Id — damit der Refresh die Aggregate in place
     /// setzen kann, statt den Baum neu zu bauen.</summary>
@@ -72,10 +73,12 @@ public sealed partial class AreaViewModel : ViewModelBase
     }
     private string? _activeSite;
 
-    public AreaViewModel(IAreaStore areas, StatusViewModel status, ViewerMode viewer)
+    public AreaViewModel(IAreaStore areas, StatusViewModel status, ViewerMode viewer,
+        IHostLocationTags locationTags)
     {
         _areas = areas;
         _status = status;
+        _locationTags = locationTags;
         CanWrite = viewer.CanWrite;
 
         // Der Status-Tab liefert die Hosts, die auf den aktiven Filter passen —
@@ -339,20 +342,96 @@ public sealed partial class AreaViewModel : ViewModelBase
     public string? HostPatternOf(int areaId)
         => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.HostPattern;
 
-    public async Task SaveHostPatternAsync(int areaId, string? pattern)
+    /// <summary>Checkmk-Ortstag eines Bereichs, oder <c>null</c>.</summary>
+    public string? HostTagOf(int areaId)
+        => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.HostTag;
+
+    /// <summary>
+    /// Muster-Vorschlag für einen Bereich, der noch keins hat — aus dem Code
+    /// der Herkunftsquelle. Damit steht im Dialog etwas Sinnvolles, statt dass
+    /// jemand den Ausdruck mit den Ziffern-Grenzen von Hand tippt.
+    /// </summary>
+    public string? SuggestedPatternFor(int areaId)
+    {
+        var area = _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId);
+        if (area is null) return null;
+        if (!string.IsNullOrWhiteSpace(area.HostPattern)) return area.HostPattern;
+        return PotsdamPlaceImporter.PatternFor(area.ExternalCode);
+    }
+
+    /// <summary>Alle in Checkmk vorkommenden Ortstags — für die Auswahlliste.</summary>
+    public IReadOnlyList<HostTagValue> KnownTags() => _locationTags.Values;
+
+    /// <summary>Ortstag eines Hosts, oder <c>null</c>.</summary>
+    public string? TagOfHost(string hostName) => _locationTags.TagFor(hostName);
+
+    /// <summary>Speichert beide Zuordnungswege eines Bereichs in einem Vorgang.</summary>
+    public async Task SaveAssignmentRuleAsync(int areaId, string? tag, string? pattern)
     {
         if (!CanWrite) return;
         try
         {
             IsBusy = true;
-            await _areas.SaveHostPatternAsync(areaId, pattern);
-            StatusMessage = string.IsNullOrWhiteSpace(pattern)
-                ? $"Muster entfernt: {NodeOf(areaId)?.Name}."
-                : $"Muster gespeichert: {NodeOf(areaId)?.Name} → {pattern}";
+
+            var before = _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId);
+            var tagChanged = !string.Equals(before?.HostTag, tag, StringComparison.Ordinal);
+            var patternChanged = !string.Equals(before?.HostPattern, pattern, StringComparison.Ordinal);
+
+            if (tagChanged) await _areas.SaveHostTagAsync(areaId, tag);
+            if (patternChanged) await _areas.SaveHostPatternAsync(areaId, pattern);
+
+            var name = NodeOf(areaId)?.Name;
+            StatusMessage = (tagChanged, patternChanged) switch
+            {
+                (false, false) => "Nichts geändert.",
+                _ => $"{name}: Tag {Describe(tag)}, Muster {Describe(pattern)}."
+            };
         }
         catch (Exception ex)
         {
-            Log.Warn(ex, "Host-Muster konnte nicht gespeichert werden.");
+            // Der eindeutige Index auf HostTag schlaegt hier zu, wenn ein
+            // anderer Bereich denselben Tag schon traegt. Die Meldung des
+            // Servers ist unlesbar, die Ursache aber immer dieselbe.
+            Log.Warn(ex, "Zuordnungsregel konnte nicht gespeichert werden.");
+            StatusMessage = ex.ToString().Contains("UX_Area_HostTag", StringComparison.Ordinal)
+                ? $"Der Tag „{tag}“ gehört bereits zu einem anderen Bereich."
+                : $"Speichern fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+
+        static string Describe(string? v) => string.IsNullOrWhiteSpace(v) ? "entfernt" : $"→ {v}";
+    }
+
+    /// <summary>
+    /// Schlägt vor, welcher Checkmk-Ortstag zu welchem Bereich gehört — über
+    /// die Nummer im Code der Herkunftsquelle. Nur die sichtbaren Bereiche,
+    /// damit ein Abgleich auf <c>schul_it</c> keine LHP-Bereiche anfasst.
+    /// </summary>
+    public IReadOnlyList<TagMatch> SuggestTags()
+    {
+        var snapshot = _areas.Current;
+        var visible = snapshot.Areas
+            .Where(a => snapshot.IsVisibleIn(a.AreaId, ActiveSite))
+            .ToList();
+        return HostTagMatcher.Match(visible, _locationTags.Values);
+    }
+
+    /// <summary>Übernimmt bestätigte Tag-Zuordnungen in einem Vorgang.</summary>
+    public async Task ApplyTagMatchesAsync(IReadOnlyList<TagMatch> accepted)
+    {
+        if (!CanWrite || accepted.Count == 0) return;
+
+        try
+        {
+            IsBusy = true;
+            await _areas.SaveHostTagsAsync(
+                accepted.ToDictionary(m => m.AreaId, m => (string?)m.TagValue));
+            Recompute(_status.AllServices);
+            StatusMessage = $"{accepted.Count} Tag-Zuordnung(en) gespeichert.";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Tag-Zuordnungen konnten nicht gespeichert werden.");
             StatusMessage = $"Speichern fehlgeschlagen: {ex.Message}";
         }
         finally { IsBusy = false; }
@@ -374,7 +453,8 @@ public sealed partial class AreaViewModel : ViewModelBase
         var visible = snapshot.Areas
             .Where(a => snapshot.IsVisibleIn(a.AreaId, ActiveSite))
             .ToList();
-        return AreaAssignmentSuggester.Suggest(visible, KnownHosts(), snapshot.HostToArea);
+        return AreaAssignmentSuggester.Suggest(visible, KnownHosts(), snapshot.HostToArea,
+            _locationTags.TagFor);
     }
 
     /// <summary>Übernimmt bestätigte Vorschläge.</summary>

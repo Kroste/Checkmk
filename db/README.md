@@ -41,6 +41,7 @@ nicht. Reihenfolge:
 003-area-points.sql  Bereiche als Punkt, Anschrift, Herkunft (Standort-Import)
 004-area-sites.sql   Sichtbarkeit je Checkmk-Site (LHP / Schul_IT)
 005-area-hostpattern.sql  Namensmuster je Bereich fuer Zuordnungsvorschlaege
+006-area-hosttag.sql      Checkmk-Ortstag je Bereich (der bessere Weg zu 005)
 ```
 
 Optional, kein Schema-Eingriff und ohne Versionssprung:

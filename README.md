@@ -1116,27 +1116,59 @@ es umträgt, ändert eine Zeile, und alle sehen es.
 
 ### Hosts automatisch vorschlagen lassen
 
-Über tausend Geräte einzeln zuzuordnen wäre eine Woche Arbeit. Meist steht die
-Information aber schon im Hostnamen: Schule 46 hat `46-SW04`, `46-USV`,
-`NAS46-01`, `PA46-01`, `ESX46-02`, `iRMC-46`.
+Über tausend Geräte einzeln zuzuordnen wäre eine Woche Arbeit. Es gibt zwei
+Wege, das abzukürzen — der erste ist deutlich besser, wo er zur Verfügung steht.
 
-Dafür trägt jeder Bereich ein **Host-Muster**. Bei den Schulen füllt der Import
-es aus der Schulnummer vor — bei den übrigen Standorten trägst du es einmal ein
-(Rechtsklick → **„Host-Muster…"**). Der Dialog zeigt dabei **sofort, welche
-Hosts treffen würden**, du siehst also direkt, ob das Muster stimmt.
+#### Weg 1: der Checkmk-Ortstag (Schulen)
 
-Dann **„Zuordnung vorschlagen…"** in der Toolbar. Die Liste zeigt jeden Treffer
-mit seinem Zielbereich und einer Notiz:
+Eure Schul-Hosts tragen in Checkmk das Attribut `tag_location_school` mit Werten
+wie `schule_46` — **553 von 654 Hosts**. Das ist im Setup gepflegt und damit
+verlässlicher als alles, was sich aus dem Hostnamen ableiten lässt.
+
+Ein Klick auf **„Tags zuordnen…"** in der Toolbar gleicht diese Tags über die
+Standortnummer gegen die Bereiche ab und zeigt dir das Ergebnis zum Durchsehen.
+Bestätigen — fertig. Danach ordnet **„Zuordnung vorschlagen…"** die Hosts zu.
+
+Damit das funktioniert, brauchen die Bereiche die Standortnummer, die beim
+Standort-Import mitkommt. Wurden deine Schulen **vor** dieser Version importiert,
+fehlt sie: **Standorte einmal erneut übernehmen**, dann ist sie da.
+
+#### Weg 2: das Namensmuster (alles andere)
+
+Auf der Site LHP gibt es solche Tags praktisch nicht, dort steht die Information
+im Namen: Schule 46 hat `46-SW04`, `46-USV`, `NAS46-01`, `PA46-01`, `ESX46-02`,
+`iRMC-46`. Dafür trägt jeder Bereich ein **Host-Muster** (Rechtsklick →
+**„Host-Zuordnung…"**). Bei den Schulen ist es aus der Schulnummer vorbelegt.
+
+Der Dialog zeigt beides nebeneinander und **sofort, welche Hosts treffen
+würden** — du siehst also direkt, ob es stimmt. Das Muster greift nur bei Hosts
+**ohne** passenden Tag, deshalb steht die Trefferzahl auch nur für diese.
+
+Hier trägst du auch die beiden Schulen nach, die im offenen Schulverzeichnis
+fehlen: **`schule_61`** (28 Hosts) und **`schule_63`** (10 Hosts). Bereich
+anlegen, Tag aus der Liste wählen, speichern.
+
+#### Und dann zuordnen
+
+**„Zuordnung vorschlagen…"** zeigt jeden Treffer mit Zielbereich und Notiz:
 
 | Notiz | heißt |
 |---|---|
-| *neu* | Host ist noch nirgends zugeordnet |
+| *neu (Tag)* | Host ist noch nirgends zugeordnet, erkannt am Checkmk-Ortstag |
+| *neu (Muster)* | dasselbe, aber aus dem Hostnamen erschlossen |
 | *verschiebt von …* | Host steht schon woanders |
-| *mehrdeutig* | Mehrere Muster passen — hier musst du entscheiden |
+| *mehrdeutig* | Mehrere Bereiche passen — hier musst du entscheiden |
 
 **Vorausgewählt sind nur die eindeutigen neuen.** Verschiebungen und
 Mehrdeutigkeiten musst du bewusst ankreuzen. Zugeordnet wird erst mit
 „Zuordnen" — nichts passiert ungefragt.
+
+> **Warum der Tag gewinnt, wo beides etwas sagt:** Das Muster erschließt die
+> Nummer aus dem Namen und irrt dabei. `29-SW11` landete bei der Grundschule
+> Bornim, weil dort eine 11 steht; `PA04-1` beim Humboldt-Gymnasium wegen der
+> abschließenden 1. **28 solcher Fehlgriffe** räumt der Tag aus, und er erfasst
+> 85 Geräte zusätzlich, deren Name die Nummer gar nicht als Zahl enthält
+> (`WLC-01SL-01`).
 
 ### Wenn ein Standort aufgelöst wird
 

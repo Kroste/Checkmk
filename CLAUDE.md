@@ -183,11 +183,51 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   **`SiteSelectDialog` („Sichtbar in Sites…") ist Pflichtbestandteil**, nicht
   Komfort: Ohne ihn konnte der Store die Sichtbarkeit setzen, die Oberfläche
   aber nicht — die Korrektur ging nur über SQL.
-- **Zuordnungsvorschläge über Namensmuster** (Schema 5, `Area.HostPattern`).
-  93 Bereiche, aber tausend Hosts von Hand zu verteilen ist keine Option — die
-  Namen tragen die Information schon: Schule 46 hat `46-SW04`, `46-USV`,
-  `NAS46-01`, `PA46-01`, `ESX46-02`, `iRMC-46`.
-  Drei Punkte, die nicht vereinfacht werden dürfen:
+- **Zuordnungsvorschläge: erst der Checkmk-Ortstag, dann das Namensmuster.**
+  93 Bereiche, aber tausend Hosts von Hand zu verteilen ist keine Option.
+
+  **Der Tag ist der Hauptweg** (Schema 6, `Area.HostTag`). Gemessen am
+  2026-08-21 auf Site `schul_it`: 553 von 654 Hosts tragen
+  `tag_location_school` mit Werten wie `schule_46`, 51 verschiedene Werte,
+  keiner mehrdeutig. Das ist im Setup **gepflegt**, während das Namensmuster
+  dieselbe Information nur aus dem Hostnamen *erschließt* — und dabei irrt:
+  Der Regex ordnete `29-SW11` der Grundschule Bornim (11) zu, `PA04-1` dem
+  Humboldt-Gymnasium (1) statt Helmholtz (4). **28 solcher Fehlzuordnungen**
+  korrigiert der Tag, und er erfasst 85 Hosts zusätzlich, die aus der
+  Namenskonvention fallen (`WLC-01SL-01`). Gespeichert wird der **Wert**, nicht
+  der Schlüssel — welche Attribute gelten, steht in
+  `GlobalSetting.HostLocationTagKeys` (`IHostLocationTags`, gefüllt beim
+  Hosts-Refresh).
+
+  **Das Muster bleibt trotzdem** (Schema 5, `Area.HostPattern`): Auf Site `LHP`
+  gibt es praktisch keine Ortstags (`tag_location` auf 9 von 1438 Hosts), dort
+  trägt der Hostname die Information — Schule 46 hat `46-SW04`, `46-USV`,
+  `NAS46-01`, `PA46-01`, `ESX46-02`, `iRMC-46`. Es greift nur bei Hosts **ohne**
+  passenden Tag.
+
+  **Ein Tag, den kein Bereich beansprucht, schaltet das Muster *nicht* ab.**
+  Naheliegend wäre die Gegenrichtung, sie ist aber falsch: Nicht jeder Tag ist
+  eine Ortsidentität — `tag_location = aussen` auf LHP ist eine Kategorie. Ein
+  zu weit greifendes Muster sieht man im Dialog („neu (Muster)") und wählt es
+  ab; ein still fehlender Host fällt niemandem auf.
+
+  **Der Nummernkreis gehört zum Schlüssel.** Beim Abgleich Tag→Bereich
+  (`HostTagMatcher`) wird nie die nackte Zahl verglichen, sondern
+  `präfix_zahl`. Der Bestand hat das sofort bestraft: Fünf Hosts der
+  Karl-Foerster-Schule (`25-SW01`, `NAS25-01`, …) tragen
+  `tag_location_filiale = filiale_04` und wären über die 4 beim
+  Hermann-von-Helmholtz-Gymnasium gelandet, das die Schulnummer 4 hat.
+  `HostTagMatcher.PrefixBySource` verbindet Importquelle und Nummernkreis;
+  eine Quelle ohne Eintrag nimmt am Abgleich **nicht** teil.
+
+  Der Abgleich selbst („Tags zuordnen…", `TagMatchDialog`) ist die eine Stelle,
+  an der geraten werden **darf** — weil das Ergebnis vor Augen steht, bestätigt
+  und danach als exakter Wert gespeichert wird. Die Übersetzung Nummer→Tag ist
+  unregelmäßig (`schule_2526` für 25/26, aber `schule_10` für 10/30, `schule_01`
+  für 1); eine Regel, die alle Fälle zur Laufzeit trifft, träfe irgendwann
+  unbemerkt den falschen Bereich.
+
+  Drei Punkte am Muster, die nicht vereinfacht werden dürfen:
   1. **Ziffern-Grenze im Muster** (`(?<!\d)46(?!\d)`). Ein simples „enthält 46"
      träfe auch `146-SW01` und `460-…`, und Schule 4 bekäme alle Hosts der
      Schulen 40–49.
@@ -211,6 +251,10 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Die 33 ohne Nummer sind freie Träger und OSZ, also nicht städtisch und nicht
   im Monitoring. Für Verwaltungsstandorte stehen die Kürzel gar nicht in den
   offenen Daten — die trägt man einmal je Bereich ein.
+  **Zwei Schulen fehlen den offenen Daten ganz:** `schule_61` (28 Hosts, der
+  größte Standort überhaupt) und `schule_63` (10 Hosts) haben keinen Eintrag im
+  Schulverzeichnis. Bereich anlegen und den Tag von Hand setzen —
+  Rechtsklick → „Host-Zuordnung…".
   `HostPatternDialog` zeigt eine **Live-Vorschau der Treffer**: Ein Regex ist
   für die meisten unlesbar, „diese 7 Hosts würden zugeordnet" versteht jeder.
 - **Technik ist verschiebbar** (`AreaStore.MoveHostsAsync`). Der Alltagsfall,

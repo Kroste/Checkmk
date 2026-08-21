@@ -258,17 +258,55 @@ public partial class AreaView : UserControl
         if (vm.SelectedNode is not { IsUnassigned: false } node) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-        var dialog = new HostPatternDialog(node.Name, vm.HostPatternOf(node.AreaId), vm.KnownHosts());
-        if (await dialog.ShowDialog<string?>(owner) is not { } pattern) return;
+        // Ohne eigenes Muster mit dem aus der Schulnummer abgeleiteten
+        // vorbelegen: Das Feld leer zu zeigen, obwohl die Nummer bekannt ist,
+        // heisst, den Ausdruck samt Ziffern-Grenzen von Hand zu tippen.
+        var dialog = new HostPatternDialog(
+            node.Name,
+            vm.HostTagOf(node.AreaId),
+            vm.SuggestedPatternFor(node.AreaId),
+            vm.KnownHosts(),
+            vm.KnownTags(),
+            vm.TagOfHost);
+        if (await dialog.ShowDialog<HostAssignmentRule?>(owner) is not { } rule) return;
 
-        await vm.SaveHostPatternAsync(node.AreaId, pattern.Length == 0 ? null : pattern);
+        await vm.SaveAssignmentRuleAsync(node.AreaId, rule.Tag, rule.Pattern);
+        RefreshMap();
     }
 
     /// <summary>
-    /// Sucht anhand der Host-Muster, welche Hosts zu welchem Bereich gehören.
-    /// Ordnet nichts selbst zu — 93 Bereiche und über tausend Hosts von Hand zu
-    /// verteilen ist keine Option, eine falsche Massenzuordnung hinterher
-    /// aufzuräumen aber auch nicht.
+    /// Gleicht die Checkmk-Ortstags gegen die Bereiche ab — der Schritt, der
+    /// aus 49 Handeingaben eine Sichtprüfung macht. Läuft über die Nummer im
+    /// Code der Herkunftsquelle und schreibt nichts ohne Bestätigung.
+    /// </summary>
+    private async void OnMatchTagsClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var matches = vm.SuggestTags();
+        if (matches.Count == 0)
+        {
+            vm.StatusMessage = vm.KnownTags().Count == 0
+                ? "Keine Ortstags gelesen — einmal den Hosts-Tab aktualisieren."
+                : "Keine Tag-Zuordnung ableitbar. Fehlt den Bereichen der Code aus "
+                + "der Herkunftsquelle? Standorte erneut importieren.";
+            return;
+        }
+
+        var dialog = new TagMatchDialog(matches);
+        var accepted = await dialog.ShowDialog<IReadOnlyList<TagMatch>?>(owner);
+        if (accepted is null || accepted.Count == 0) return;
+
+        await vm.ApplyTagMatchesAsync(accepted);
+        RefreshMap();
+    }
+
+    /// <summary>
+    /// Sucht anhand von Ortstag und Host-Muster, welche Hosts zu welchem
+    /// Bereich gehören. Ordnet nichts selbst zu — 93 Bereiche und über tausend
+    /// Hosts von Hand zu verteilen ist keine Option, eine falsche
+    /// Massenzuordnung hinterher aufzuräumen aber auch nicht.
     /// </summary>
     private async void OnSuggestClick(object? sender, RoutedEventArgs e)
     {
@@ -278,9 +316,10 @@ public partial class AreaView : UserControl
         var suggestions = vm.SuggestAssignments();
         if (suggestions.Count == 0)
         {
-            vm.StatusMessage = "Keine Vorschläge — kein Bereich hat ein Host-Muster, "
-                             + "oder alles passt bereits. Rechtsklick auf einen Bereich "
-                             + "→ Host-Muster…";
+            vm.StatusMessage = "Keine Vorschläge — kein Bereich hat einen Ortstag oder "
+                             + "ein Host-Muster, oder alles passt bereits. „Tags zuordnen…“ "
+                             + "in der Leiste, oder Rechtsklick auf einen Bereich "
+                             + "→ Host-Zuordnung…";
             return;
         }
 

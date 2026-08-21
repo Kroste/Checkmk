@@ -15,6 +15,7 @@ public sealed partial class ConfigViewModel : ViewModelBase
 
     private readonly ICheckmkClientProvider _clients;
     private readonly IHostOsCache _osCache;
+    private readonly IHostLocationTags _locationTags;
     private List<CheckmkObject<HostConfigExtensions>> _allHosts = [];
 
     public HostFilterCollection Filters { get; }
@@ -42,11 +43,12 @@ public sealed partial class ConfigViewModel : ViewModelBase
     private string _newHostAlias = "";
 
     public ConfigViewModel(ICheckmkClientProvider clients, HostFilterCollection filters,
-        IHostOsCache osCache, IGlobalSettingsProvider globals)
+        IHostOsCache osCache, IHostLocationTags locationTags, IGlobalSettingsProvider globals)
     {
         _clients = clients;
         Filters = filters;
         _osCache = osCache;
+        _locationTags = locationTags;
         IsHostCreationVisible = globals.Current.ShowHostCreation;
         Filters.PropertyChanged += (_, e) =>
         {
@@ -69,6 +71,7 @@ public sealed partial class ConfigViewModel : ViewModelBase
             var hosts = await client.GetHostConfigsAsync(effectiveAttributes: true);
             _allHosts = hosts.OrderBy(h => h.Id).ToList();
             _osCache.ApplyFromHostConfigs(_allHosts);
+            _locationTags.ApplyFromHostConfigs(_allHosts);
             ApplyFilter();
             StatusMessage = Filters.Active is { } f
                 ? $"{Hosts.Count} von {hosts.Count} Hosts (Filter: {f.Name})."

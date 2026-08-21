@@ -79,6 +79,18 @@ public sealed class Area
     /// ueberschreibt.</summary>
     public string? ExternalCode { get; set; }
 
+    /// <summary>
+    /// Wert eines Checkmk-Ortstags (z. B. <c>schule_46</c>), der die Hosts
+    /// dieses Bereichs traegt. Staerkeres Signal als
+    /// <see cref="HostPattern"/> und gewinnt deshalb: Der Tag ist im
+    /// Checkmk-Setup gepflegt, das Muster nur aus dem Namen erschlossen.
+    ///
+    /// Gespeichert wird der <b>Wert</b>, nicht der Schluessel — welcher
+    /// Attribut-Schluessel gilt, ist eine Eigenschaft der Umgebung und steht
+    /// in <c>GlobalSetting.HostLocationTagKeys</c>.
+    /// </summary>
+    public string? HostTag { get; set; }
+
     public string? MapLayerKey { get; set; }
     public int SortOrder { get; set; }
     public int? OwningTeamId { get; set; }

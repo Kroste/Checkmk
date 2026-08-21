@@ -17,8 +17,8 @@ public sealed class CockpitDbContext(DbContextOptions<CockpitDbContext> options)
     : DbContext(options)
 {
     /// <summary>Schema-Stand, den dieser Programmstand erwartet. Muss zu den
-    /// Skripten in <c>db/</c> passen (aktuell 005-area-hostpattern.sql).</summary>
-    public const int ExpectedSchemaVersion = 5;
+    /// Skripten in <c>db/</c> passen (aktuell 006-area-hosttag.sql).</summary>
+    public const int ExpectedSchemaVersion = 6;
 
     public DbSet<SchemaVersionRow> SchemaVersion => Set<SchemaVersionRow>();
     public DbSet<GlobalSetting> GlobalSettings => Set<GlobalSetting>();
@@ -69,6 +69,7 @@ public sealed class CockpitDbContext(DbContextOptions<CockpitDbContext> options)
             e.Property(x => x.ExternalId).HasMaxLength(128);
             e.Property(x => x.HostPattern).HasMaxLength(400);
             e.Property(x => x.ExternalCode).HasMaxLength(64);
+            e.Property(x => x.HostTag).HasMaxLength(128);
             // Bewusst keine Navigations-Property auf den Elternteil: der Baum
             // wird komplett geladen und im Speicher gebaut (ein paar Dutzend
             // Zeilen), Lazy Loading auf einer Selbstreferenz waere ein

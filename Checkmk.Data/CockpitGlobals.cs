@@ -30,6 +30,7 @@ public sealed class CockpitGlobals
     public const string KeyHostDefaultDomain   = "HostDefaultDomain";
     public const string KeyUpdateChannelUrl    = "UpdateChannelUrl";
     public const string KeyHostOsAttributeKeys = "HostOsAttributeKeys";
+    public const string KeyHostLocationTagKeys = "HostLocationTagKeys";
     public const string KeyShowHostCreation    = "ShowHostCreation";
     public const string KeyMapWmsUrl           = "MapWmsUrl";
     public const string KeyMapWmsLayer         = "MapWmsLayer";
@@ -51,6 +52,24 @@ public sealed class CockpitGlobals
         "operation_system",
         "operating_system",
         "os_family"
+    ];
+
+    /// <summary>
+    /// Kandidaten-Keys fuer den Ortstag eines Hosts, erster Treffer gewinnt.
+    /// Die Reihenfolge ist damit die Rangfolge: Ein Host mit
+    /// <c>tag_location_school</c> <b>und</b> <c>tag_location</c> zaehlt als Schule.
+    ///
+    /// Vorgabe aus dem Bestand (2026-08-21): Auf der Site <c>schul_it</c> tragen
+    /// 553 von 654 Hosts <c>tag_location_school</c> mit Werten wie
+    /// <c>schule_46</c>; <c>tag_location_filiale</c> kommt dort auf 5 Hosts vor.
+    /// Auf <c>LHP</c> ist <c>tag_location</c> mit 9 von 1438 Hosts praktisch
+    /// ungenutzt — dort traegt der Hostname die Information.
+    /// </summary>
+    public IReadOnlyList<string> HostLocationTagKeys { get; init; } =
+    [
+        "tag_location_school",
+        "tag_location_filiale",
+        "tag_location"
     ];
 
     /// <summary>Blendet das „Host anlegen"-Formular ein. Default false.</summary>
@@ -145,6 +164,7 @@ public sealed class CockpitGlobals
             HostDefaultDomain = Text(KeyHostDefaultDomain) ?? fallback.HostDefaultDomain,
             UpdateChannelUrl  = Text(KeyUpdateChannelUrl)  ?? fallback.UpdateChannelUrl,
             HostOsAttributeKeys = StringList(KeyHostOsAttributeKeys) ?? fallback.HostOsAttributeKeys,
+            HostLocationTagKeys = StringList(KeyHostLocationTagKeys) ?? fallback.HostLocationTagKeys,
             ShowHostCreation  = Bool(KeyShowHostCreation) ?? fallback.ShowHostCreation,
             MapWmsUrl         = Text(KeyMapWmsUrl)        ?? fallback.MapWmsUrl,
             MapWmsLayer       = Text(KeyMapWmsLayer)      ?? fallback.MapWmsLayer,
@@ -210,6 +230,7 @@ public sealed class CockpitGlobals
         [KeyHostDefaultDomain]   = HostDefaultDomain,
         [KeyUpdateChannelUrl]    = UpdateChannelUrl,
         [KeyHostOsAttributeKeys] = JsonSerializer.Serialize(HostOsAttributeKeys),
+        [KeyHostLocationTagKeys] = JsonSerializer.Serialize(HostLocationTagKeys),
         [KeyShowHostCreation]    = ShowHostCreation.ToString(),
         [KeyMapWmsUrl]           = MapWmsUrl,
         [KeyMapWmsLayer]         = MapWmsLayer,
