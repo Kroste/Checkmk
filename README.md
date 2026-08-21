@@ -1152,15 +1152,31 @@ sofort. Neu zeichnen ersetzt die alte Fläche.
 Bereiche ohne Fläche verschwinden nicht — sie stehen im Baum und funktionieren
 dort vollständig. Die Karte ist eine zusätzliche Sicht, keine Voraussetzung.
 
-Das Kartenmaterial sind die **Digitalen Orthophotos (20 cm) der LGB
-Brandenburg**, amtliche Daten als Open Data unter dl-de/by-2.0. Der
-Quellenvermerk unten rechts im Kartenbild ist Lizenzpflicht und bleibt deshalb
-stehen. Die Kacheln werden lokal zwischengespeichert (`%LOCALAPPDATA%\Kroste\Checkmk\tiles`),
-ein Wandmonitor befragt den Landesdienst also nicht stundenlang.
+### Kartenhintergrund wechseln
 
-> **Für Administratoren:** Kartenquelle, Layer und Quellenvermerk stehen in
-> `dbo.GlobalSetting` (`MapWmsUrl`, `MapWmsLayer`, `MapAttribution`). Ein
-> Quellenwechsel ist damit ein `UPDATE` auf eine Zeile — kein neues
+Oben rechts das Auswahlfeld **„Karte:"** — vier amtliche Hintergründe der LGB
+Brandenburg:
+
+| | wofür |
+|---|---|
+| **Luftbild** | Orthophoto 20 cm. Man erkennt Gebäude und Wege, aber eingefärbte Flächen sind auf buntem Untergrund schwerer zu lesen. |
+| **Stadtplan** | basemap.de mit Straßennamen und Beschriftung — am besten zum Wiederfinden von Adressen. |
+| **Topographisch grau** | DTK 1:10.000 in Graustufen. Hier tritt die Ampelfarbe der Bereiche am deutlichsten hervor. |
+| **Luftbild grau** | Orthophoto in Graustufen — Luftbild-Detail ohne Farbkonkurrenz. |
+
+Die Wahl wird pro Benutzer gemerkt. Der Kachel-Cache ist je Hintergrund
+getrennt, ein Wechsel mischt also nichts.
+
+Das Kartenmaterial sind amtliche Geobasisdaten der **LGB Brandenburg**, Open
+Data unter dl-de/by-2.0. Der Quellenvermerk unten rechts im Kartenbild ist
+Lizenzpflicht und bleibt deshalb stehen. Die Kacheln werden lokal
+zwischengespeichert (`%LOCALAPPDATA%\Kroste\Checkmk\tiles`), ein Wandmonitor
+befragt den Landesdienst also nicht stundenlang.
+
+> **Für Administratoren:** Die Auswahlliste steht in `dbo.GlobalSetting` unter
+> `MapLayers` (JSON: Name, Url, Layer), der Quellenvermerk unter
+> `MapAttribution`. Ein zusätzlicher Hintergrund — etwa ein eigener
+> WMS mit Gebäudeplänen — ist damit ein `UPDATE` auf eine Zeile, kein neues
 > Ausrollpaket. Anlegen mit [`db/seed-map-settings.sql`](db/seed-map-settings.sql);
 > ohne die Zeilen greifen dieselben Werte als eingebaute Vorgabe.
 

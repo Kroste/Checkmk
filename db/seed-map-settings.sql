@@ -29,7 +29,19 @@ USING (VALUES
     (N'MapWmsUrl',      N'https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms'),
     (N'MapWmsLayer',    N'bebb_dop20c'),
     -- Namensnennung ist Lizenzpflicht, nicht Zierde. Steht fest im Kartenbild.
-    (N'MapAttribution', N'© GeoBasis-DE/LGB, dl-de/by-2-0')
+    (N'MapAttribution', N'© GeoBasis-DE/LGB, dl-de/by-2-0'),
+    /* Auswaehlbare Hintergruende fuer den Umschalter im Bereiche-Tab.
+       Alle vier am 2026-08-21 gegen den Dienst geprueft (echte Kacheln fuer
+       Potsdam). Auf dem Luftbild sind eingefaerbte Flaechen schwer zu lesen,
+       weil der Untergrund selbst bunt ist — deshalb gehoert mindestens eine
+       Karte ohne Foto dazu. Reihenfolge = Reihenfolge im Auswahlfeld,
+       der erste Eintrag ist die Vorgabe. */
+    (N'MapLayers', N'[
+      {"Name":"Luftbild",           "Url":"https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",         "Layer":"bebb_dop20c"},
+      {"Name":"Stadtplan",          "Url":"https://isk.geobasis-bb.de/mapproxy/basemapde-bebb/service/wms", "Layer":"basemapde_farbe"},
+      {"Name":"Topographisch grau", "Url":"https://isk.geobasis-bb.de/mapproxy/dtk10grau/service/wms",      "Layer":"bb_dtk10_grau"},
+      {"Name":"Luftbild grau",      "Url":"https://isk.geobasis-bb.de/mapproxy/dop20g/service/wms",         "Layer":"bebb_dop20g"}
+    ]')
 ) AS source ([Key], [Value])
     ON target.[Key] = source.[Key]
 WHEN NOT MATCHED THEN

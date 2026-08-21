@@ -8,7 +8,7 @@
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- Toolbar -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="8"
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="8"
           Margin="4,4,4,8">
       <Button Grid.Column="0" Content="Neuer Bereich…" Click="OnNewAreaClick"
               IsVisible="{Binding CanWrite}" IsEnabled="{Binding !IsBusy}" />
@@ -28,7 +28,10 @@
               IsVisible="{Binding CanWrite}"
               IsEnabled="{Binding CanEditSelection}"
               ToolTip.Tip="Klicken setzt Punkte, Doppelklick oder Enter schließt die Fläche, Esc bricht ab, Rücktaste nimmt den letzten Punkt zurück." />
-      <Button Grid.Column="5" Content="Neu laden" Command="{Binding ReloadCommand}"
+      <TextBlock Grid.Column="5" Text="Karte:" VerticalAlignment="Center" Foreground="#AAAAAA" />
+      <ComboBox Grid.Column="6" Name="LayerBox" MinWidth="160" VerticalAlignment="Center"
+                ToolTip.Tip="Kartenhintergrund. Auf dem Luftbild sind eingefärbte Flächen schwerer zu lesen — der Stadtplan hat Straßennamen, die Graustufenkarte lässt die Ampel am deutlichsten hervortreten." />
+      <Button Grid.Column="7" Content="Neu laden" Command="{Binding ReloadCommand}"
               IsEnabled="{Binding !IsBusy}" />
     </Grid>
 

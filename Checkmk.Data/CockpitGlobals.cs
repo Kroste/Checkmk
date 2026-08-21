@@ -10,6 +10,9 @@ namespace Checkmk.Data;
 /// Nicht enthalten und niemals hier: das Verbindungs-Secret und die
 /// SSH-Passwoerter. Die bleiben user-lokal und DPAPI-gebunden.
 /// </summary>
+/// <summary>Ein auswaehlbarer Kartenhintergrund (WMS-Adresse + Layername).</summary>
+public sealed record MapLayerDefinition(string Name, string Url, string Layer);
+
 public sealed class CockpitGlobals
 {
     public const string KeyHostDefaultDomain   = "HostDefaultDomain";
@@ -19,6 +22,7 @@ public sealed class CockpitGlobals
     public const string KeyMapWmsUrl           = "MapWmsUrl";
     public const string KeyMapWmsLayer         = "MapWmsLayer";
     public const string KeyMapAttribution      = "MapAttribution";
+    public const string KeyMapLayers           = "MapLayers";
 
     public string HostDefaultDomain { get; init; } = "lhp.intern";
 
@@ -59,6 +63,24 @@ public sealed class CockpitGlobals
     public string MapAttribution { get; init; } = "© GeoBasis-DE/LGB, dl-de/by-2-0";
 
     /// <summary>
+    /// Auswaehlbare Kartenhintergruende. Alle vier sind gegen den Dienst der LGB
+    /// geprueft (2026-08-21) und liefern echte Kacheln fuer Potsdam.
+    ///
+    /// Warum mehrere: Auf einem Luftbild sind eingefaerbte Flaechen schwer zu
+    /// lesen, weil der Untergrund selbst bunt ist. Der Stadtplan zeigt
+    /// Strassennamen zum Wiederfinden, die Graustufen-Karte laesst die Ampel am
+    /// deutlichsten hervortreten. Welche passt, entscheidet die Aufgabe — also
+    /// umschaltbar statt vorgeschrieben.
+    /// </summary>
+    public IReadOnlyList<MapLayerDefinition> MapLayers { get; init; } =
+    [
+        new("Luftbild",          "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",           "bebb_dop20c"),
+        new("Stadtplan",         "https://isk.geobasis-bb.de/mapproxy/basemapde-bebb/service/wms",   "basemapde_farbe"),
+        new("Topographisch grau","https://isk.geobasis-bb.de/mapproxy/dtk10grau/service/wms",        "bb_dtk10_grau"),
+        new("Luftbild grau",     "https://isk.geobasis-bb.de/mapproxy/dop20g/service/wms",           "bebb_dop20g")
+    ];
+
+    /// <summary>
     /// Baut die Vorgaben aus den Schluessel/Wert-Zeilen. Unbekannte Schluessel
     /// werden ignoriert, fehlende behalten ihren Default — ein halb gepflegter
     /// Datenbestand darf die Anwendung nicht lahmlegen.
@@ -75,7 +97,8 @@ public sealed class CockpitGlobals
             ShowHostCreation  = Bool(KeyShowHostCreation) ?? fallback.ShowHostCreation,
             MapWmsUrl         = Text(KeyMapWmsUrl)        ?? fallback.MapWmsUrl,
             MapWmsLayer       = Text(KeyMapWmsLayer)      ?? fallback.MapWmsLayer,
-            MapAttribution    = Text(KeyMapAttribution)   ?? fallback.MapAttribution
+            MapAttribution    = Text(KeyMapAttribution)   ?? fallback.MapAttribution,
+            MapLayers         = LayerList(KeyMapLayers)   ?? fallback.MapLayers
         };
 
         string? Text(string key)
@@ -83,6 +106,28 @@ public sealed class CockpitGlobals
 
         bool? Bool(string key)
             => Text(key) is { } s && bool.TryParse(s, out var b) ? b : null;
+
+        IReadOnlyList<MapLayerDefinition>? LayerList(string key)
+        {
+            if (Text(key) is not { } s) return null;
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<List<MapLayerDefinition>>(
+                    s, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                // Eintraege ohne Adresse oder Layer waeren stumme Fehlkacheln —
+                // lieber aussortieren als eine leere Karte zeigen.
+                var usable = parsed?
+                    .Where(l => !string.IsNullOrWhiteSpace(l.Name)
+                             && !string.IsNullOrWhiteSpace(l.Url)
+                             && !string.IsNullOrWhiteSpace(l.Layer))
+                    .ToList();
+                return usable is { Count: > 0 } ? usable : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
 
         IReadOnlyList<string>? StringList(string key)
         {
@@ -110,6 +155,7 @@ public sealed class CockpitGlobals
         [KeyShowHostCreation]    = ShowHostCreation.ToString(),
         [KeyMapWmsUrl]           = MapWmsUrl,
         [KeyMapWmsLayer]         = MapWmsLayer,
-        [KeyMapAttribution]      = MapAttribution
+        [KeyMapAttribution]      = MapAttribution,
+        [KeyMapLayers]           = JsonSerializer.Serialize(MapLayers)
     };
 }

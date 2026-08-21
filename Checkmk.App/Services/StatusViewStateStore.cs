@@ -24,6 +24,12 @@ public sealed class StatusViewState
     public long LastHostBytes { get; set; }
 
     public long LastServiceBytes { get; set; }
+
+    /// <summary>Zuletzt gewaehlter Kartenhintergrund im Bereiche-Tab (Name aus
+    /// <c>MapLayers</c>). Liegt hier statt in der Datenbank, weil es eine
+    /// persoenliche Ansichtsvorliebe ist wie Baum-vs-Tabelle — der eine mag den
+    /// Stadtplan, der andere das Luftbild.</summary>
+    public string MapLayerName { get; set; } = "";
 }
 
 public interface IStatusViewStateStore

@@ -175,10 +175,19 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
      dem Mauszeiger weg. Beim Zoomen bleibt der Punkt unter dem Zeiger stehen.
   5. **Treffererkennung: kleinste Fläche gewinnt.** Sonst verdeckt der Campus
      die Serverräume darin.
-  Kachel-URL, Layer und Quellenvermerk stehen in `GlobalSetting` — ein
-  Quellenwechsel ist ein `UPDATE`, kein Rollout (`db/seed-map-settings.sql`).
+  **Vier Hintergründe umschaltbar** (`GlobalSetting.MapLayers`, alle gegen den
+  LGB-Dienst verifiziert): Luftbild (`bebb_dop20c`), Stadtplan
+  (`basemapde_farbe`), Topographisch grau (`bb_dtk10_grau`), Luftbild grau
+  (`bebb_dop20g`). Nicht wegkürzen auf „nur Luftbild": auf buntem Untergrund
+  sind eingefärbte Flächen schwer zu lesen, die Graustufenkarte ist für den
+  Ampelblick die bessere. Die Wahl liegt user-lokal in `statusview.json` —
+  persönliche Ansichtsvorliebe, keine zentrale Vorgabe.
   Der Cache-Pfad trägt einen Hash aus URL+Layer, sonst zeigt die Karte nach dem
-  Umstellen weiter das alte Bild. **Der Quellenvermerk im Kartenbild ist
+  Umstellen weiter das alte Bild; beim Umschalten wird zusätzlich der
+  Speichercache geleert. ALKIS (`/ows/alkis_wms`) ist erreichbar, taugt aber
+  **nicht** als Hintergrund: `Farbe`/`SW`/`Gelb` sind Stile, keine Layer, und
+  die `adv_alkis_*`-Layer sind dünne Fachthemen — als Flächenkarte müsste man
+  sie kombinieren. **Der Quellenvermerk im Kartenbild ist
   Lizenzpflicht** (dl-de/by-2.0), nicht Zierde — nicht in ein Menü verschieben.
 - **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
   **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal

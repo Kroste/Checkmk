@@ -10,6 +10,7 @@ using Checkmk.App.Controls;
 using Checkmk.App.Services;
 using Checkmk.App.ViewModels;
 using Checkmk.Core.Models;
+using Checkmk.Data;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkmk.App.Views;
@@ -31,13 +32,50 @@ public partial class AreaView : UserControl
 
             // GetService wegen des XAML-Previewers (kein DI-Container).
             if (App.Services?.GetService<MapTileLoader>() is { } tiles)
+            {
                 _map.Attach(tiles);
+                SetUpLayerBox(tiles);
+            }
         }
 
         DataContextChanged += (_, _) => BindViewModel();
     }
 
     private AreaViewModel? Vm => DataContext as AreaViewModel;
+
+    /// <summary>
+    /// Füllt den Kartenumschalter und stellt die zuletzt gewählte Ebene wieder
+    /// her. Die Vorliebe liegt user-lokal in <c>statusview.json</c> — welchen
+    /// Hintergrund jemand mag, ist keine zentrale Vorgabe.
+    /// </summary>
+    private void SetUpLayerBox(MapTileLoader tiles)
+    {
+        var box = this.FindControl<ComboBox>("LayerBox");
+        if (box is null || tiles.Layers.Count == 0) return;
+
+        foreach (var layer in tiles.Layers) box.Items.Add(layer);
+
+        var store = App.Services?.GetService<IStatusViewStateStore>();
+        var wanted = store?.Load().MapLayerName;
+        var initial = tiles.Layers.FirstOrDefault(
+                          l => string.Equals(l.Name, wanted, StringComparison.OrdinalIgnoreCase))
+                      ?? tiles.Layers[0];
+
+        tiles.Active = initial;
+        box.SelectedItem = initial;
+
+        box.SelectionChanged += (_, _) =>
+        {
+            if (box.SelectedItem is not MapLayerDefinition chosen) return;
+            tiles.Active = chosen;
+            _map?.InvalidateVisual();
+
+            if (store is null) return;
+            var state = store.Load();
+            state.MapLayerName = chosen.Name;
+            store.Save(state);
+        };
+    }
 
     private void BindViewModel()
     {

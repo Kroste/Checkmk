@@ -65,6 +65,32 @@ public sealed class MapTileLoader : IDisposable
 
     public string Attribution => _globals.Current.MapAttribution;
 
+    /// <summary>Auswählbare Hintergründe aus den zentralen Einstellungen.</summary>
+    public IReadOnlyList<MapLayerDefinition> Layers => _globals.Current.MapLayers;
+
+    private MapLayerDefinition? _active;
+
+    /// <summary>
+    /// Aktiver Hintergrund. Ohne Auswahl gilt der erste aus <see cref="Layers"/>,
+    /// sonst die Einzelwerte <c>MapWmsUrl</c>/<c>MapWmsLayer</c> — so bleibt eine
+    /// Installation lauffähig, die nur die alten Schlüssel gesetzt hat.
+    /// </summary>
+    public MapLayerDefinition Active
+    {
+        get => _active
+            ?? _globals.Current.MapLayers.FirstOrDefault()
+            ?? new MapLayerDefinition("Karte", _globals.Current.MapWmsUrl, _globals.Current.MapWmsLayer);
+        set
+        {
+            if (_active == value) return;
+            _active = value;
+            // Speichercache leeren: sonst zeigt die Karte nach dem Umschalten
+            // weiter die Kacheln der alten Ebene. Der Plattencache trennt schon
+            // ueber den Hash im Pfad.
+            ForgetMemory();
+        }
+    }
+
     /// <summary>Kachel aus dem Speicher — <c>null</c>, wenn sie noch nicht da
     /// ist. Die Zeichenfläche fragt so ab und zeichnet erst, was vorliegt.</summary>
     public Bitmap? Peek(TileKey key) => _memory.GetValueOrDefault(key);
@@ -154,8 +180,7 @@ public sealed class MapTileLoader : IDisposable
         }
     }
 
-    private string BuildUrl(TileKey key)
-        => BuildUrl(_globals.Current.MapWmsUrl, _globals.Current.MapWmsLayer, key);
+    private string BuildUrl(TileKey key) => BuildUrl(Active.Url, Active.Layer, key);
 
     /// <summary>
     /// WMS-GetMap für genau die Bounding-Box dieser Kachel, in EPSG:3857.
@@ -203,9 +228,8 @@ public sealed class MapTileLoader : IDisposable
     /// </summary>
     private string CachePath(TileKey key)
     {
-        var g = _globals.Current;
         var id = Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(g.MapWmsUrl + "|" + g.MapWmsLayer)))[..8];
+            SHA256.HashData(Encoding.UTF8.GetBytes(Active.Url + "|" + Active.Layer)))[..8];
         return Path.Combine(_cacheRoot, id, key.Zoom.ToString(), key.X.ToString(), $"{key.Y}.png");
     }
 
