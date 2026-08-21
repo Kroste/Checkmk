@@ -27,7 +27,9 @@ public partial class AreaView : UserControl
         if (_map is not null)
         {
             _map.AreaClicked += OnMapAreaClicked;
+            _map.AreaRightClicked += OnMapAreaRightClicked;
             _map.DrawingFinished += OnMapDrawingFinished;
+            _map.GeometryEdited += OnMapGeometryEdited;
             _map.DrawingModeChanged += UpdateDrawState;
 
             // GetService wegen des XAML-Previewers (kein DI-Container).
@@ -62,11 +64,16 @@ public partial class AreaView : UserControl
                       ?? tiles.Layers[0];
 
         tiles.Active = initial;
+        _userLayer = initial;
         box.SelectedItem = initial;
 
         box.SelectionChanged += (_, _) =>
         {
             if (box.SelectedItem is not MapLayerDefinition chosen) return;
+            // Die Wahl in der Toolbar ist die persoenliche Vorliebe und bleibt
+            // als Rueckfallebene stehen, wenn ein Bereich mit eigenem
+            // Hintergrund markiert und wieder verlassen wird.
+            _userLayer = chosen;
             tiles.Active = chosen;
             _map?.InvalidateVisual();
 
@@ -91,6 +98,11 @@ public partial class AreaView : UserControl
         if (_map is null || Vm is null) return;
 
         _map.HighlightedAreaId = Vm.SelectedNode is { IsUnassigned: false } n ? n.AreaId : null;
+        UpdateDrawState();
+        ApplyAreaLayer();
+
+        // Kam die Auswahl vom Klick auf die Karte, bleibt die Ansicht stehen.
+        if (_selectionFromMap) { _map.InvalidateVisual(); return; }
 
         // Auf die Lage springen, wenn es eine gibt — sonst muesste man sie auf
         // einer Stadtkarte erst suchen. Flaeche gewinnt vor Punkt.
@@ -105,6 +117,58 @@ public partial class AreaView : UserControl
             return;
         }
         _map.InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Schaltet auf den Hintergrund, den der markierte Bereich vorgibt — und
+    /// zurück auf die Wahl des Anwenders, sobald ein Bereich ohne eigene
+    /// Vorgabe markiert wird.
+    ///
+    /// Der Sinn: Auf der Campus-Ebene ist ein Gebäudeplan brauchbar, auf der
+    /// Stadtebene nicht. Die Toolbar-Auswahl bleibt die persönliche Vorliebe;
+    /// sie wird hier <b>nicht</b> überschrieben, nur vorübergehend übersteuert.
+    /// </summary>
+    private void ApplyAreaLayer()
+    {
+        if (_map is null || Vm is null) return;
+        if (App.Services?.GetService<MapTileLoader>() is not { } tiles) return;
+
+        var wanted = Vm.SelectedNode is { IsUnassigned: false } sel
+            ? Vm.MapLayerOf(sel.AreaId)
+            : null;
+
+        var target = wanted is null
+            ? _userLayer
+            : tiles.Layers.FirstOrDefault(
+                  l => string.Equals(l.Name, wanted, StringComparison.OrdinalIgnoreCase))
+              ?? _userLayer;
+
+        if (target is null || ReferenceEquals(tiles.Active, target)) return;
+
+        tiles.Active = target;
+        _map.InvalidateVisual();
+    }
+
+    /// <summary>Der in der Toolbar gewählte Hintergrund — die persönliche Vorliebe.</summary>
+    private MapLayerDefinition? _userLayer;
+
+    /// <summary>
+    /// Eigener Kartenhintergrund für den markierten Bereich. „(Vorgabe)"
+    /// entfernt ihn wieder.
+    /// </summary>
+    private async void OnAreaLayerClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (vm.SelectedNode is not { IsUnassigned: false } node) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        if (App.Services?.GetService<MapTileLoader>() is not { } tiles) return;
+
+        var dialog = new MapLayerDialog(node.Name,
+            [.. tiles.Layers.Select(l => l.Name)], vm.MapLayerOf(node.AreaId));
+        if (await dialog.ShowDialog<MapLayerChoice?>(owner) is not { } choice) return;
+
+        await vm.SaveMapLayerAsync(node.AreaId, choice.LayerName);
+        ApplyAreaLayer();
     }
 
     /// <summary>Flächen und Farben neu an die Karte geben.</summary>
@@ -139,9 +203,34 @@ public partial class AreaView : UserControl
             _ => Color.FromRgb(0x66, 0xBB, 0x6A)
         };
 
+    /// <summary>
+    /// Klick auf der Karte markiert den Bereich im Baum — aber <b>ohne</b> die
+    /// Ansicht neu einzupassen. Der Anwender sieht die Fläche ja gerade; sie
+    /// unter dem Zeiger wegspringen zu lassen, ist beim Rechtsklick sogar
+    /// schädlich, weil das Kontextmenü dann über einer anderen Stelle steht.
+    /// </summary>
     private void OnMapAreaClicked(int areaId)
     {
-        if (Vm?.NodeOf(areaId) is { } node) Vm.SelectedNode = node;
+        if (Vm?.NodeOf(areaId) is not { } node) return;
+
+        _selectionFromMap = true;
+        try { Vm.SelectedNode = node; }
+        finally { _selectionFromMap = false; }
+    }
+
+    private bool _selectionFromMap;
+
+    /// <summary>
+    /// Rechtsklick auf der Karte öffnet dasselbe Menü wie im Baum. Der Weg
+    /// „Fläche sehen → im Baum suchen → Rechtsklick" war der Umweg, den man
+    /// bei jedem Zuordnen ging.
+    /// </summary>
+    private void OnMapAreaRightClicked(int areaId)
+    {
+        if (Vm is not { CanWrite: true } || _map is null) return;
+        if (this.FindControl<ContextMenu>("MapMenu") is not { } menu) return;
+
+        menu.Open(_map);
     }
 
     private async void OnMapDrawingFinished(IReadOnlyList<GeoPoint> points)
@@ -153,14 +242,36 @@ public partial class AreaView : UserControl
         RefreshMap();
     }
 
+    private async void OnMapGeometryEdited(int areaId, IReadOnlyList<GeoPoint> points)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+
+        await vm.SaveGeometryAsync(areaId, MapGeometry.ToGeoJson(points));
+        RefreshMap();
+    }
+
     private void UpdateDrawState()
     {
         var drawing = _map?.IsDrawing ?? false;
+        var editing = _map?.IsEditing ?? false;
+
         if (this.FindControl<Button>("DrawButton") is { } b)
             b.Content = drawing ? "Zeichnen abbrechen" : "Fläche zeichnen";
+        if (this.FindControl<Button>("EditButton") is { } eb)
+        {
+            eb.Content = editing ? "Bearbeitung beenden" : "Fläche bearbeiten";
+            eb.IsVisible = editing || CanEditSelectedArea();
+        }
         if (this.FindControl<Border>("DrawHint") is { } hint)
             hint.IsVisible = drawing;
+        if (this.FindControl<Border>("EditHint") is { } ehint)
+            ehint.IsVisible = editing;
     }
+
+    /// <summary>Hat der markierte Bereich überhaupt eine Fläche zum Bearbeiten?</summary>
+    private bool CanEditSelectedArea()
+        => Vm is { CanWrite: true, SelectedNode: { IsUnassigned: false } node }
+        && _map?.Shapes.Any(s => s.AreaId == node.AreaId && s.HasArea) == true;
 
     /// <summary>
     /// Holt die Verwaltungsstandorte der Landeshauptstadt und legt die
@@ -407,6 +518,24 @@ public partial class AreaView : UserControl
         vm.StatusMessage = $"Fläche für „{node.Name}“ zeichnen — Punkte klicken, "
                          + "Doppelklick oder Enter schließt ab.";
         _map.BeginDrawing();
+    }
+
+    /// <summary>
+    /// Nimmt die Fläche des markierten Bereichs in die Bearbeitung. Bis hierher
+    /// musste man sie neu zeichnen, wenn eine einzige Ecke daneben lag — bei
+    /// einem Campus mit einem Dutzend Ecken dauert das länger als das erste Mal.
+    /// </summary>
+    private void OnEditAreaClick(object? sender, RoutedEventArgs e)
+    {
+        if (_map is null || Vm is not { CanWrite: true } vm) return;
+
+        if (_map.IsEditing) { _map.FinishEditing(); return; }
+        if (vm.SelectedNode is not { IsUnassigned: false } node) return;
+
+        vm.StatusMessage = $"Fläche von „{node.Name}“ bearbeiten — Punkte ziehen, "
+                         + "Kantenmitte klicken fügt ein, Rechtsklick entfernt, "
+                         + "Enter übernimmt, Esc verwirft.";
+        _map.BeginEditing(node.AreaId);
     }
 
     private async void OnNewAreaClick(object? sender, RoutedEventArgs e)

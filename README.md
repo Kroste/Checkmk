@@ -1258,7 +1258,39 @@ zuerst den Marker — er ist klein und liegt oft mitten in einer größeren Flä
 **Eine Fläche einzeichnen:** Bereich im Baum markieren → **„Fläche zeichnen"** →
 Ecken nacheinander anklicken. **Doppelklick** oder **Enter** schließt die Fläche,
 **Rücktaste** nimmt den letzten Punkt zurück, **Esc** bricht ab. Gespeichert wird
-sofort. Neu zeichnen ersetzt die alte Fläche.
+sofort.
+
+**Eine Fläche nachbessern:** Liegt eine Ecke daneben, musst du nicht alles neu
+zeichnen. Bereich markieren → **„Fläche bearbeiten"** (der Knopf erscheint nur,
+wenn es eine Fläche gibt):
+
+| Handgriff | Wirkung |
+|---|---|
+| Griff ziehen | Ecke verschieben |
+| Kantenmitte anklicken | neue Ecke einfügen — gleich weiterziehen |
+| Rechtsklick auf einen Griff, oder **Entf** | Ecke entfernen |
+| **Enter** | übernehmen |
+| **Esc** | verwerfen, alles bleibt wie es war |
+
+Die Karte lässt sich dabei weiter schieben. Unter drei Ecken geht es nicht — aus
+einer Fläche würde sonst eine Linie, die man weder sieht noch anklicken kann.
+
+### Rechtsklick auf der Karte
+
+Auf einer Fläche oder einem Marker öffnet der Rechtsklick dasselbe Menü wie im
+Baum: **Hosts zuweisen**, **Technik verschieben**, **Host-Zuordnung**, **Fläche
+bearbeiten**, **Kartenhintergrund** und **Umbenennen**. Du musst den Standort
+also nicht erst im Baum wiederfinden.
+
+Die Ansicht springt dabei **nicht** — du siehst die Fläche ja gerade.
+
+### Eigener Hintergrund je Bereich
+
+Auf der Campus-Ebene ist die Liegenschaftskarte brauchbar, auf der
+Stadtübersicht unlesbar. Deshalb kann ein Bereich seinen eigenen Hintergrund
+mitbringen: Rechtsklick → **„Kartenhintergrund…"**. Markierst du den Bereich,
+schaltet die Karte automatisch um; verlässt du ihn, gilt wieder deine Auswahl
+aus der Toolbar. **„(Vorgabe)"** entfernt die Bindung.
 
 ### Standorte übernehmen statt tippen
 

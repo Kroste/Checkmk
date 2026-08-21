@@ -346,6 +346,30 @@ public sealed partial class AreaViewModel : ViewModelBase
     public string? HostTagOf(int areaId)
         => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.HostTag;
 
+    /// <summary>Eigener Kartenhintergrund eines Bereichs, oder <c>null</c>.</summary>
+    public string? MapLayerOf(int areaId)
+        => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.MapLayerKey;
+
+    public async Task SaveMapLayerAsync(int areaId, string? layerKey)
+    {
+        if (!CanWrite) return;
+        try
+        {
+            IsBusy = true;
+            await _areas.SaveMapLayerAsync(areaId, layerKey);
+            StatusMessage = layerKey is null
+                ? $"{NodeOf(areaId)?.Name}: Kartenhintergrund auf Vorgabe zurückgesetzt."
+                : $"{NodeOf(areaId)?.Name}: Kartenhintergrund „{layerKey}“.";
+            MapChanged?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Kartenhintergrund konnte nicht gespeichert werden.");
+            StatusMessage = $"Speichern fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>
     /// Muster-Vorschlag für einen Bereich, der noch keins hat — aus dem Code
     /// der Herkunftsquelle. Damit steht im Dialog etwas Sinnvolles, statt dass

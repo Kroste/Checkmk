@@ -16,6 +16,54 @@ public readonly record struct GeoPoint(double Lon, double Lat);
 public static class MapGeometry
 {
     /// <summary>
+    /// Kleinste Eckenzahl einer Fläche. Zwei Punkte sind eine Linie; als
+    /// Polygon gespeichert ergäbe das einen Bereich ohne Inhalt, der sich
+    /// später weder anklicken noch sinnvoll anzeigen lässt.
+    /// </summary>
+    public const int MinimumVertices = 3;
+
+    /// <summary>
+    /// Fügt auf der Kante <paramref name="edgeIndex"/> (von dort zum nächsten
+    /// Punkt, mit Umlauf) eine neue Ecke in der Mitte ein und gibt die neue
+    /// Liste zurück.
+    ///
+    /// <b>Die Mitte wird geografisch gebildet</b>, nicht auf dem Bildschirm.
+    /// Über eine einzelne Kante ist der Unterschied in Mercator vernachlässigbar,
+    /// aber so hängt das Ergebnis nicht davon ab, wie weit gerade gezoomt ist —
+    /// zweimal Einfügen an derselben Kante ergibt bei jedem Zoom dasselbe.
+    /// </summary>
+    public static IReadOnlyList<GeoPoint> InsertMidpoint(
+        IReadOnlyList<GeoPoint> points, int edgeIndex)
+    {
+        if (points.Count == 0) return points;
+        if (edgeIndex < 0 || edgeIndex >= points.Count) return points;
+
+        var a = points[edgeIndex];
+        var b = points[(edgeIndex + 1) % points.Count];
+
+        var result = points.ToList();
+        result.Insert(edgeIndex + 1,
+            new GeoPoint((a.Lon + b.Lon) / 2, (a.Lat + b.Lat) / 2));
+        return result;
+    }
+
+    /// <summary>
+    /// Entfernt eine Ecke. Gibt die <b>unveränderte</b> Liste zurück, wenn
+    /// dabei weniger als <see cref="MinimumVertices"/> Punkte übrig blieben —
+    /// so bleibt aus einer Fläche nie stillschweigend eine Linie.
+    /// </summary>
+    public static IReadOnlyList<GeoPoint> RemoveVertex(
+        IReadOnlyList<GeoPoint> points, int index)
+    {
+        if (index < 0 || index >= points.Count) return points;
+        if (points.Count <= MinimumVertices) return points;
+
+        var result = points.ToList();
+        result.RemoveAt(index);
+        return result;
+    }
+
+    /// <summary>
     /// Liest ein GeoJSON-Polygon. Akzeptiert sowohl ein nacktes
     /// <c>Polygon</c>-Geometrieobjekt als auch ein <c>Feature</c> mit
     /// <c>geometry</c> darin — beides kommt aus üblichen Werkzeugen, und an

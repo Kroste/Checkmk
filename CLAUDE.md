@@ -331,6 +331,34 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
      dem Mauszeiger weg. Beim Zoomen bleibt der Punkt unter dem Zeiger stehen.
   5. **Treffererkennung: kleinste Fläche gewinnt.** Sonst verdeckt der Campus
      die Serverräume darin.
+- **Flächen sind nachbearbeitbar** („Fläche bearbeiten", `MapCanvas.BeginEditing`).
+  Bis dahin musste man eine Fläche neu zeichnen, wenn eine einzige Ecke daneben
+  lag — bei einem Campus mit einem Dutzend Ecken dauert das länger als das
+  erste Mal. Ecken ziehen, Kantenmitte klicken fügt ein, Rechtsklick oder Entf
+  entfernt, Enter übernimmt, Esc verwirft. Vier Punkte:
+  1. **Gearbeitet wird auf einer Kopie.** Esc muss zum unveränderten Ausgangs-
+     zustand zurückführen, und der steht in `Shapes`.
+  2. **Nie unter drei Ecken** (`MapGeometry.MinimumVertices`). Sonst bliebe eine
+     Linie stehen, die als Fläche gespeichert würde — unsichtbar und nicht
+     anklickbar. `RemoveVertex` gibt in dem Fall die Liste unverändert zurück.
+  3. **Die Kantenmitte wird geografisch gebildet, nicht auf dem Bildschirm.**
+     Sonst hinge das Ergebnis von der Zoomstufe ab.
+  4. **Die Kante vom letzten zum ersten Punkt hat auch einen Griff** (Umlauf in
+     `InsertMidpoint`) — genau dort fehlt beim Nachzeichnen am häufigsten eine
+     Ecke.
+- **Rechtsklick auf der Karte** öffnet dasselbe Menü wie am Baum (Hosts
+  zuweisen, Technik verschieben, Host-Zuordnung, Fläche bearbeiten,
+  Kartenhintergrund). Der Weg „Fläche sehen → im Baum suchen → Rechtsklick" war
+  der Umweg bei jedem Zuordnen. **Ein Klick auf der Karte passt die Ansicht
+  nicht neu ein** (`_selectionFromMap`): Man sieht die Fläche ja gerade, und
+  beim Rechtsklick stünde das Menü sonst über einer anderen Stelle.
+- **`Area.MapLayerKey` ist der Hintergrund je Bereich.** Auf der Campus-Ebene
+  ist die Liegenschaftskarte brauchbar, auf der Stadtübersicht unlesbar —
+  deshalb hängt die Wahl am Bereich, nicht an der Zoomstufe. Gespeichert wird
+  der **Name** aus `MapLayers`, nicht die Adresse: Wechselt die Quelle, ist das
+  ein `UPDATE` an einer Stelle statt an 93 Bereichen. Die Toolbar-Auswahl bleibt
+  die persönliche Vorliebe und wird nur **übersteuert**, nicht überschrieben
+  (`_userLayer`); ein Name, den es nicht mehr gibt, fällt auf die Vorgabe zurück.
   **Sechs Hintergründe umschaltbar** (`GlobalSetting.MapLayers`, alle einzeln
   gegen die Dienste verifiziert, Zoom 18 über dem Rathaus):
 
@@ -846,10 +874,9 @@ sieht alles.
     der Quelle ein `UPDATE` und kein Rollout. Für die Campus-Ebene benennt
     `Area.MapLayerKey` die Rasterquelle je Bereich.
 
-    **Stand:** Kachelkarte, Polygon-Overlay mit Rollup-Einfärbung, Zeichnen und
-    Treffererkennung sind gebaut (Details in §4). Offen: eine bestehende Fläche
-    nachbearbeiten (Punkte ziehen) statt neu zu zeichnen, `MapLayerKey` je
-    Bereich für eigene Campus-Raster, und Hosts direkt aus der Karte zuweisen.
+    ✅ **Fertig.** Kachelkarte, Polygon-Overlay mit Rollup-Einfärbung, Zeichnen,
+    Treffererkennung, **Nachbearbeiten**, Kontextmenü auf der Karte und
+    `MapLayerKey` je Bereich (Details in §4).
 28. **Team-Sichten/Kiosk** — Viewer-Modus um Startbereich + Zoom erweitern.
     Wie beim Viewer-Modus gilt: Sichtbarkeitsgrenzen sind Bedienkomfort, die
     echte Grenze ist die Checkmk-Rolle.

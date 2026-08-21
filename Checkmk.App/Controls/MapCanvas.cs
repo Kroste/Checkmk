@@ -45,6 +45,18 @@ public sealed class MapCanvas : Control
     private readonly List<GeoPoint> _draft = [];
     private GeoPoint? _draftCursor;
 
+    // Bearbeiten einer bestehenden Flaeche: Punkte ziehen, einfuegen, entfernen.
+    private int? _editAreaId;
+    private readonly List<GeoPoint> _edit = [];
+    private int _dragVertex = -1;
+    private int _hoverVertex = -1;
+    private int _hoverMidpoint = -1;
+
+    /// <summary>Anfassradius für Griffe. Kleiner, und man trifft sie mit der
+    /// Maus nicht zuverlässig; größer, und benachbarte Punkte überlappen.</summary>
+    private const double HandleRadius = 6.0;
+    private const double GrabRadius = 10.0;
+
     public MapCanvas()
     {
         ClipToBounds = true;
@@ -60,13 +72,25 @@ public sealed class MapCanvas : Control
     /// <summary>true, solange der Anwender eine Fläche zeichnet.</summary>
     public bool IsDrawing { get; private set; }
 
+    /// <summary>true, solange eine bestehende Fläche bearbeitet wird.</summary>
+    public bool IsEditing => _editAreaId is not null;
+
+    /// <summary>Zeichnen oder Bearbeiten — für Toolbar-Zustände.</summary>
+    public bool IsBusy => IsDrawing || IsEditing;
+
     /// <summary>Klick auf eine Fläche (im Normalmodus).</summary>
     public event Action<int>? AreaClicked;
+
+    /// <summary>Rechtsklick auf eine Fläche oder einen Marker.</summary>
+    public event Action<int>? AreaRightClicked;
 
     /// <summary>Zeichnen abgeschlossen — liefert das fertige Polygon.</summary>
     public event Action<IReadOnlyList<GeoPoint>>? DrawingFinished;
 
-    /// <summary>Zeichenmodus verlassen (fertig oder abgebrochen), für die Toolbar.</summary>
+    /// <summary>Bearbeiten abgeschlossen — Bereichs-Id und das geänderte Polygon.</summary>
+    public event Action<int, IReadOnlyList<GeoPoint>>? GeometryEdited;
+
+    /// <summary>Zeichen- oder Bearbeitungsmodus verlassen, für die Toolbar.</summary>
     public event Action? DrawingModeChanged;
 
     public void Attach(MapTileLoader tiles)
@@ -145,6 +169,121 @@ public sealed class MapCanvas : Control
     }
 
     // ------------------------------------------------------------------
+    // Bearbeitungsmodus
+    //
+    // Eine Fläche neu zeichnen zu müssen, weil ein Punkt daneben liegt, ist
+    // der ärgerlichste Handgriff an der Karte: Ein Campus hat schnell ein
+    // Dutzend Ecken, und alle wieder zu setzen dauert länger als das erste Mal.
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Nimmt die Fläche eines Bereichs in die Bearbeitung. Gearbeitet wird auf
+    /// einer <b>Kopie</b> — Esc muss zum unveränderten Ausgangszustand
+    /// zurückführen, und der steht in <see cref="Shapes"/>.
+    /// </summary>
+    public void BeginEditing(int areaId)
+    {
+        var shape = Shapes.FirstOrDefault(s => s.AreaId == areaId && s.HasArea);
+        if (shape is null) return;
+
+        CancelDrawing();
+        _editAreaId = areaId;
+        _edit.Clear();
+        _edit.AddRange(shape.Points);
+        _dragVertex = -1;
+        Focus();
+        DrawingModeChanged?.Invoke();
+        InvalidateVisual();
+    }
+
+    public void CancelEditing()
+    {
+        if (!IsEditing) return;
+        _editAreaId = null;
+        _edit.Clear();
+        _dragVertex = _hoverVertex = _hoverMidpoint = -1;
+        DrawingModeChanged?.Invoke();
+        InvalidateVisual();
+    }
+
+    /// <summary>Übernimmt die Änderung. Unter drei Punkten ist es keine Fläche mehr.</summary>
+    public void FinishEditing()
+    {
+        if (_editAreaId is not { } areaId) return;
+
+        var points = _edit.ToList();
+        _editAreaId = null;
+        _edit.Clear();
+        _dragVertex = _hoverVertex = _hoverMidpoint = -1;
+        DrawingModeChanged?.Invoke();
+        InvalidateVisual();
+
+        if (points.Count >= MapGeometry.MinimumVertices)
+            GeometryEdited?.Invoke(areaId, points);
+    }
+
+    /// <summary>
+    /// Entfernt den Punkt unter dem Zeiger. <b>Nicht unter drei</b> — sonst
+    /// bliebe eine Linie stehen, die als Fläche gespeichert würde.
+    /// </summary>
+    private bool RemoveVertexAt(Point position)
+    {
+        if (!IsEditing) return false;
+        var i = VertexAt(position);
+        if (i < 0) return false;
+        return RemoveVertex(i);
+    }
+
+    /// <summary>Entfernt eine Ecke, wenn dabei noch eine Fläche übrig bleibt.</summary>
+    private bool RemoveVertex(int index)
+    {
+        var reduced = MapGeometry.RemoveVertex(_edit, index);
+        if (reduced.Count == _edit.Count) return false;   // Untergrenze erreicht
+
+        _edit.Clear();
+        _edit.AddRange(reduced);
+        _hoverVertex = -1;
+        InvalidateVisual();
+        return true;
+    }
+
+    /// <summary>Index des Griffs unter dem Zeiger, oder -1.</summary>
+    private int VertexAt(Point position)
+    {
+        for (var i = 0; i < _edit.Count; i++)
+        {
+            var s = ToScreen(_edit[i]);
+            if (Math.Abs(s.X - position.X) <= GrabRadius && Math.Abs(s.Y - position.Y) <= GrabRadius)
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Index des Mittelpunkt-Griffs unter dem Zeiger, oder -1. Ein Klick darauf
+    /// fügt dort eine neue Ecke ein — der übliche Griff aus Kartenwerkzeugen,
+    /// und deutlich schneller, als die Fläche für eine zusätzliche Ecke neu zu
+    /// zeichnen.
+    /// </summary>
+    private int MidpointAt(Point position)
+    {
+        for (var i = 0; i < _edit.Count; i++)
+        {
+            var m = MidpointScreen(i);
+            if (Math.Abs(m.X - position.X) <= GrabRadius && Math.Abs(m.Y - position.Y) <= GrabRadius)
+                return i;
+        }
+        return -1;
+    }
+
+    private Point MidpointScreen(int i)
+    {
+        var a = ToScreen(_edit[i]);
+        var b = ToScreen(_edit[(i + 1) % _edit.Count]);
+        return new Point((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+    }
+
+    // ------------------------------------------------------------------
     // Eingabe
     // ------------------------------------------------------------------
 
@@ -152,9 +291,63 @@ public sealed class MapCanvas : Control
     {
         base.OnPointerPressed(e);
         var p = e.GetCurrentPoint(this);
+
+        // Rechtsklick: im Bearbeitungsmodus nimmt er eine Ecke weg, sonst
+        // oeffnet er das Kontextmenue des getroffenen Bereichs.
+        if (p.Properties.IsRightButtonPressed)
+        {
+            Focus();
+            if (IsEditing)
+            {
+                if (RemoveVertexAt(p.Position)) e.Handled = true;
+                return;
+            }
+            if (HitTest(p.Position) is { } hit)
+            {
+                AreaClicked?.Invoke(hit);        // erst markieren …
+                AreaRightClicked?.Invoke(hit);   // … dann das Menue oeffnen
+            }
+            return;
+        }
+
         if (!p.Properties.IsLeftButtonPressed) return;
 
         Focus();
+
+        if (IsEditing)
+        {
+            // Mittelpunkt zuerst pruefen: Er liegt nie auf einer Ecke, aber die
+            // Reihenfolge macht das Verhalten vorhersagbar.
+            var mid = MidpointAt(p.Position);
+            if (mid >= 0)
+            {
+                var grown = MapGeometry.InsertMidpoint(_edit, mid);
+                _edit.Clear();
+                _edit.AddRange(grown);
+                _dragVertex = mid + 1;           // gleich weiterziehen koennen
+                e.Pointer.Capture(this);
+                InvalidateVisual();
+                e.Handled = true;
+                return;
+            }
+
+            var vertex = VertexAt(p.Position);
+            if (vertex >= 0)
+            {
+                _dragVertex = vertex;
+                e.Pointer.Capture(this);
+                e.Handled = true;
+                return;
+            }
+
+            // Daneben getroffen: Die Karte laesst sich weiter schieben, ohne
+            // die Bearbeitung zu verlassen.
+            _dragging = true;
+            _dragFrom = p.Position;
+            _dragCenterAtStart = _center;
+            e.Pointer.Capture(this);
+            return;
+        }
 
         if (IsDrawing)
         {
@@ -179,7 +372,34 @@ public sealed class MapCanvas : Control
         base.OnPointerMoved(e);
         var pos = e.GetPosition(this);
 
-        if (IsDrawing)
+        if (IsEditing)
+        {
+            if (_dragVertex >= 0 && _dragVertex < _edit.Count)
+            {
+                _edit[_dragVertex] = ToGeo(pos);
+                InvalidateVisual();
+                return;
+            }
+
+            if (!_dragging)
+            {
+                // Griffe unter dem Zeiger hervorheben — ohne diese Rueckmeldung
+                // raet man, ob man den Punkt trifft.
+                var v = VertexAt(pos);
+                var m = v >= 0 ? -1 : MidpointAt(pos);
+                if (v != _hoverVertex || m != _hoverMidpoint)
+                {
+                    _hoverVertex = v;
+                    _hoverMidpoint = m;
+                    Cursor = v >= 0 || m >= 0
+                        ? new Cursor(StandardCursorType.Hand)
+                        : Cursor.Default;
+                    InvalidateVisual();
+                }
+                return;
+            }
+        }
+        else if (IsDrawing)
         {
             _draftCursor = ToGeo(pos);   // Gummiband zum Mauszeiger
             InvalidateVisual();
@@ -199,9 +419,21 @@ public sealed class MapCanvas : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+
+        if (_dragVertex >= 0)
+        {
+            _dragVertex = -1;
+            e.Pointer.Capture(null);
+            return;
+        }
+
         if (!_dragging) return;
         _dragging = false;
         e.Pointer.Capture(null);
+
+        // Im Bearbeitungsmodus ist ein Klick ins Leere kein Wechsel des
+        // Bereichs — sonst waere die halbfertige Aenderung weg.
+        if (IsEditing) return;
 
         // Kaum bewegt? Dann war es ein Klick auf eine Flaeche, kein Schieben.
         var pos = e.GetPosition(this);
@@ -235,6 +467,22 @@ public sealed class MapCanvas : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        if (IsEditing)
+        {
+            switch (e.Key)
+            {
+                case Key.Escape: CancelEditing(); e.Handled = true; break;
+                case Key.Enter: FinishEditing(); e.Handled = true; break;
+                case Key.Delete:
+                    // Entf auf dem Griff unter dem Zeiger — dasselbe wie der
+                    // Rechtsklick, nur fuer die, die zur Tastatur greifen.
+                    if (_hoverVertex >= 0 && RemoveVertex(_hoverVertex)) e.Handled = true;
+                    break;
+            }
+            return;
+        }
+
         if (!IsDrawing) return;
 
         switch (e.Key)
@@ -331,6 +579,7 @@ public sealed class MapCanvas : Control
         DrawTiles(context);
         DrawShapes(context);
         DrawDraft(context);
+        DrawEdit(context);
         DrawAttribution(context);
     }
 
@@ -376,8 +625,52 @@ public sealed class MapCanvas : Control
     {
         // Erst die Flaechen, dann die Marker: ein Punkt in einem Bereich soll
         // nicht unter dessen Fuellung verschwinden.
-        foreach (var shape in Shapes) DrawArea(context, shape);
+        foreach (var shape in Shapes)
+        {
+            // Die Flaeche in Bearbeitung wird von DrawEdit gezeichnet — sonst
+            // laege der alte Umriss ueber dem neuen und man saehe nicht, was
+            // man gerade tut.
+            if (shape.AreaId == _editAreaId) continue;
+            DrawArea(context, shape);
+        }
         foreach (var shape in Shapes) DrawMarker(context, shape);
+    }
+
+    /// <summary>
+    /// Die Fläche in Bearbeitung: durchgezogener Umriss, Griffe auf den Ecken
+    /// und kleinere Griffe auf den Kantenmitten zum Einfügen.
+    /// </summary>
+    private void DrawEdit(DrawingContext context)
+    {
+        if (!IsEditing || _edit.Count < 2) return;
+
+        var accent = Color.FromRgb(0x4F, 0xC3, 0xF7);
+        context.DrawGeometry(
+            new SolidColorBrush(accent, 0.22),
+            new Pen(new SolidColorBrush(accent), 2.5),
+            BuildGeometry(_edit, close: true));
+
+        // Kantenmitten zuerst: Sie liegen tiefer als die Ecken und sollen von
+        // einem benachbarten Eckgriff verdeckt werden, nicht umgekehrt.
+        for (var i = 0; i < _edit.Count; i++)
+        {
+            var m = MidpointScreen(i);
+            var hot = _hoverMidpoint == i;
+            context.DrawEllipse(
+                new SolidColorBrush(accent, hot ? 0.95 : 0.5),
+                new Pen(Brushes.Black, 1),
+                m, hot ? HandleRadius : HandleRadius - 2, hot ? HandleRadius : HandleRadius - 2);
+        }
+
+        for (var i = 0; i < _edit.Count; i++)
+        {
+            var s = ToScreen(_edit[i]);
+            var hot = _hoverVertex == i || _dragVertex == i;
+            context.DrawEllipse(
+                hot ? new SolidColorBrush(accent) : Brushes.White,
+                new Pen(Brushes.Black, 1.5),
+                s, hot ? HandleRadius + 2 : HandleRadius, hot ? HandleRadius + 2 : HandleRadius);
+        }
     }
 
     /// <summary>

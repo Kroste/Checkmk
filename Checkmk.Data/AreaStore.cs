@@ -135,6 +135,9 @@ public interface IAreaStore
     /// <c>null</c> löscht sie wieder.</summary>
     Task SaveGeometryAsync(int areaId, string? geoJson, CancellationToken ct = default);
 
+    /// <summary>Eigener Kartenhintergrund fuer einen Bereich. <c>null</c> = Vorgabe.</summary>
+    Task SaveMapLayerAsync(int areaId, string? layerKey, CancellationToken ct = default);
+
     /// <summary>Ordnet Hosts einem Bereich zu. <paramref name="areaId"/> = null
     /// entfernt die Zuordnung.</summary>
     Task AssignAsync(IReadOnlyList<string> hostNames, int? areaId, CancellationToken ct = default);
@@ -351,6 +354,31 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
 
         Log.Info("Flaeche fuer Bereich {AreaId} {Action}.",
             areaId, geoJson is null ? "geloescht" : "gespeichert");
+
+        await RefreshAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Eigener Kartenhintergrund fuer einen Bereich. <c>null</c> = es gilt die
+    /// Wahl des Anwenders in der Toolbar.
+    ///
+    /// Gespeichert wird der <b>Name</b> aus <c>GlobalSetting.MapLayers</c>, nicht
+    /// die Adresse: Wechselt die Quelle, ist das ein UPDATE an einer Stelle und
+    /// nicht an 93 Bereichen.
+    /// </summary>
+    public async Task SaveMapLayerAsync(int areaId, string? layerKey,
+        CancellationToken ct = default)
+    {
+        await using var db = database.CreateContext();
+
+        var area = await db.Areas.FirstOrDefaultAsync(a => a.AreaId == areaId, ct)
+            .ConfigureAwait(false);
+        if (area is null) return;
+
+        area.MapLayerKey = string.IsNullOrWhiteSpace(layerKey) ? null : layerKey.Trim();
+        area.ChangedAtUtc = DateTime.UtcNow;
+        area.ChangedBy = Environment.UserName;
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         await RefreshAsync(ct).ConfigureAwait(false);
     }

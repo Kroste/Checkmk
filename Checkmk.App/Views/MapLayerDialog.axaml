@@ -1,0 +1,29 @@
+<controls:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Checkmk.App.Controls"
+        x:Class="Checkmk.App.Views.MapLayerDialog"
+        Width="440" Height="360"
+        Title="Kartenhintergrund"
+        WindowStartupLocation="CenterOwner">
+
+  <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
+    <Grid RowDefinitions="40,Auto,*,Auto">
+
+      <controls:TitleBar Grid.Row="0" Name="DialogTitleBar" Title="Kartenhintergrund" />
+
+      <StackPanel Grid.Row="1" Margin="16,12,16,0" Spacing="6">
+        <TextBlock Name="PromptText" TextWrapping="Wrap" FontWeight="SemiBold" />
+        <TextBlock Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap"
+                   Text="Gilt nur, solange dieser Bereich markiert ist. „(Vorgabe)“ überlässt die Wahl der Toolbar." />
+      </StackPanel>
+
+      <ListBox Grid.Row="2" Name="LayerList" Margin="16,10,16,0" />
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Speichern" Click="OnOkClick" Background="#123E6B" IsDefault="True" />
+        <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</controls:ChromeWindow>
