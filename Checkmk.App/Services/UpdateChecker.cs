@@ -11,7 +11,11 @@ public sealed record UpdateInfo(
     string TagName,
     string ReleaseNotes,
     string ReleasePageUrl,
-    string? WindowsZipUrl);
+    string? WindowsZipUrl,
+    /// <summary>Adresse des signierten Manifests (<c>update.json</c>) im Release,
+    /// oder <c>null</c>. Fehlt es bei eingeschalteter Signaturpruefung, wird das
+    /// Update abgelehnt.</summary>
+    string? ManifestUrl = null);
 
 /// <summary>Ergebnis eines manuell ausgeloesten Update-Checks.</summary>
 public enum UpdateCheckOutcome
@@ -52,6 +56,9 @@ public interface IUpdateChecker
 /// </summary>
 public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
 {
+    /// <summary>Dateiname des signierten Manifests im Release-Asset-Satz.</summary>
+    public const string UpdateManifestFileName = "update.json";
+
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly HttpClient _http;
@@ -162,12 +169,19 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
                                  a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             ?.BrowserDownloadUrl;
 
+        // Das signierte Manifest liegt als eigenes Asset neben dem ZIP.
+        var manifest = release.Assets?
+            .FirstOrDefault(a => a.Name is not null &&
+                                 a.Name.Equals(UpdateManifestFileName, StringComparison.OrdinalIgnoreCase))
+            ?.BrowserDownloadUrl;
+
         var info = new UpdateInfo(
             Version: latest,
             TagName: release.TagName,
             ReleaseNotes: release.Body ?? "",
             ReleasePageUrl: release.HtmlUrl ?? "",
-            WindowsZipUrl: zip);
+            WindowsZipUrl: zip,
+            ManifestUrl: manifest);
         return (UpdateCheckOutcome.UpdateAvailable, info);
     }
 

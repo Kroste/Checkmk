@@ -33,6 +33,8 @@ internal static class Program
         {
             // Werkzeug-Modus vor dem UI: erzeugt database.json neben der Exe.
             if (TryRunProtectDb(args)) return;
+            if (TryRunUpdateKey(args)) return;
+            if (TryRunSignUpdate(args)) return;
 
             App.Services = BuildServiceProvider();
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
@@ -84,6 +86,97 @@ internal static class Program
             Console.WriteLine(
                 "Hinweis: Der Wert ist verschleiert, nicht geschuetzt — der Schluessel steckt "
               + "im Binary daneben. Wirksam ist allein das Datenbankrecht des Laufzeitkontos.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Fehlgeschlagen: {ex.Message}");
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// <c>Checkmk.App.exe --make-update-key</c>
+    ///
+    /// Erzeugt ein ECDSA-P-256-Schlüsselpaar für die Update-Signatur. Der
+    /// <b>öffentliche</b> Teil wird als Konstante ins Binary eingetragen
+    /// (<c>UpdateSignature.PublicKeyBase64</c>), der <b>private</b> gehört in ein
+    /// GitHub-Secret und sonst nirgendwohin.
+    ///
+    /// Solange die Konstante leer ist, prüft das Cockpit keine Signaturen —
+    /// bestehende Releases bleiben installierbar. Ab dem ersten eingetragenen
+    /// Schlüssel ist ein gültiges Manifest Pflicht.
+    /// </summary>
+    private static bool TryRunUpdateKey(string[] args)
+    {
+        if (!args.Any(a => string.Equals(a, "--make-update-key", StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        AttachConsole(AttachParentProcess);
+
+        using var key = System.Security.Cryptography.ECDsa.Create(
+            System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+
+        Console.WriteLine();
+        Console.WriteLine("--- OEFFENTLICH: als UpdateSignature.PublicKeyBase64 ins Binary ---");
+        Console.WriteLine(Convert.ToBase64String(key.ExportSubjectPublicKeyInfo()));
+        Console.WriteLine();
+        Console.WriteLine("--- PRIVAT: als GitHub-Secret UPDATE_SIGNING_KEY hinterlegen ---");
+        Console.WriteLine(Convert.ToBase64String(key.ExportPkcs8PrivateKey()));
+        Console.WriteLine();
+        Console.WriteLine("Der private Schluessel wird hier NICHT gespeichert. Geht er verloren,");
+        Console.WriteLine("erzeugt man ein neues Paar — dann muessen aber alle Clients den neuen");
+        Console.WriteLine("oeffentlichen Schluessel bekommen, bevor sie wieder updaten koennen.");
+        return true;
+    }
+
+    /// <summary>
+    /// <c>Checkmk.App.exe --sign-update &lt;paket.zip&gt; &lt;version&gt; &lt;privkey-base64&gt; [ziel]</c>
+    ///
+    /// Erzeugt das signierte <c>update.json</c> zu einem Release-ZIP. Läuft im
+    /// Release-Workflow, kann aber auch von Hand aufgerufen werden.
+    /// </summary>
+    private static bool TryRunSignUpdate(string[] args)
+    {
+        var i = Array.FindIndex(args, a =>
+            string.Equals(a, "--sign-update", StringComparison.OrdinalIgnoreCase));
+        if (i < 0) return false;
+
+        AttachConsole(AttachParentProcess);
+
+        if (i + 3 >= args.Length)
+        {
+            Console.Error.WriteLine(
+                "Aufruf: Checkmk.App.exe --sign-update <paket.zip> <version> <privkey-base64> [ziel]");
+            return true;
+        }
+
+        var zip = args[i + 1];
+        var version = args[i + 2];
+        var privateKey = args[i + 3];
+        var target = i + 4 < args.Length && !args[i + 4].StartsWith('-')
+            ? args[i + 4]
+            : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(zip)) ?? ".", "update.json");
+
+        try
+        {
+            var manifest = new UpdateManifest(
+                Version: version.TrimStart('v', 'V'),
+                File: Path.GetFileName(zip),
+                Sha256: UpdateSignature.HashFile(zip),
+                Size: new FileInfo(zip).Length);
+
+            var signed = new SignedUpdateManifest
+            {
+                Version = manifest.Version,
+                File = manifest.File,
+                Sha256 = manifest.Sha256,
+                Size = manifest.Size,
+                Signature = UpdateSignature.Sign(manifest, privateKey)
+            };
+
+            File.WriteAllText(target, UpdateSignature.ToJson(signed));
+            Console.WriteLine($"Geschrieben: {target}");
+            Console.WriteLine($"  Version {signed.Version}, {signed.Size} Bytes, SHA-256 {signed.Sha256}");
         }
         catch (Exception ex)
         {

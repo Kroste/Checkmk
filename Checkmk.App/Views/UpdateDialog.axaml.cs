@@ -105,7 +105,12 @@ public partial class UpdateDialog : ChromeWindow
 
         if (!ok)
         {
-            text.Text = "Update konnte nicht angewendet werden — siehe Log. Fallback: Release-Seite öffnen.";
+            // Ein abgelehntes Paket ist kein „hat nicht geklappt", sondern eine
+            // Aussage — das muss der Anwender lesen koennen, statt es im Log zu
+            // suchen.
+            text.Text = _installer.LastVerification is { } why
+                ? $"Update abgelehnt: {why}"
+                : "Update konnte nicht angewendet werden — siehe Log. Fallback: Release-Seite öffnen.";
             foreach (var b in buttonRow.Children.OfType<Button>())
                 b.IsEnabled = true;
             return;

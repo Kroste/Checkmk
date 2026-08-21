@@ -60,6 +60,18 @@ public sealed class UpdateInstaller
             Log.Info("Lade Update-ZIP: {Url}", update.WindowsZipUrl);
             await DownloadWithProgressAsync(update.WindowsZipUrl, zipPath, progress, ct);
 
+            // Erst pruefen, dann entpacken. Ein Paket, dessen Herkunft nicht
+            // feststeht, wird nicht einmal ausgepackt — ZIP-Entpacken ist selbst
+            // schon eine Angriffsflaeche.
+            var check = await VerifyAsync(update, zipPath, ct).ConfigureAwait(false);
+            LastVerification = check.Reason;
+            if (!check.Ok)
+            {
+                Log.Error("Update abgelehnt: {Reason}", check.Reason);
+                return false;
+            }
+            Log.Info("Update-Paket geprueft: {Reason}", check.Reason);
+
             var extract = Path.Combine(work, "extracted");
             ZipFile.ExtractToDirectory(zipPath, extract);
             Log.Debug("Update entpackt nach {Path}", extract);
@@ -71,6 +83,47 @@ public sealed class UpdateInstaller
             Log.Error(ex, "Self-Update fehlgeschlagen.");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Begründung der letzten Prüfung — für die Meldung im Dialog. Ohne sie
+    /// stünde dort nur „fehlgeschlagen", und niemand käme darauf, dass die
+    /// Signatur nicht passte.
+    /// </summary>
+    public string? LastVerification { get; private set; }
+
+    /// <summary>
+    /// Holt das Manifest und prüft das ZIP dagegen.
+    ///
+    /// <b>Ein Fehler beim Laden des Manifests ist ein Prüffehler</b>, kein Grund
+    /// weiterzumachen: Wer den Download umlenken kann, kann auch das Manifest
+    /// verschwinden lassen. Solange kein Schlüssel hinterlegt ist, greift die
+    /// Prüfung ohnehin nicht — dann wird gar nicht erst geladen.
+    /// </summary>
+    private async Task<SignatureResult> VerifyAsync(UpdateInfo update, string zipPath,
+        CancellationToken ct)
+    {
+        if (!UpdateSignature.IsEnforced)
+            return SignatureResult.Pass("Signaturpruefung ist nicht eingerichtet.");
+
+        if (string.IsNullOrEmpty(update.ManifestUrl))
+            return SignatureResult.Fail(
+                $"Zum Release gibt es kein {GitHubReleasesUpdateChecker.UpdateManifestFileName}. "
+              + "Ein signiertes Manifest ist Pflicht.");
+
+        SignedUpdateManifest? manifest;
+        try
+        {
+            var json = await _http.GetStringAsync(update.ManifestUrl, ct).ConfigureAwait(false);
+            manifest = UpdateSignature.FromJson(json);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Update-Manifest konnte nicht geladen werden.");
+            return SignatureResult.Fail($"Manifest nicht ladbar: {ex.Message}");
+        }
+
+        return UpdateSignature.Verify(manifest, zipPath, update.Version.ToString());
     }
 
     private async Task DownloadWithProgressAsync(

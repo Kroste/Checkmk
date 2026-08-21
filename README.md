@@ -761,6 +761,23 @@ korrektes Zertifikat installieren.
 - Version explizit übersprungen → `%APPDATA%\Kroste\Checkmk\updates.json`
   löschen, dann erscheint der Badge wieder.
 
+### „Update abgelehnt: …" im Update-Dialog
+
+Das ist keine Störung, sondern eine Aussage: Das Paket ist **nicht** das, was es
+sein sollte. Der Dialog nennt den Grund.
+
+| Meldung | heißt |
+|---|---|
+| *Signatur des Manifests stimmt nicht* | Das Paket kommt nicht von der Stelle, die dein Cockpit als Herausgeber kennt |
+| *kein `update.json`* | Zum Release fehlt das signierte Manifest |
+| *Prüfsumme stimmt nicht* | Das Paket wurde unterwegs verändert |
+| *Größe weicht ab* | Meist ein abgebrochener Download — erneut versuchen |
+| *Manifest ist für Version X* | Es wird eine andere Version angeboten als signiert wurde |
+
+**In keinem dieser Fälle wird das Paket auch nur entpackt.** Wenn du sicher
+bist, dass alles stimmt, ist der Weg über „Release-Seite öffnen" und manuelles
+Ersetzen der richtige — nicht das Abschalten der Prüfung.
+
 ### Notifications erscheinen nicht (Windows)
 
 - Fokusassistent (Ruhezeiten) aktiv? Dann werden Toasts unterdrückt.

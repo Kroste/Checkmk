@@ -495,13 +495,48 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   gelben Badge in der Statusleiste. Klick öffnet den `UpdateDialog` (Release-Notes +
   „Release-Seite öffnen"/„Später"/„Diese Version überspringen"). Skip-Version liegt in
   `%APPDATA%\Kroste\Checkmk\updates.json`.
-  Kein Selbst-Ersetzen des Binary — Roadmap-Phase 2.
   **Manuell (About-Box):** Button „Nach Updates suchen" ruft `CheckManuallyAsync`
   auf — ignoriert bewusst die übersprungene Version und gibt klares Feedback
   (aktuell / verfügbar → `UpdateDialog` / fehlgeschlagen). Gemeinsame Kernlogik mit
   dem Startup-Check über das private `EvaluateAsync(honorSkip)`.
   **Proxy-Fix (v1.2.1):** `HttpClient` nutzt `DefaultProxyCredentials`
   (Negotiate/NTLM über den angemeldeten Windows-User) — sonst 407 am FortiProxy.
+- **Autoupdater Phase 2: Selbst-Ersetzen + Signatur.** `UpdateInstaller` lädt
+  das ZIP, **prüft es**, entpackt daneben und startet eine `.bat`, die auf das
+  Prozessende wartet, die Dateien ersetzt und neu startet — die laufende `.exe`
+  kann sich unter Windows nicht selbst überschreiben.
+
+  **Warum die Signatur wirklich da ist** — nicht wegen des Fileshares (die
+  Prämisse war falsch, §8.29), sondern: `UpdateChannelUrl` steht in
+  `GlobalSetting`, und auf diese Tabelle darf das Laufzeitkonto schreiben. Ohne
+  Signatur genügt ein `UPDATE` in der Datenbank, um 48 Rechnern ein beliebiges
+  ZIP unterzuschieben, das sie entpacken und starten. Das gilt bei jedem Kanal.
+
+  Sechs Punkte, die nicht aufgeweicht werden dürfen:
+  1. **Der öffentliche Schlüssel steckt im Binary** (`UpdateSignature.PublicKeyBase64`),
+     nicht in `GlobalSetting`. Läge er dort, könnte derselbe Zugriff, der die
+     Adresse ändert, auch den Schlüssel austauschen.
+  2. **Leerer Schlüssel = keine Prüfung**, damit bestehende Releases
+     installierbar bleiben. Ab dem ersten eingetragenen Schlüssel ist ein
+     gültiges Manifest **Pflicht**.
+  3. **Kein Manifest ist ein Fehler, kein Durchlauf.** Wer den Download umlenken
+     kann, kann auch das Manifest verschwinden lassen. Dasselbe gilt für ein
+     nicht ladbares Manifest und eine kaputte Base64-Signatur — „konnte nicht
+     prüfen" heißt nie „also durch".
+  4. **Erst prüfen, dann entpacken.** ZIP-Entpacken ist selbst schon eine
+     Angriffsfläche.
+  5. **Signiert wird ein eigener, fester Text** (`UpdateManifest.SignedBytes`),
+     nicht das JSON der Datei. Zwei Serialisierer schreiben Leerzeichen und
+     Reihenfolge verschieden, und eine Zeilenendenormalisierung beim Kopieren
+     würde jede Signatur ungültig machen.
+  6. **Die Version gehört in die signierten Bytes.** Sonst ließe sich ein echt
+     signiertes *altes* Paket als neues ausgeben und eine geschlossene Lücke
+     zurückholen.
+  Werkzeuge: `Checkmk.App.exe --make-update-key` erzeugt das Paar,
+  `--sign-update <zip> <version> <privkey>` schreibt `update.json`. Der
+  Release-Workflow signiert, wenn das Secret `UPDATE_SIGNING_KEY` gesetzt ist —
+  die Prüfung darauf steht **im Skript**, nicht in einer `if`-Bedingung, weil
+  der `secrets`-Kontext in Step-Bedingungen nicht verfügbar ist.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Hosts-Tab lassen sich per Ctrl+Klick mehrere Hosts
@@ -790,9 +825,19 @@ den Commit-Log an.
     `Bootstrap.HostOsAttributeKeys` als Kandidatenliste, `IHostOsCache` als
     prozessweiter Cache. StatusViewModel.OsFor bevorzugt Cache, fällt auf
     OsDetection zurück. Vollständige OS-Version (2022, RHEL 9 usw.) bleibt offen.
-17. **Autoupdater Phase 2**: **Selbst-Ersetzen des Binary** (Update.exe-Helper mit
-    atomic swap) und **signierter Manifest-JSON** (Ed25519), sobald der Kanal von
-    GitHub auf einen internen Fileshare umgestellt wird.
+17. ✅ **Autoupdater Phase 2**: Selbst-Ersetzen des Binary (`UpdateInstaller`,
+    Austausch per `.bat` nach dem Prozessende) und **signiertes Manifest**
+    (`update.json` neben dem ZIP im Release). Details in §4.
+
+    **ECDSA P-256 statt des hier notierten Ed25519**: .NET 10 bringt kein
+    Ed25519 mit (nachgemessen — `System.Security.Cryptography` kennt ML-DSA und
+    SLH-DSA, aber kein Ed25519). Es nachzurüsten hieße BouncyCastle, und ein
+    weiteres NuGet-Paket ist in diesem Netz teuer. P-256 mit SHA-256 ist
+    eingebaut und hier genauso tragfähig.
+
+    **Nicht** an den Fileshare gekoppelt: Der Grund für die Signatur ist ein
+    anderer als ursprünglich gedacht, siehe §4 — und er gilt unabhängig davon,
+    wo der Kanal liegt.
 18. **DPAPI-NG mit AD-Gruppen-SID** — obsolet, seit die Verbindung wieder user-lokal
     liegt (DPAPI-CurrentUser reicht). Nur relevant, falls wir irgendwann doch wieder
     einen geteilten Store brauchen.
