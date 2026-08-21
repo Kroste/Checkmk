@@ -325,6 +325,7 @@ das Tool automatisch einen neuen an — der Klick landet nie ins Leere.
 Favoriten der aktuellen Site. Rechts der Editor mit drei Feldern:
 
 - **Name** — was in der Combobox erscheint.
+- **Gehört zu** — *persönlich* oder ein **Team**. Siehe unten.
 - **Hostname-Regex** — .NET-Regex, case-insensitive. Siehe
   [Abschnitt 8](#8-regex-beispiele-für-filter) für ausführliche Beispiele.
 - **Explizite Hostnamen** — eine feste Liste, ein Hostname pro Zeile. Wenn hier
@@ -338,8 +339,38 @@ Buttons:
 - **„Aktivieren"** — den gewählten Filter sofort aktiv setzen.
 - **„Filter deaktivieren"** — kein Filter aktiv, alle Hosts sichtbar.
 
-Favoriten liegen **user-lokal** unter `%APPDATA%\Kroste\Checkmk\filter.json`.
-Struktur: pro Site ein eigenes Set. Jeder Kollege hat seine eigenen.
+### Filter im Team teilen
+
+Bisher baute sich jeder seinen eigenen Filtersatz — und wenn der
+Netzwerkkollege im Urlaub war, fing die Vertretung bei null an. Setz einen
+Filter im Feld **„Gehört zu"** auf ein Team, und er steht allen im Team zur
+Verfügung. In der Liste links trägt er dann den Team-Namen als Marke; daran
+siehst du, dass eine Änderung nicht nur dich betrifft.
+
+Wer **in keinem Team** ist, sieht **alle** Team-Filter — keine Zuordnung heißt
+„alles", nicht „nichts". Persönliche Filter sieht immer nur ihr Besitzer.
+
+Teams legt ein Admin über **„Teams…"** an (Name, Beschreibung, Mitglieder als
+Windows-Anmeldenamen). **Teams sind Organisation, kein Zugriffsschutz** — alle
+dürfen ohnehin alle Hosts sehen; die echte Grenze ist deine Checkmk-Rolle.
+Solange in `dbo.AppAdmin` niemand steht, darf jeder Teams verwalten; ab dem
+ersten Eintrag nur noch die Genannten.
+
+Ein Team zu löschen nimmt seine geteilten Filter mit. Der Dialog sagt vorher,
+wie viele es sind, und will einen zweiten Klick.
+
+**Ohne zentrale Datenbank** ändert sich nichts: Favoriten liegen dann
+**user-lokal** unter `%APPDATA%\Kroste\Checkmk\filter.json`, pro Site ein
+eigenes Set, und jeder hat seine eigenen. Mit Datenbank wird diese Datei beim
+ersten Start **einmalig übernommen**.
+
+Ist die Datenbank gerade nicht erreichbar, siehst du deinen letzten bekannten
+Stand, kannst ihn aber **nicht ändern** — die Statuszeile des Dialogs sagt das.
+Das ist Absicht: Eine Änderung, die nur lokal landet, wäre beim nächsten
+erfolgreichen Laden lautlos wieder weg.
+
+> Welcher Filter zuletzt **aktiv** war, bleibt immer bei dir auf dem Rechner.
+> Sonst würde dein Umschalten die Ansicht aller anderen im Team mit umstellen.
 
 ---
 
@@ -632,7 +663,10 @@ Bei neuerer Version erscheint in der Statusleiste ein gelbes Feld **„Update au
 | Kopie der zentralen Einstellungen (Ausfallschutz) | `%APPDATA%\Kroste\Checkmk\globals-cache.json` | lokal, automatisch |
 | Verbindung (Host/Site/User/Secret) | `%APPDATA%\Kroste\Checkmk\settings.json` | lokal, DPAPI-verschlüsselt |
 | SSH-Logins (User+Passwort je Host) | `%APPDATA%\Kroste\Checkmk\ssh-creds.json` | lokal, DPAPI-verschlüsselt |
-| Filter/Favoriten (pro Site) | `%APPDATA%\Kroste\Checkmk\filter.json` | lokal |
+| Filter/Favoriten (pro Site) | Datenbank, Tabellen `HostFilter` / `HostFilterHost` | zentral; Team-Filter für alle im Team, persönliche nur für dich |
+| Teams und Mitgliedschaft | Datenbank, Tabellen `Team` / `TeamMember` / `AppAdmin` | zentral |
+| Filter **ohne** Datenbank | `%APPDATA%\Kroste\Checkmk\filter.json` | lokal; wird mit Datenbank einmalig übernommen |
+| Kopie der Filter (Ausfallschutz) | `%APPDATA%\Kroste\Checkmk\filter-cache.json` | lokal, automatisch |
 | Übersprungene Update-Version | `%APPDATA%\Kroste\Checkmk\updates.json` | lokal |
 | UI-Zustand (Auto-Refresh, Baum/Tabelle, letzter Filter) | `%APPDATA%\Kroste\Checkmk\statusview.json` | lokal |
 | Spalten (Reihenfolge, Sichtbarkeit, Breiten) | `%APPDATA%\Kroste\Checkmk\columns.json` | lokal |
@@ -774,7 +808,7 @@ demselben Binary.
 | RDP / SSH / Ping / Host-Einstellungen | da | weg |
 | Plugins aus `plugins\` | werden geladen | werden **nicht** geladen |
 | Spalten der Tabelle | fest | aus der Datei |
-| Host-Filter | persönliche `filter.json` | **nur** aus der Datei |
+| Host-Filter | persönliche und Team-Filter | **nur** aus der Datei |
 | Bei neuem Problem | Toast (wenn im Tray) | Toast **+ Fenster springt auf** |
 | Favoriten anlegen / „Filter verwalten…" | da | weg |
 | Host-Details, Baumansicht, Freitext-Filter, CSV-Export | da | bleiben da |

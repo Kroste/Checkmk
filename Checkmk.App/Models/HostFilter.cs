@@ -22,6 +22,29 @@ public sealed class HostFilter
     public string? HostNameRegex { get; set; }
     public List<string> ExplicitHosts { get; set; } = new();
 
+    /// <summary>Id in der zentralen Datenbank; 0 = nur lokal (kein Datenbankzugang).</summary>
+    public int Id { get; set; }
+
+    /// <summary>Gesetzt = Team-Filter, sonst persoenlich.</summary>
+    public int? TeamId { get; set; }
+
+    /// <summary>Team-Name zur Anzeige. Nur Laufzeit, kommt aus dem Team-Store.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? TeamName { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsShared => TeamId is not null;
+
+    /// <summary>
+    /// „Gehoert zu" fuer die Liste im Filter-Manager. Ohne diese Spalte sieht
+    /// man einem geteilten Filter nicht an, dass eine Aenderung daran alle im
+    /// Team trifft.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string OwnerDisplay => TeamId is null
+        ? "persönlich"
+        : $"Team {TeamName ?? TeamId.ToString()}";
+
     /// <summary>
     /// Nur zur Laufzeit vorhanden, nie in <c>filter.json</c>. Gesetzt fuer den aus
     /// <c>viewer.json</c> vorgegebenen Filter: er soll in der ComboBox auswaehlbar

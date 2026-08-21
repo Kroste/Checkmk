@@ -43,6 +43,16 @@ public partial class MainWindow : ChromeWindow
 
         Opened += (_, _) => AddPluginTabs();
 
+        // Zentrale Filter erst nach dem Oeffnen nachziehen: Der Konstruktor darf
+        // nicht auf Netz-I/O warten, sonst haengt das Fenster, bevor es zu sehen
+        // ist. Bis dahin stehen die lokalen Filter da — genau der Bestand, der
+        // danach einmalig uebernommen wird.
+        Opened += (_, _) =>
+        {
+            if (App.Services?.GetService<HostFilterCollection>() is { } filters)
+                _ = filters.InitializeAsync();
+        };
+
         // Spaltenbreiten einfangen: Avalonias DataGrid meldet das Ende eines
         // Spalten-Resize nicht, Reihenfolge und Sichtbarkeit speichern sich dagegen
         // sofort. Beim Schliessen holen wir deshalb den kompletten Stand nach.

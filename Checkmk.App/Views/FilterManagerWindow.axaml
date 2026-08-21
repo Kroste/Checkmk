@@ -13,26 +13,55 @@
 
       <controls:TitleBar Grid.Row="0" Title="Host-Filter verwalten" />
 
-      <Grid Grid.Row="1" ColumnDefinitions="220,*" Margin="12" ColumnSpacing="12">
+      <Grid Grid.Row="1" ColumnDefinitions="260,*" Margin="12" ColumnSpacing="12">
 
-        <!-- Filter-Liste links -->
+        <!-- Filter-Liste links. „Gehört zu" ist keine Zierde: Einem geteilten
+             Filter sieht man sonst nicht an, dass eine Änderung daran alle im
+             Team trifft. -->
         <Grid Grid.Column="0" RowDefinitions="*,Auto" RowSpacing="6">
           <ListBox Grid.Row="0" ItemsSource="{Binding Filters}"
-                   SelectedItem="{Binding Selected}"
-                   DisplayMemberBinding="{Binding Name}" />
+                   SelectedItem="{Binding Selected}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                  <TextBlock Grid.Column="0" Text="{Binding Name}"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <Border Grid.Column="1" Background="#2A3F55" CornerRadius="3"
+                          Padding="5,1" Margin="6,0,0,0"
+                          IsVisible="{Binding IsShared}">
+                    <TextBlock Text="{Binding TeamName}" FontSize="11" Foreground="#9CC4E4" />
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
           <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
-            <Button Content="Neu" Command="{Binding NewCommand}" />
+            <Button Content="Neu" Command="{Binding NewCommand}"
+                    IsEnabled="{Binding CanEdit}" />
             <Button Content="Löschen" Command="{Binding DeleteCommand}"
-                    IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    IsEnabled="{Binding CanDeleteSelected}" />
+            <Button Content="Teams…" Click="OnManageTeamsClick"
+                    IsVisible="{Binding IsAdmin}"
+                    ToolTip.Tip="Teams anlegen und Anmeldungen zuordnen." />
           </StackPanel>
         </Grid>
 
         <!-- Editor rechts -->
         <StackPanel Grid.Column="1" Spacing="10"
-                    IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    IsEnabled="{Binding CanEditSelected}">
           <StackPanel Spacing="3">
             <TextBlock Text="Name" Foreground="#AAAAAA" FontSize="12" />
             <TextBox Text="{Binding EditName}" PlaceholderText="z. B. DB-Server" />
+          </StackPanel>
+
+          <!-- Der eigentliche Punkt an Punkt 26: Ein Filter, der dem Team
+               gehört, steht der Urlaubsvertretung ohne Zutun zur Verfügung. -->
+          <StackPanel Spacing="3" IsVisible="{Binding IsCentral}">
+            <TextBlock Text="Gehört zu" Foreground="#AAAAAA" FontSize="12" />
+            <ComboBox ItemsSource="{Binding Owners}" SelectedItem="{Binding EditOwner}"
+                      HorizontalAlignment="Stretch"
+                      DisplayMemberBinding="{Binding Label}"
+                      ToolTip.Tip="Persönlich sieht nur du. Ein Team-Filter gilt für alle im Team — auch für die Vertretung." />
           </StackPanel>
           <StackPanel Spacing="3">
             <TextBlock Text="Hostname-Regex (case-insensitive, leer = Regel inaktiv)"
@@ -57,10 +86,11 @@
         </StackPanel>
       </Grid>
 
-      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
-                  Margin="16" Spacing="8">
-        <Button Content="Schließen" Click="OnDismissClick" />
-      </StackPanel>
+      <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="16" ColumnSpacing="8">
+        <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                   Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
+        <Button Grid.Column="1" Content="Schließen" Click="OnDismissClick" />
+      </Grid>
     </Grid>
   </Border>
 </controls:ChromeWindow>

@@ -117,7 +117,15 @@ internal static class Program
         services.AddSingleton<ICheckmkClientProvider, CheckmkClientProvider>();
         services.AddSingleton<IToastNotifier, WindowsToastNotifier>();
         services.AddSingleton<IHostFilterStore, HostFilterStore>();
-        services.AddSingleton<HostFilterCollection>();
+        // Explizite Fabrik statt AddSingleton<T>(): Der Standardcontainer fuellt
+        // optionale Konstruktorparameter nicht mit ihrem Default, sondern wirft,
+        // wenn er sie nicht aufloesen kann — und ohne Datenbank ist
+        // CentralFilterService gar nicht registriert.
+        services.AddSingleton(sp => new HostFilterCollection(
+            sp.GetRequiredService<IHostFilterStore>(),
+            sp.GetRequiredService<IConnectionSettingsStore>(),
+            sp.GetRequiredService<ViewerMode>(),
+            sp.GetService<CentralFilterService>()));
         services.AddSingleton<IStatusViewStateStore, StatusViewStateStore>();
         services.AddSingleton<IColumnLayoutStore, ColumnLayoutStore>();
         services.AddSingleton<CheckmkWebLinker>();
@@ -143,6 +151,14 @@ internal static class Program
                 new DbHostDomainStore(cockpitDb, new HostDomainStore()));
             services.AddSingleton<IHostDomainStore>(sp => sp.GetRequiredService<DbHostDomainStore>());
             services.AddSingleton<IAreaStore>(_ => new AreaStore(cockpitDb));
+            services.AddSingleton<ITeamStore>(_ => new TeamStore(cockpitDb));
+            services.AddSingleton<IFilterStore>(sp =>
+                new FilterStore(cockpitDb, sp.GetRequiredService<ITeamStore>()));
+            services.AddSingleton(sp => new CentralFilterService(
+                sp.GetRequiredService<IFilterStore>(),
+                sp.GetRequiredService<ITeamStore>(),
+                DatabaseConnection.FilterCachePath,
+                Environment.UserName));
             services.AddSingleton<AreaViewModel>();
             services.AddSingleton<MapTileLoader>();
             services.AddSingleton<PotsdamPlaceImporter>();

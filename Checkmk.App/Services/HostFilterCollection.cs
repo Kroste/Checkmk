@@ -15,11 +15,37 @@ public sealed class HostFilterCollection : ObservableObject
 {
     private readonly IHostFilterStore _store;
     private readonly IConnectionSettingsStore _settings;
+    private readonly CentralFilterService? _central;
     private readonly bool _viewerMode;
     private string _currentSite;
     private bool _suppressPersist;
 
     public ObservableCollection<HostFilter> Filters { get; } = new();
+
+    /// <summary>
+    /// Letzter Fehler beim zentralen Speichern, oder <c>null</c>. Der
+    /// Filter-Manager zeigt ihn an — sonst verschwände eine abgelehnte Änderung
+    /// spurlos, und der Anwender hielte sie für gespeichert.
+    /// </summary>
+    private string? _lastError;
+    public string? LastError
+    {
+        get => _lastError;
+        private set => SetProperty(ref _lastError, value);
+    }
+
+    /// <summary>Kommen die Filter aus der zentralen Datenbank?</summary>
+    public bool IsCentral => _central is { Origin: FilterOrigin.Central };
+
+    /// <summary>Dürfen Filter überhaupt geändert werden?</summary>
+    public bool CanEdit => !_viewerMode && (_central is null || _central.CanWrite);
+
+    /// <summary>Teams für die Auswahl „gehört zu"; leer ohne Datenbank.</summary>
+    public IReadOnlyList<Checkmk.Data.TeamRow> Teams => _central?.Teams ?? [];
+
+    public bool IsAdmin => _central?.IsAdmin ?? false;
+
+    public string StatusHint => _central?.StatusHint ?? "Filter: lokal";
 
     private HostFilter? _active;
     public HostFilter? Active
@@ -36,10 +62,15 @@ public sealed class HostFilterCollection : ObservableObject
     }
 
     public HostFilterCollection(IHostFilterStore store, IConnectionSettingsStore settings,
-        ViewerMode viewer)
+        ViewerMode viewer, CentralFilterService? central = null)
     {
         _store = store;
         _settings = settings;
+        // Im Viewer-Modus bleibt auch die zentrale Quelle draussen: Der
+        // Filterzustand kommt dort ausschliesslich aus viewer.json, und ein
+        // Team-Filter im Dropdown waere derselbe Fehler wie die persoenlichen
+        // Favoriten des Admins, die frueher mit ausgeliefert wurden.
+        _central = viewer.IsActive ? null : central;
         _viewerMode = viewer.IsActive;
         _currentSite = _settings.Load().Site;
 
@@ -73,6 +104,48 @@ public sealed class HostFilterCollection : ObservableObject
         OnPropertyChanged(nameof(Active));
     }
 
+    /// <summary>
+    /// Holt die Filter aus der zentralen Datenbank nach. Läuft nach dem
+    /// Start — der Konstruktor darf nicht auf Netz-I/O warten, sonst hängt das
+    /// Fenster, bevor es zu sehen ist.
+    ///
+    /// Bis das durch ist, stehen die lokalen Filter da; das ist genau der
+    /// Bestand, der danach einmalig übernommen wird.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        if (_central is null || _viewerMode) return;
+        await LoadCentralAsync().ConfigureAwait(true);
+    }
+
+    private async Task LoadCentralAsync()
+    {
+        if (_central is null || string.IsNullOrWhiteSpace(_currentSite)) return;
+
+        var legacy = _store.Load(_currentSite).Filters.Where(f => f is not null).ToList();
+        var central = await _central.LoadAsync(_currentSite, legacy).ConfigureAwait(true);
+
+        // Der zuletzt aktive Filter ist persoenliche Oberflaechen-Vorliebe und
+        // bleibt lokal — er gehoert niemandem im Team.
+        var activeName = _store.Load(_currentSite).ActiveFilterName;
+
+        _suppressPersist = true;
+        try
+        {
+            Filters.Clear();
+            foreach (var f in central) Filters.Add(f);
+            _active = string.IsNullOrEmpty(activeName)
+                ? null
+                : Filters.FirstOrDefault(f => f.Name == activeName);
+        }
+        finally { _suppressPersist = false; }
+
+        OnPropertyChanged(nameof(Active));
+        OnPropertyChanged(nameof(IsCentral));
+        OnPropertyChanged(nameof(CanEdit));
+        OnPropertyChanged(nameof(StatusHint));
+    }
+
     /// <summary>Wechselt das Filter-Set auf die neue Site. Persistiert erst die aktuelle
     /// Site, laedt dann die neue.</summary>
     public void SwitchSite(string newSite)
@@ -81,7 +154,16 @@ public sealed class HostFilterCollection : ObservableObject
             return;
         Persist();
         _currentSite = newSite;
-        LoadFiltersForCurrentSite();
+
+        if (_central is not null)
+        {
+            LoadFiltersForCurrentSite();   // sofort etwas zeigen
+            _ = LoadCentralAsync();         // und gleich zentral nachziehen
+        }
+        else
+        {
+            LoadFiltersForCurrentSite();
+        }
     }
 
     public void Add(HostFilter f)
@@ -137,12 +219,37 @@ public sealed class HostFilterCollection : ObservableObject
         // Viewer-Modus schreibt grundsaetzlich nicht in die persoenliche filter.json.
         if (_viewerMode) return;
 
-        _store.Save(_currentSite, new HostFilterState
+        var state = new HostFilterState
         {
             // Transiente Vorgabe-Filter bleiben draussen — sie gehoeren dem Profil,
             // nicht der Favoritenbibliothek des Anwenders.
             Filters = Filters.Where(f => !f.IsTransient).ToList(),
             ActiveFilterName = _active is { IsTransient: false } ? _active.Name : null
+        };
+
+        if (_central is null)
+        {
+            _store.Save(_currentSite, state);
+            return;
+        }
+
+        // Mit Datenbank wandern die Filter dorthin; lokal bleibt allein der
+        // zuletzt aktive Name. Ihn zentral abzulegen hiesse, dass der Wechsel
+        // des einen die Ansicht aller anderen im Team umstellt.
+        _store.Save(_currentSite, new HostFilterState
+        {
+            Filters = state.Filters,          // zugleich der Ausfall-Lesestand
+            ActiveFilterName = state.ActiveFilterName
         });
+
+        _ = PersistCentralAsync(state.Filters);
+    }
+
+    private async Task PersistCentralAsync(List<HostFilter> current)
+    {
+        if (_central is null) return;
+        LastError = await _central.PersistAsync(current).ConfigureAwait(true);
+        OnPropertyChanged(nameof(CanEdit));
+        OnPropertyChanged(nameof(StatusHint));
     }
 }

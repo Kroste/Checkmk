@@ -478,10 +478,49 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Hosts-Tab lassen sich per Ctrl+Klick mehrere Hosts
   markieren und mit „Auswahl als Favorit…" als benannte Liste speichern. Verwaltung
-  (Anlegen/Bearbeiten/Löschen/Aktivieren) im `FilterManagerWindow`. Ablage user-lokal und
-  unverschlüsselt unter `%APPDATA%\Kroste\Checkmk\filter.json`.
+  (Anlegen/Bearbeiten/Löschen/Aktivieren) im `FilterManagerWindow`.
   Anwendung ist rein clientside (bei ≤ ein paar tausend Hosts problemlos);
   Livestatus-Query-serverside kann später kommen, wenn nötig.
+- **Filter gehören einer Person *oder* einem Team** (`CentralFilterService`,
+  `FilterStore`, `TeamStore`). Ohne Datenbank bleibt alles beim Alten:
+  `HostFilterStore` auf `%APPDATA%\Kroste\Checkmk\filter.json`. Mit Datenbank
+  liegen die Filter in `dbo.HostFilter`, und `filter.json` wird **einmalig**
+  übernommen (`ImportLegacyIfEmptyAsync`, nur wenn dieser Nutzer in dieser Site
+  noch keinen persönlichen Filter in der Tabelle hat).
+  Fünf Punkte, die nicht wegvereinfacht werden dürfen:
+  1. **Geschrieben wird einzeln, nie der ganze Satz.** `PersistAsync` diffed
+     gegen den zuletzt geladenen Stand; gelöscht wird ausschließlich, was in
+     *diesem* Ausgangsstand stand. Ein Filter, den ein Kollege inzwischen
+     angelegt hat, ist unbekannt und bleibt unangetastet — sonst wäre es
+     derselbe stille Datenverlust wie bei der alten `hosts.json`.
+  2. **Bei Ausfall wird nicht geschrieben** (`FilterOrigin.Cache`, `CanWrite`).
+     Anders als bei den globalen Einstellungen sind Filter bearbeitbar; eine
+     Änderung, die nur im Cache landet, wäre beim nächsten erfolgreichen Laden
+     lautlos weg. Lieber „gerade nur lesbar" sagen. Cache-Datei:
+     `filter-cache.json`, eigene Datei neben `globals-cache.json`.
+  3. **Der zuletzt aktive Filter bleibt lokal.** Er ist persönliche
+     Ansichtsvorliebe; zentral abgelegt würde der Wechsel des einen die Ansicht
+     aller anderen im Team umstellen.
+  4. **Wer in keinem Team ist, sieht alle Team-Filter** — dieselbe Regel wie
+     beim Bereichsbaum. Keine Zuordnung heißt „alles", nicht „nichts", sonst
+     steht ein neuer Kollege vor einer leeren Liste.
+  5. **Leere `AppAdmin`-Tabelle = jeder ist Admin.** Eine leere Tabelle heißt
+     „noch nicht eingerichtet"; die Alternative wäre eine Funktion, die ohne
+     SQL-Eingriff niemand benutzen kann. Ab dem ersten Eintrag greift die Liste.
+     Vertretbar, weil Teams **Organisation und kein Zugriffsschutz** sind.
+  **Fremdschlüssel gehören ins Modell**, auch ohne Navigations-Property
+  (`HasOne<T>().WithMany().HasForeignKey(...)` in `CockpitDbContext`). Ohne sie
+  kennt EF die Abhängigkeit nicht, darf den Elternsatz zuerst löschen, die
+  Datenbank räumt per `ON DELETE CASCADE` die Kinder weg — und EFs eigenes
+  DELETE trifft nichts mehr. Das meldet sich als
+  `DbUpdateConcurrencyException („expected 1 row, affected 0")` und sieht wie
+  ein Nebenläufigkeitsproblem aus, ist aber keines. Umgekehrt gilt: Was die
+  Datenbank per Cascade räumt, darf der Store **nicht** zusätzlich löschen.
+  Auf `FK_HostFilter_Team` liegt bewusst kein Cascade — deshalb räumt
+  `TeamStore.DeleteAsync` die geteilten Filter ausdrücklich und nennt vorher
+  die Zahl.
+  Im **Viewer-Modus** bleibt die zentrale Quelle komplett draußen, genau wie
+  `filter.json`: Der Filterzustand kommt dort ausschließlich aus `viewer.json`.
 - **Viewer-Modus** (`viewer.json` **neben der Exe**, `ViewerProfile.LoadOrNull`):
   zweite Betriebsart für Leute, die nur gucken sollen. Liegt die Datei da, kommt die
   Verbindung aus ihr (`ViewerConnectionSettingsStore` statt `ConnectionSettingsStore`),
@@ -774,9 +813,10 @@ sieht alles.
     Details und die vier Nicht-Wegoptimieren-Punkte in §4. `Area.GeometryJson`
     bleibt vorerst leer — die Zuordnung, die hier entsteht, muss für die Karte
     nicht noch einmal angefasst werden.
-26. **Teams + geteilte Filter** — `filter.json` zieht in die DB, ein Filter
-    gehört entweder einem Team oder einer Person. Der Alltagsgewinn: heute baut
-    sich jeder der 48 seinen eigenen, und die Urlaubsvertretung fängt bei null an.
+26. ✅ **Teams + geteilte Filter** — `filter.json` ist in die Datenbank
+    gezogen, ein Filter gehört entweder einem Team oder einer Person.
+    Kein neues Skript nötig: `Team`, `TeamMember`, `AppAdmin`, `HostFilter`
+    und `HostFilterHost` standen seit Schema 2 leer da. Details in §4.
 27. **Karte** — eigenes Kachel-Canvas in Avalonia (Slippy-Map-Mathematik,
     Polygone als Overlay, Treffer-Erkennung für den Rechtsklick). **Kein
     WebView, kein Google Maps**: Maps Platform kostet pro Load, verbietet

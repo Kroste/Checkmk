@@ -49,6 +49,15 @@ public static class DatabaseConnection
         "Kroste", "Checkmk", "globals-cache.json");
 
     /// <summary>
+    /// Letzter bekannter Filterstand je Site. Eigene Datei statt eines Anhangs
+    /// an <c>globals-cache.json</c>: Die globalen Einstellungen sind ein
+    /// Dutzend Zeilen, die Filter wachsen mit jedem Anwender und jeder Site.
+    /// </summary>
+    public static string FilterCachePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Kroste", "Checkmk", "filter-cache.json");
+
+    /// <summary>
     /// Inhalt von <c>database.json</c> bzw. <c>db-dev.json</c>. Beide Felder
     /// werden gelesen: <see cref="ConnectionString"/> für von Hand geschriebene
     /// Testdateien, <see cref="ProtectedConnectionString"/> für den

@@ -1,0 +1,63 @@
+<controls:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Checkmk.App.Controls"
+        xmlns:data="using:Checkmk.Data"
+        x:Class="Checkmk.App.Views.TeamManagerWindow"
+        Width="680" Height="480"
+        Title="Teams verwalten"
+        WindowStartupLocation="CenterOwner">
+
+  <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
+    <Grid RowDefinitions="40,Auto,*,Auto">
+
+      <controls:TitleBar Grid.Row="0" Title="Teams verwalten" />
+
+      <TextBlock Grid.Row="1" Margin="16,12,16,0" Foreground="#AAAAAA"
+                 FontSize="12" TextWrapping="Wrap"
+                 Text="Teams bündeln geteilte Filter. Sie sind Organisation, kein Zugriffsschutz — alle dürfen alle Hosts sehen. Wer in keinem Team ist, sieht alle Team-Filter." />
+
+      <Grid Grid.Row="2" ColumnDefinitions="240,*" Margin="16,12,16,0" ColumnSpacing="12">
+
+        <Grid Grid.Column="0" RowDefinitions="*,Auto" RowSpacing="6">
+          <ListBox Grid.Row="0" Name="TeamList">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="data:TeamRow">
+                <TextBlock Text="{Binding Display}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+            <Button Content="Neu" Click="OnNewClick" />
+            <Button Content="Löschen" Name="DeleteButton" Click="OnDeleteClick" />
+          </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Column="1" Name="Editor" Spacing="10">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Name" Foreground="#AAAAAA" FontSize="12" />
+            <TextBox Name="NameBox" PlaceholderText="z. B. Netzwerk" />
+          </StackPanel>
+          <StackPanel Spacing="3">
+            <TextBlock Text="Beschreibung" Foreground="#AAAAAA" FontSize="12" />
+            <TextBox Name="DescriptionBox" PlaceholderText="optional" />
+          </StackPanel>
+          <StackPanel Spacing="3">
+            <TextBlock Text="Mitglieder — Windows-Anmeldename, einer je Zeile"
+                       Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
+            <TextBox Name="MembersBox" AcceptsReturn="True" Height="150"
+                     TextWrapping="NoWrap"
+                     FontFamily="Consolas,Courier New,monospace" />
+          </StackPanel>
+          <Button Content="Übernehmen" Click="OnApplyClick" Background="#123E6B"
+                  HorizontalAlignment="Left" />
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="16" ColumnSpacing="8">
+        <TextBlock Grid.Column="0" Name="StatusText" VerticalAlignment="Center"
+                   Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
+        <Button Grid.Column="1" Content="Schließen" Click="OnCloseClick" IsCancel="True" />
+      </Grid>
+    </Grid>
+  </Border>
+</controls:ChromeWindow>

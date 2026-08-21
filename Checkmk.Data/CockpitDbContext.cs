@@ -26,6 +26,11 @@ public sealed class CockpitDbContext(DbContextOptions<CockpitDbContext> options)
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<HostArea> HostAreas => Set<HostArea>();
     public DbSet<AreaSite> AreaSites => Set<AreaSite>();
+    public DbSet<Team> Teams => Set<Team>();
+    public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<AppAdmin> AppAdmins => Set<AppAdmin>();
+    public DbSet<HostFilterRow> HostFilters => Set<HostFilterRow>();
+    public DbSet<HostFilterHostRow> HostFilterHosts => Set<HostFilterHostRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -89,6 +94,63 @@ public sealed class CockpitDbContext(DbContextOptions<CockpitDbContext> options)
             e.HasKey(x => x.HostName);
             e.Property(x => x.HostName).HasMaxLength(255);
             e.Property(x => x.AssignedBy).HasMaxLength(128);
+        });
+
+        b.Entity<Team>(e =>
+        {
+            e.ToTable("Team");
+            e.HasKey(x => x.TeamId);
+            e.Property(x => x.Name).HasMaxLength(128);
+            e.Property(x => x.Description).HasMaxLength(400);
+        });
+
+        b.Entity<TeamMember>(e =>
+        {
+            e.ToTable("TeamMember");
+            e.HasKey(x => new { x.TeamId, x.UserName });
+            e.Property(x => x.UserName).HasMaxLength(128);
+            // Beziehung deklarieren, obwohl es keine Navigations-Property gibt:
+            // Ohne sie kennt EF die Abhaengigkeit nicht und darf den Elternsatz
+            // zuerst loeschen. Die Datenbank raeumt dann per ON DELETE CASCADE
+            // die Kinder weg, und EFs eigenes DELETE trifft nichts mehr —
+            // Ergebnis ist eine DbUpdateConcurrencyException („expected 1 row,
+            // affected 0"), die wie ein Nebenlaeufigkeitsproblem aussieht und
+            // keines ist.
+            e.HasOne<Team>().WithMany().HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AppAdmin>(e =>
+        {
+            e.ToTable("AppAdmin");
+            e.HasKey(x => x.UserName);
+            e.Property(x => x.UserName).HasMaxLength(128);
+            e.Property(x => x.AddedBy).HasMaxLength(128);
+        });
+
+        b.Entity<HostFilterRow>(e =>
+        {
+            e.ToTable("HostFilter");
+            e.HasKey(x => x.HostFilterId);
+            e.Property(x => x.OwnerUserName).HasMaxLength(128);
+            e.Property(x => x.Site).HasMaxLength(128);
+            e.Property(x => x.Name).HasMaxLength(128);
+            e.Property(x => x.HostNameRegex).HasMaxLength(400);
+            e.Property(x => x.ChangedBy).HasMaxLength(128);
+            // Bewusst KEIN Cascade — so steht es auch in der Datenbank. Ein Team
+            // zu loeschen soll nicht unbemerkt die geteilten Filter mitnehmen;
+            // TeamStore raeumt sie ausdruecklich und nennt vorher die Zahl.
+            e.HasOne<Team>().WithMany().HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        b.Entity<HostFilterHostRow>(e =>
+        {
+            e.ToTable("HostFilterHost");
+            e.HasKey(x => new { x.HostFilterId, x.HostName });
+            e.Property(x => x.HostName).HasMaxLength(255);
+            e.HasOne<HostFilterRow>().WithMany().HasForeignKey(x => x.HostFilterId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
