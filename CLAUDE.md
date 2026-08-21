@@ -392,8 +392,16 @@ ins Offline-Bundle geholt werden. Mit Pinning gibt es genau eine Version je Pake
 Die `Microsoft.Extensions.*`-Einträge in `Directory.Packages.props` stehen
 deshalb dort, obwohl kein Projekt sie direkt referenziert — nicht entfernen.
 
+**Proxy-Falle beim Diagnostizieren:** Der Proxy inspiziert TLS und signiert mit
+einer Firmen-CA aus dem **Windows**-Zertifikatspeicher. `curl` aus Git Bash hat
+sein eigenes CA-Bundle, kennt sie nicht und bricht mit exit 35 ab — das sieht
+aus wie eine Firewall-Sperre und ist keine. **Erreichbarkeit immer mit .NET
+prüfen** (`curl -k` als Schnelltest). Diese Verwechslung hat schon einmal einen
+Roadmap-Punkt aus einer Fehldiagnose entstehen lassen (§8.29).
+
 **NuGet-Falle in diesem Netz:** Der Proxy liefert `.nupkg` von nuget.org mit
-**403** aus (Metadaten/`index.json` kommen durch). Pakete kommen deshalb aus dem
+**403** aus (Metadaten/`index.json` kommen durch). Das ist im Gegensatz zum
+obigen eine *echte* Sperre — sie trifft auch `dotnet restore`. Pakete kommen deshalb aus dem
 Offline-Bundle `C:\NuGet-Local`. `Microsoft.Data.SqlClient` zieht die komplette
 MSAL-/Azure-Identity-Kette nach (~15 Pakete), die wir bei einem SQL-Login nie
 anfassen — vermeidbar ist das nicht, EF Cores SqlServer-Provider setzt sie voraus.
@@ -538,11 +546,29 @@ sieht alles.
     WebView, kein Google Maps**: Maps Platform kostet pro Load, verbietet
     Kachel-Caching und schickt die Standorte der eigenen IT-Infrastruktur an
     Google — das übersteht keine Datenschutzprüfung einer Stadtverwaltung.
-    Stattdessen die **Geobasisdaten der LGB Brandenburg** (Open Data,
-    dl-de/by-2.0, WMS/WMTS über den Geobroker): amtliche Orthophotos von
-    Potsdam, dürfen gespiegelt und gecacht werden, verlassen das LVN nicht.
-    Für die Campus-Ebene ist ein Luftbild die Rasterquelle, `Area.MapLayerKey`
-    benennt sie je Bereich.
+
+    **Quelle steht fest und ist verifiziert** (2026-08-21, aus dem Netz des
+    Fachbereichs, mit `HttpClient`): Digitale Orthophotos 20 cm der LGB
+    Brandenburg, Open Data unter dl-de/by-2.0. Namensnennung
+    „© GeoBasis-DE/LGB, dl-de/by-2-0" ist Pflicht und gehört ins UI.
+
+    ```
+    WMS    https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms
+           LAYERS=bebb_dop20c   SRS=EPSG:3857   FORMAT=image/png
+    WMTS   https://isk.geobasis-bb.de/mapproxy/dop20c_wmts/service
+    ```
+
+    **Den WMS-Weg nehmen, nicht WMTS.** Das WMTS-Matrix-Set `grid_3857` hat
+    einen eigenen, auf Brandenburg beschränkten Ursprung — globale
+    Slippy-Map-Kachelindizes laufen dort in `TileOutOfRange`. Über WMS
+    `GetMap` gibt der Client die BBOX selbst vor, und die rechnet
+    `WebMercator` ohnehin schon aus; MapProxy liefert trotzdem aus seinem
+    Kachel-Cache. Verifiziert mit der Kachel z13/4393/2691 (Potsdam
+    Innenstadt): 156 KB echtes Luftbild.
+
+    Kachel-URL und Layer gehören in `GlobalSetting` — dann ist ein Wechsel
+    der Quelle ein `UPDATE` und kein Rollout. Für die Campus-Ebene benennt
+    `Area.MapLayerKey` die Rasterquelle je Bereich.
 28. **Team-Sichten/Kiosk** — Viewer-Modus um Startbereich + Zoom erweitern.
     Wie beim Viewer-Modus gilt: Sichtbarkeitsgrenzen sind Bedienkomfort, die
     echte Grenze ist die Checkmk-Rolle.
@@ -556,34 +582,28 @@ sich die Clients direkt).
 
 ### Nach der Karte
 
-29. **Update-Bezug über den Fileshare als Zweitweg.** Der Proxy blockt seit
-    2026-08-20 den Zugriff auf GitHub — und zwar **vollständig**, nicht nur die
-    Downloads. Gemessen: Der Proxy baut den CONNECT-Tunnel zu `api.github.com`
-    auf (`HTTP/1.1 200 Connection established`), dann scheitert TLS
-    (curl exit 35). `github.com` ebenso. Das ist ein anderes Muster als bei
-    nuget.org, wo Metadaten durchkommen und nur `.nupkg` mit 403 abgewiesen wird.
+29. **Update-Bezug über den Fileshare als Zweitweg** — *zurückgestellt, die
+    Prämisse hat sich als falsch erwiesen.*
 
-    Daraus folgt für den Entwurf — **wichtig, weil es die naheliegende Lösung
-    kippt**: „Erst GitHub fragen, bei Fehler auf den Share ausweichen" bedeutet
-    bei jedem Start einen Verbindungsfehler samt Timeout, bevor überhaupt etwas
-    passiert. Der Share muss deshalb **beides** liefern können, Versionsangabe
-    und ZIP (kleines Manifest neben der Datei oder Version aus dem Dateinamen
-    `Checkmk-x.y.z-win-x64.zip`), und die Quelle gehört umschaltbar statt
-    fest verdrahtet. Timeout kurz halten.
+    Ursprünglich notiert, weil GitHub angeblich vollständig blockiert war.
+    Nachgemessen am 2026-08-21 mit `HttpClient` (also so, wie die Anwendung es
+    sieht): `api.github.com` **200**, `github.com` **200**, und der Download des
+    Release-ZIPs **206 Partial Content**. Der Update-Weg über GitHub
+    funktioniert.
 
-    Lars legt die von GitHub gebaute ZIP von Hand auf den Share (er kommt über
-    einen Citrix-Browser an die Releases und weiß, wann eine Version ausgeliefert
-    wird). **GitHub bleibt der primäre Weg**, sobald Downloads wieder erlaubt
-    sind — das ist ausdrücklich die bevorzugte Lösung, der Share ist der
-    Notbehelf, den die Netzwerk-Vorgaben erzwingen.
+    Die Fehldiagnose kam von `curl`: Der Proxy inspiziert TLS und signiert mit
+    einer Firmen-CA, die im **Windows**-Zertifikatspeicher liegt. `curl` aus
+    Git Bash bringt sein eigenes CA-Bundle mit, kennt sie nicht und bricht mit
+    exit 35 ab — CONNECT-Tunnel steht, dann Stille. Das sieht aus wie eine
+    Firewall-Sperre und ist keine. **Erreichbarkeit deshalb nie mit `curl`
+    beurteilen, sondern mit .NET** (`curl -k` reicht als Schnelltest).
 
-    Der Share-Pfad kommt als weiterer Schlüssel in `GlobalSetting`. Kein DDL,
-    kein neuer Client: Die Quelle lässt sich später mit einem `UPDATE` auf eine
-    Zeile umstellen — genau wofür der Schlüssel/Wert-Schnitt aus §5 da ist.
+    Echte Sperre bleibt allein der `.nupkg`-Download von nuget.org: dort
+    antwortet der Server mit **403**, und daran scheitert auch `dotnet restore`
+    — Inhaltssperre, kein Zertifikatsproblem. Das Offline-Bundle bleibt also.
 
-    **Priorität bewusst hinter der Karte**: Außer Lars nutzen aktuell zwei
-    Personen das Tool, die er notfalls von Hand aktualisiert. Der vorhandene
-    Stand reicht ihnen.
+    Falls der Update-Check im Cockpit trotzdem klemmt, liegt es nicht am Netz;
+    dann zuerst das Log ansehen, bevor ein Zweitweg gebaut wird.
 
 ## 9 · Deal
 
