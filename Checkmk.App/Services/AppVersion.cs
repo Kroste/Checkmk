@@ -1,4 +1,5 @@
 using System.Reflection;
+using Checkmk.Core;
 
 namespace Checkmk.App.Services;
 
@@ -12,6 +13,32 @@ namespace Checkmk.App.Services;
 public static class AppVersion
 {
     public static string Display { get; } = Resolve();
+
+    /// <summary>
+    /// Laufende Version als <see cref="Version"/> — die <b>einzige</b> Quelle
+    /// für jeden Versionsvergleich (Update-Check).
+    ///
+    /// <para><b>Nie <c>GetName().Version</c> dafür nehmen.</b> MinVer setzt die
+    /// auf <c>Major.0.0.0</c>; ein Vergleich damit meldet ab Version 1.0.1
+    /// dauerhaft ein Update — und bei einem Kanal mit älterem Paket sogar ein
+    /// Downgrade. Genau so passiert: laufend 1.15.1, angeboten 1.14.0.</para>
+    ///
+    /// <para>Vorabversionen werden auf ihren Zahlenkern gekürzt
+    /// (<c>1.15.1-alpha.0.2</c> → <c>1.15.1</c>). Damit gilt eine Alpha als
+    /// ihre Zielversion; das fertige 1.15.1 wird ihr dann nicht mehr angeboten.
+    /// Bewusst so — wer Alphas fährt, baut sie selbst.</para>
+    /// </summary>
+    public static Version Current { get; } = ResolveVersion();
+
+    private static Version ResolveVersion()
+    {
+        if (SemVerTag.TryParse(Display, out var parsed)) return parsed;
+
+        var asm = Assembly.GetExecutingAssembly().GetName().Version;
+        return asm is null
+            ? new Version(0, 0)
+            : new Version(asm.Major, asm.Minor, Math.Max(0, asm.Build), Math.Max(0, asm.Revision));
+    }
 
     private static string Resolve()
     {

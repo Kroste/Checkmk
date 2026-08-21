@@ -101,32 +101,9 @@ public sealed class GitHubReleasesUpdateChecker : IUpdateChecker
     private async Task<(UpdateCheckOutcome Outcome, UpdateInfo? Info)> EvaluateAsync(
         bool honorSkip, CancellationToken ct)
     {
-        // MinVer setzt AssemblyVersion default nur auf Major.0.0.0 (z. B. 1.0.0.0
-        // fuer Tag v1.4.0). Vergleich damit meldet immer ein Update. Deshalb den
-        // InformationalVersion-Attribut nehmen — den setzt MinVer auf die
-        // vollstaendige SemVer inkl. Metadaten (z. B. "1.4.0+abcdef").
-        var informational = Assembly.GetExecutingAssembly()
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        Version? current = null;
-        if (!string.IsNullOrWhiteSpace(informational) &&
-            SemVerTag.TryParse(informational, out var infoVer))
-        {
-            current = infoVer;
-        }
-        else
-        {
-            var currentAsm = Assembly.GetExecutingAssembly().GetName().Version;
-            if (currentAsm is not null)
-            {
-                current = new Version(currentAsm.Major, currentAsm.Minor,
-                    Math.Max(0, currentAsm.Build), Math.Max(0, currentAsm.Revision));
-            }
-        }
-        if (current is null)
-        {
-            Log.Debug("Keine App-Version ermittelt — Update-Check nicht moeglich.");
-            return (UpdateCheckOutcome.Failed, null);
-        }
+        // Eine Quelle fuer die laufende Version — nie GetName().Version, das
+        // liefert bei MinVer nur Major.0.0.0. Begruendung an AppVersion.Current.
+        var current = AppVersion.Current;
 
         GitHubRelease? release;
         try

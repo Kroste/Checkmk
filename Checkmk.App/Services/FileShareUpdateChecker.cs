@@ -21,7 +21,12 @@ namespace Checkmk.App.Services;
 /// Name reicht, und der Rest wird ohnehin gegen das signierte Manifest geprüft,
 /// bevor irgendetwas passiert.</para>
 /// </summary>
-public sealed class FileShareUpdateChecker(string folder, IUpdatePreferences prefs)
+/// <param name="currentVersion">Laufende Version. Nur für Tests zu setzen — im
+/// Betrieb gilt <see cref="AppVersion.Current"/>. Ohne diesen Haken müssten
+/// Tests gegen die Version des Testhosts vergleichen, und dann prüfen sie
+/// nichts Sinnvolles mehr.</param>
+public sealed class FileShareUpdateChecker(
+    string folder, IUpdatePreferences prefs, Version? currentVersion = null)
     : IUpdateChecker
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
@@ -108,9 +113,17 @@ public sealed class FileShareUpdateChecker(string folder, IUpdatePreferences pre
                 return (UpdateCheckOutcome.Failed, null);
             }
 
-            var current = Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0);
+            // Ueber AppVersion.Current, nie ueber GetName().Version: MinVer setzt
+            // die AssemblyVersion nur auf Major.0.0.0, und der Vergleich damit
+            // bietet dann sogar ein Downgrade an (laufend 1.15.1 -> „Update auf
+            // 1.14.0"). Real passiert, siehe AppVersion.
+            var current = currentVersion ?? AppVersion.Current;
             if (Normalize(latest) <= Normalize(current))
+            {
+                Log.Debug("Paket {Latest} im Ordner ist nicht neuer als {Current}.",
+                    latest, current);
                 return (UpdateCheckOutcome.UpToDate, null);
+            }
 
             if (honorSkip && prefs.LoadSkippedVersion() is { } skipped
                 && Normalize(skipped) >= Normalize(latest))

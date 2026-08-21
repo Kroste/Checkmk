@@ -1,4 +1,3 @@
-using System.Reflection;
 using Checkmk.App.Services;
 using FluentAssertions;
 using Xunit;
@@ -14,9 +13,13 @@ public class FileShareUpdateTests : IDisposable
     private readonly string _dir = Path.Combine(Path.GetTempPath(),
         "cockpit-share-tests-" + Guid.NewGuid().ToString("N"));
 
-    /// <summary>Version der Testassembly — gegen die vergleicht der Checker.</summary>
-    private static readonly Version Current =
-        Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0);
+    /// <summary>
+    /// Fest vorgegebene „laufende" Version. Vorher verglichen die Tests gegen
+    /// die Version des <b>Testhosts</b> — damit prüften sie nichts Sinnvolles,
+    /// und der eigentliche Fehler (Vergleich gegen <c>GetName().Version</c>,
+    /// von MinVer auf <c>Major.0.0.0</c> gesetzt) konnte durchrutschen.
+    /// </summary>
+    private static readonly Version Current = new(1, 15, 1);
 
     public FileShareUpdateTests() => Directory.CreateDirectory(_dir);
 
@@ -28,7 +31,7 @@ public class FileShareUpdateTests : IDisposable
 
     private void Package(string name) => File.WriteAllText(Path.Combine(_dir, name), "ZIP");
 
-    private FileShareUpdateChecker Checker() => new(_dir, new StubPreferences());
+    private FileShareUpdateChecker Checker() => new(_dir, new StubPreferences(), Current);
 
     private sealed class StubPreferences : IUpdatePreferences
     {
@@ -38,7 +41,7 @@ public class FileShareUpdateTests : IDisposable
     }
 
     /// <summary>Eine Version, die sicher neuer ist als die laufende Assembly.</summary>
-    private static string Newer => $"{Current.Major + 9}.0.0";
+    private static string Newer => "1.16.0";
 
     // --- Erkennung des Kanaltyps ----------------------------------------
 
@@ -67,7 +70,7 @@ public class FileShareUpdateTests : IDisposable
         var result = await Checker().CheckManuallyAsync(TestContext.Current.CancellationToken);
 
         result.Outcome.Should().Be(UpdateCheckOutcome.UpdateAvailable);
-        result.Info!.Version.Major.Should().Be(Current.Major + 9);
+        result.Info!.Version.Should().Be(new Version(1, 16, 0));
         result.Info.WindowsZipUrl.Should().Contain(_dir);
     }
 
@@ -80,18 +83,49 @@ public class FileShareUpdateTests : IDisposable
     }
 
     [Fact]
+    public async Task A_package_one_minor_behind_is_never_offered_as_a_downgrade()
+    {
+        // Real passiert (2026-08): Laufend 1.15.1, im Ordner 1.14.0, und die
+        // Statusleiste meldete „Update auf 1.14.0 verfuegbar". Ursache war der
+        // Vergleich gegen Assembly.GetName().Version — MinVer setzt die auf
+        // 1.0.0.0, und damit ist jedes Paket ab 1.0.1 „neuer".
+        Package("Checkmk-1.14.0-win-x64.zip");
+
+        var result = await Checker().CheckManuallyAsync(TestContext.Current.CancellationToken);
+
+        result.Outcome.Should().Be(UpdateCheckOutcome.UpToDate);
+        result.Info.Should().BeNull();
+    }
+
+    [Fact]
+    public void The_running_version_never_comes_from_the_assembly_version()
+    {
+        // Die Wache gegen den Rueckfall: AppVersion.Current muss die
+        // InformationalVersion aufloesen. Kaeme sie aus GetName().Version,
+        // stuende hier Major.0.0.0 — also Build und Revision auf 0 bei einer
+        // Minor-Version ungleich 0.
+        var display = AppVersion.Display;
+        var current = AppVersion.Current;
+
+        display.Should().NotBeNullOrWhiteSpace();
+        // Vorabsuffixe sind abgeschnitten: „1.15.1-alpha.0.2" -> 1.15.1
+        display.Should().StartWith(
+            $"{current.Major}.{current.Minor}.{current.Build}");
+    }
+
+    [Fact]
     public async Task The_highest_version_wins_not_the_newest_file()
     {
         // Kopiert jemand ein aelteres Paket zurueck in den Ordner, hat es den
         // neueren Zeitstempel. Nach Datum zu sortieren wuerde daraus ein
         // „Update" auf eine aeltere Version machen.
-        Package($"Checkmk-{Current.Major + 9}.0.0-win-x64.zip");
+        Package("Checkmk-1.16.0-win-x64.zip");
         await Task.Delay(50, TestContext.Current.CancellationToken);
-        Package($"Checkmk-{Current.Major + 1}.0.0-win-x64.zip");
+        Package("Checkmk-1.2.0-win-x64.zip");
 
         var result = await Checker().CheckManuallyAsync(TestContext.Current.CancellationToken);
 
-        result.Info!.Version.Major.Should().Be(Current.Major + 9);
+        result.Info!.Version.Should().Be(new Version(1, 16, 0));
     }
 
     [Fact]
@@ -105,7 +139,7 @@ public class FileShareUpdateTests : IDisposable
     {
         // Notebook ohne Netzlaufwerk ist der Normalfall, nicht die Stoerung.
         var checker = new FileShareUpdateChecker(
-            Path.Combine(_dir, "gibtsnicht"), new StubPreferences());
+            Path.Combine(_dir, "gibtsnicht"), new StubPreferences(), Current);
 
         (await checker.CheckManuallyAsync(TestContext.Current.CancellationToken)).Outcome.Should().Be(UpdateCheckOutcome.Failed);
     }
@@ -126,7 +160,7 @@ public class FileShareUpdateTests : IDisposable
         // Liegen zwei Pakete im Ordner, gibt das Manifest den Ausschlag —
         // sonst koennte ein danebengelegtes ZIP das signierte ueberstimmen.
         Package($"Checkmk-{Newer}-win-x64.zip");
-        Package($"Checkmk-{Current.Major + 20}.0.0-win-x64.zip");
+        Package("Checkmk-1.17.0-win-x64.zip");
 
         File.WriteAllText(Path.Combine(_dir, "update.json"), UpdateSignature.ToJson(
             new SignedUpdateManifest
@@ -138,7 +172,7 @@ public class FileShareUpdateTests : IDisposable
 
         var result = await Checker().CheckManuallyAsync(TestContext.Current.CancellationToken);
 
-        result.Info!.Version.Major.Should().Be(Current.Major + 9);
+        result.Info!.Version.Should().Be(new Version(1, 16, 0));
         result.Info.ManifestUrl.Should().EndWith("update.json");
     }
 
@@ -173,8 +207,8 @@ public class FileShareUpdateTests : IDisposable
     public async Task A_skipped_version_is_honoured_only_on_the_automatic_check()
     {
         Package($"Checkmk-{Newer}-win-x64.zip");
-        var prefs = new StubPreferences { Skipped = new Version(Current.Major + 9, 0, 0) };
-        var checker = new FileShareUpdateChecker(_dir, prefs);
+        var prefs = new StubPreferences { Skipped = new Version(1, 16, 0) };
+        var checker = new FileShareUpdateChecker(_dir, prefs, Current);
 
         (await checker.CheckAsync(TestContext.Current.CancellationToken)).Should().BeNull();
         // Wer aktiv prueft, will es wissen — die Uebersprungenheit gilt dort nicht.
