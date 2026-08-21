@@ -19,14 +19,16 @@ public partial class PlaceImportDialog : ChromeWindow
 {
     private readonly List<ExternalPlace> _all = [];
 
-    public PlaceImportDialog(IReadOnlyList<ExternalPlace> places)
+    public PlaceImportDialog(string sourceLabel, IReadOnlyList<ExternalPlace> places)
     {
         AvaloniaXamlLoader.Load(this);
 
         _all = [.. places.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)];
 
+        Title = $"{sourceLabel} übernehmen";
+        this.FindControl<Controls.TitleBar>("DialogTitleBar")!.Title = Title;
         this.FindControl<TextBlock>("PromptText")!.Text =
-            $"{_all.Count} Standorte vom Kartenserver der Landeshauptstadt. "
+            $"{_all.Count} Einträge aus „{sourceLabel}“ vom Kartenserver der Landeshauptstadt. "
           + "Auswählen, was als Bereich angelegt werden soll — der Rest lässt sich "
           + "später jederzeit nachholen, ein zweiter Lauf erzeugt keine Dubletten.";
 

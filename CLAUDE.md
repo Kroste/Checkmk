@@ -161,19 +161,42 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Fläche, der Punkt bleibt Sprungziel. **Treffererkennung: Marker vor Fläche** —
   ein Marker ist wenige Pixel groß und liegt oft *in* einem größeren Bereich;
   gewänne die Fläche, wäre er nicht anklickbar.
-- **Standort-Import** (`PotsdamPlaceImporter`): Verwaltungsstandorte der
-  Landeshauptstadt aus dem **FeatureServer** von `geoportal.potsdam.de`
-  (161 Stück, mit Behörde, Adresse, Koordinate). Bewusst über die
-  veröffentlichte REST-Schnittstelle und **nicht** direkt aus der Datenbank,
-  obwohl die auf demselben FOC-SQL01 liegt: Ein Tabellenzugriff hinge an einem
-  internen Schema, von dem der Fachbereich Vermessung nicht weiß, dass wir es
-  lesen — bei einem Umbau dort wäre das Cockpit kaputt, ohne dass es jemand
-  kommen sieht. Nicht „vereinfachen".
-  Abgleich über `ExternalSource`+`ExternalId` (gefilterter Unique-Index), ein
-  zweiter Lauf erzeugt also keine Dubletten. **Der Name wird beim Abgleich
-  nicht überschrieben** — wer „Stadthaus" statt der amtlichen Bezeichnung
-  eingetragen hat, soll das behalten. Standorte mit gleicher Adresse werden zu
-  einem zusammengefasst, sonst stapeln sich Marker übereinander.
+- **Standort-Import** (`PotsdamPlaceImporter`) aus den **FeatureServern** von
+  `geoportal.potsdam.de`. Drei Quellen, je eigener `ExternalSource`:
+
+  | Quelle | Dienst | Anzahl | Adress-Dedup |
+  |---|---|---|---|
+  | Verwaltungsstandorte | `Verwaltung_LH_Potsdam` | 161 → 35 | **ja** |
+  | Schulen | `Schulen` | 82 | nein |
+  | Hochschulen | `Hochschulen` | 11 | nein |
+
+  Die Schulen gehören zur Site `Schul_IT`. **Adress-Dedup nur bei der
+  Verwaltung**: Dort sitzen bis zu einem Dutzend Dienststellen im selben Haus
+  und sind *ein* Standort; bei Schulen ist jeder Eintrag eine eigene
+  Einrichtung, auch wenn zwei sich ein Gelände teilen.
+
+  Bewusst über die veröffentlichte REST-Schnittstelle und **nicht** direkt aus
+  der Datenbank, obwohl die auf demselben FOC-SQL01 liegt: Ein Tabellenzugriff
+  hinge an einem internen Schema, von dem der Fachbereich Vermessung nicht
+  weiß, dass wir es lesen — bei einem Umbau dort wäre das Cockpit kaputt, ohne
+  dass es jemand kommen sieht. Nicht „vereinfachen".
+
+  Die Feldnamen unterscheiden sich je Dienst (`BEHOERDE` vs. `NAME`, `ADRESSE`
+  vs. `STRASSE`) — deshalb Kandidatenlisten mit „erster Treffer gewinnt",
+  dasselbe Muster wie bei `HostOsAttributeKeys`.
+
+  Drei Regeln, die aus einem echten Fehlschlag stammen:
+  1. **Namen müssen beim Import eindeutig gemacht werden**
+     (`AreaStore.UniqueName`). Bereichsnamen sind je Ebene eindeutig (Index aus
+     002), die amtlichen Listen halten sich nicht daran: „Musikschule" steht
+     zweimal drin. Ohne Entschärfung scheitert der **komplette** Import an SQL
+     2601, und der Anwender sieht nur „Import fehlgeschlagen". Entschärft wird
+     über die Straße („Musikschule (Galileistraße 6)"), erst danach mit einer
+     Nummer — die sagt einem Menschen nichts.
+  2. **Abgleich über `ExternalSource`+`ExternalId`**, ein zweiter Lauf erzeugt
+     keine Dubletten. Der Name wird dabei **nicht** überschrieben — wer
+     „Stadthaus" statt der amtlichen Bezeichnung eingetragen hat, behält es.
+  3. Namen auf 200 Zeichen kürzen — amtliche Schulnamen werden lang.
 - **Schema-Warnung in der Statusleiste**: `CockpitDatabase.CheckAsync` läuft
   beim Start, ein Versionsunterschied erscheint als rotes Feld. Ohne das
   scheitert später irgendein Zugriff mit „Ungültiger Spaltenname" und niemand

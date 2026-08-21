@@ -1161,13 +1161,26 @@ sofort. Neu zeichnen ersetzt die alte Fläche.
 
 ### Standorte übernehmen statt tippen
 
-Der Knopf **„Standorte übernehmen…"** holt die **Verwaltungsstandorte der
-Landeshauptstadt** vom städtischen Kartenserver — rund 160 Stück mit Behörde,
-Anschrift und Koordinate. Du wählst aus, was als Bereich angelegt werden soll;
-Filter und „Alle sichtbaren" helfen beim Eingrenzen.
+Der Knopf **„Standorte übernehmen…"** holt fertige Standortlisten vom
+Kartenserver der Landeshauptstadt. Drei stehen zur Wahl:
 
-Nichts ist vorausgewählt: In der Liste stehen auch Bibliotheken und das Museum,
+| Liste | Inhalt |
+|---|---|
+| **Verwaltungsstandorte** | 35 Dienstgebäude mit Behörde und Anschrift |
+| **Schulen** | 82 Schulen mit Schulform und Träger — die Site `Schul_IT` |
+| **Hochschulen** | 11 Standorte |
+
+Du wählst erst die Liste, dann die Einträge; Filter und „Alle sichtbaren" helfen
+beim Eingrenzen.
+
+Nichts ist vorausgewählt: In den Listen stehen auch Bibliotheken und das Museum,
 und alles zu übernehmen macht den Bereichsbaum unbrauchbar.
+
+Jede Liste wird getrennt abgeglichen — ein späterer Lauf der Schulen stört die
+schon übernommenen Verwaltungsstandorte nicht.
+
+**Doppelte Namen** lösen sich von selbst auf: „Musikschule" gibt es in Potsdam
+zweimal, daraus wird „Musikschule" und „Musikschule (Galileistraße 6)".
 
 Ist im Baum ein Bereich markiert, kommen die Standorte **darunter** — so lassen
 sich „Außenstellen" gebündelt einhängen, statt dreißig Wurzelknoten zu erzeugen.

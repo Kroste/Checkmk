@@ -5,4 +5,10 @@
     <PackageReference Include="NLog" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- UniqueName ist internal, muss aber geprueft werden: daran haengt, ob
+         ein Import an einem doppelten Namen scheitert. -->
+    <InternalsVisibleTo Include="Checkmk.Core.Tests" />
+  </ItemGroup>
+
 </Project>

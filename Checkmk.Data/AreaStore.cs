@@ -246,6 +246,17 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
             .Where(a => a.ExternalId is not null)
             .ToDictionary(a => a.ExternalId!, StringComparer.OrdinalIgnoreCase);
 
+        // Bereichsnamen sind je Ebene eindeutig (Index aus 002-map-teams.sql).
+        // Die amtlichen Listen halten sich nicht daran — „Musikschule" steht
+        // zweimal drin, an der Galileistrasse und in der Jaegerstrasse. Ohne
+        // Entschaerfung scheitert der ganze Import an SQL-Fehler 2601, und der
+        // Anwender sieht nur „Import fehlgeschlagen".
+        var takenNames = await db.Areas
+            .Where(a => a.ParentAreaId == parentAreaId)
+            .Select(a => a.Name)
+            .ToListAsync(ct).ConfigureAwait(false);
+        var taken = new HashSet<string>(takenNames, StringComparer.OrdinalIgnoreCase);
+
         var now = DateTime.UtcNow;
         var who = Environment.UserName;
         int created = 0, updated = 0, unchanged = 0;
@@ -260,6 +271,11 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
                 // soll das beim naechsten Abgleich nicht verlieren.
                 var moved = area.Lat != p.Lat || area.Lon != p.Lon;
                 var addressChanged = area.Address != p.Address;
+
+                // Der bestehende Name bleibt seiner Ebene erhalten, damit ein
+                // neuer Eintrag nicht darauf ausweicht.
+                taken.Add(area.Name);
+
                 if (!moved && !addressChanged) { unchanged++; continue; }
 
                 area.Lat = p.Lat;
@@ -271,10 +287,13 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
             }
             else
             {
+                var name = UniqueName(p, taken);
+                taken.Add(name);
+
                 db.Areas.Add(new Area
                 {
                     ParentAreaId = parentAreaId,
-                    Name = p.Name,
+                    Name = name,
                     Lat = p.Lat,
                     Lon = p.Lon,
                     Address = p.Address,
@@ -293,6 +312,35 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
 
         await RefreshAsync(ct).ConfigureAwait(false);
         return new ImportResult(created, updated, unchanged);
+    }
+
+    /// <summary>
+    /// Macht den Namen auf seiner Ebene eindeutig. Zuerst über die Anschrift —
+    /// „Musikschule (Galileistraße 6)" sagt einem Menschen etwas, „Musikschule
+    /// (2)" nicht. Erst wenn auch das kollidiert, wird durchgezählt.
+    /// </summary>
+    internal static string UniqueName(ExternalPlace place, ISet<string> taken)
+    {
+        if (!taken.Contains(place.Name)) return Trim(place.Name);
+
+        if (!string.IsNullOrWhiteSpace(place.Address))
+        {
+            // Nur den Strassenteil, nicht die PLZ — die hilft beim Unterscheiden nicht.
+            var street = place.Address.Split(',')[0].Trim();
+            var withStreet = $"{place.Name} ({street})";
+            if (!taken.Contains(withStreet)) return Trim(withStreet);
+        }
+
+        for (var i = 2; i < 1000; i++)
+        {
+            var numbered = $"{place.Name} ({i})";
+            if (!taken.Contains(numbered)) return Trim(numbered);
+        }
+        return Trim($"{place.Name} ({place.ExternalId})");
+
+        // Die Spalte fasst 200 Zeichen; amtliche Schulnamen werden lang
+        // („Berufliche Schule fuer Sport und Gesundheit der …").
+        static string Trim(string s) => s.Length <= 200 ? s : s[..200];
     }
 
     public async Task AssignAsync(IReadOnlyList<string> hostNames, int? areaId,

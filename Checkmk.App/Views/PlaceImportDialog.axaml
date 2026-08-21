@@ -10,7 +10,7 @@
   <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
     <Grid RowDefinitions="40,Auto,Auto,*,Auto">
 
-      <controls:TitleBar Grid.Row="0" Title="Standorte übernehmen" />
+      <controls:TitleBar Grid.Row="0" Name="DialogTitleBar" Title="Standorte übernehmen" />
 
       <TextBlock Grid.Row="1" Name="PromptText" Margin="16,12,16,0"
                  Foreground="#AAAAAA" TextWrapping="Wrap" />

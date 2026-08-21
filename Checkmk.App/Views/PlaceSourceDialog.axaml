@@ -1,0 +1,28 @@
+<controls:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Checkmk.App.Controls"
+        x:Class="Checkmk.App.Views.PlaceSourceDialog"
+        Width="460" Height="250"
+        Title="Standortliste wählen"
+        WindowStartupLocation="CenterOwner">
+
+  <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#1E1E1E">
+    <Grid RowDefinitions="40,*,Auto">
+
+      <controls:TitleBar Grid.Row="0" Title="Standortliste wählen" />
+
+      <StackPanel Grid.Row="1" Margin="16" Spacing="10">
+        <TextBlock Foreground="#AAAAAA" TextWrapping="Wrap"
+                   Text="Welche Liste vom Kartenserver der Landeshauptstadt soll übernommen werden? Jede Liste wird getrennt abgeglichen — ein späterer Lauf einer anderen Liste stört die erste nicht." />
+        <ComboBox Name="SourceBox" HorizontalAlignment="Stretch"
+                  PlaceholderText="Liste wählen" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Weiter" Click="OnOkClick" Background="#123E6B" IsDefault="True" />
+        <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</controls:ChromeWindow>

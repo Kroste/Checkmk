@@ -176,20 +176,25 @@ public partial class AreaView : UserControl
         var importer = App.Services?.GetService<PotsdamPlaceImporter>();
         if (importer is null) return;
 
-        vm.StatusMessage = "Standorte werden vom Kartenserver geladen…";
-        var places = await importer.LoadAsync();
+        // Welche Liste? Verwaltungsstandorte, Schulen oder Hochschulen —
+        // die Schulen gehoeren zur Site Schul_IT und sind ein eigener Dienst.
+        var pick = new PlaceSourceDialog(PotsdamPlaceImporter.Sources);
+        if (await pick.ShowDialog<PlaceSource?>(owner) is not { } source) return;
+
+        vm.StatusMessage = $"{source.Label} werden vom Kartenserver geladen…";
+        var places = await importer.LoadAsync(source);
         if (places.Count == 0)
         {
-            vm.StatusMessage = "Keine Standorte erhalten — Kartenserver nicht erreichbar? Siehe Log.";
+            vm.StatusMessage = $"Keine {source.Label} erhalten — Kartenserver nicht erreichbar? Siehe Log.";
             return;
         }
 
-        var dialog = new PlaceImportDialog(places);
+        var dialog = new PlaceImportDialog(source.Label, places);
         var chosen = await dialog.ShowDialog<IReadOnlyList<ExternalPlace>?>(owner);
         if (chosen is null || chosen.Count == 0) return;
 
         var parent = vm.SelectedNode is { IsUnassigned: false } n ? n.AreaId : (int?)null;
-        await vm.ImportPlacesAsync(PotsdamPlaceImporter.SourceId, chosen, parent);
+        await vm.ImportPlacesAsync(source.Id, chosen, parent);
         RefreshMap();
     }
 
