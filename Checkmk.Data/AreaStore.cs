@@ -44,6 +44,10 @@ public interface IAreaStore
 
     Task<AreaDeleteResult> DeleteAsync(int areaId, CancellationToken ct = default);
 
+    /// <summary>Speichert die Fläche eines Bereichs (GeoJSON-Polygon, WGS84).
+    /// <c>null</c> löscht sie wieder.</summary>
+    Task SaveGeometryAsync(int areaId, string? geoJson, CancellationToken ct = default);
+
     /// <summary>Ordnet Hosts einem Bereich zu. <paramref name="areaId"/> = null
     /// entfernt die Zuordnung.</summary>
     Task AssignAsync(IReadOnlyList<string> hostNames, int? areaId, CancellationToken ct = default);
@@ -156,6 +160,25 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
 
         await RefreshAsync(ct).ConfigureAwait(false);
         return AreaDeleteResult.Ok;
+    }
+
+    public async Task SaveGeometryAsync(int areaId, string? geoJson, CancellationToken ct = default)
+    {
+        await using var db = database.CreateContext();
+
+        var area = await db.Areas.FirstOrDefaultAsync(a => a.AreaId == areaId, ct)
+            .ConfigureAwait(false);
+        if (area is null) return;
+
+        area.GeometryJson = geoJson;
+        area.ChangedAtUtc = DateTime.UtcNow;
+        area.ChangedBy = Environment.UserName;
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        Log.Info("Flaeche fuer Bereich {AreaId} {Action}.",
+            areaId, geoJson is null ? "geloescht" : "gespeichert");
+
+        await RefreshAsync(ct).ConfigureAwait(false);
     }
 
     public async Task AssignAsync(IReadOnlyList<string> hostNames, int? areaId,

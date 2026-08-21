@@ -144,6 +144,7 @@ internal static class Program
             services.AddSingleton<IHostDomainStore>(sp => sp.GetRequiredService<DbHostDomainStore>());
             services.AddSingleton<IAreaStore>(_ => new AreaStore(cockpitDb));
             services.AddSingleton<AreaViewModel>();
+            services.AddSingleton<MapTileLoader>();
         }
         else
         {

@@ -1133,8 +1133,36 @@ Gerät **einmal** zugeordnet — was ein Team davon sieht, entscheidet sein Filt
 Andernfalls müsste jedes Team seine eigene Zuordnung pflegen, und wer einen
 Switch umträgt, müsste es acht Teams sagen.
 
-Später kommt auf diese Struktur eine Karte (Punkte werden zu Flächen auf dem
-Stadtplan). Die Zuordnung, die du jetzt anlegst, gilt dann unverändert weiter.
+### Die Karte
+
+Rechts neben dem Baum liegt die Karte — ein Luftbild von Potsdam, auf dem die
+Bereiche als farbige Flächen liegen. Die Farbe ist dieselbe Ampel wie im Baum.
+
+- **Schieben** mit gedrückter linker Maustaste, **Zoomen** mit dem Mausrad
+  (der Punkt unter dem Zeiger bleibt stehen).
+- **Klick auf eine Fläche** markiert den Bereich im Baum. Liegt ein kleiner
+  Bereich in einem großen, gewinnt der kleine.
+- **Klick im Baum** springt umgekehrt auf die Fläche.
+
+**Eine Fläche einzeichnen:** Bereich im Baum markieren → **„Fläche zeichnen"** →
+Ecken nacheinander anklicken. **Doppelklick** oder **Enter** schließt die Fläche,
+**Rücktaste** nimmt den letzten Punkt zurück, **Esc** bricht ab. Gespeichert wird
+sofort. Neu zeichnen ersetzt die alte Fläche.
+
+Bereiche ohne Fläche verschwinden nicht — sie stehen im Baum und funktionieren
+dort vollständig. Die Karte ist eine zusätzliche Sicht, keine Voraussetzung.
+
+Das Kartenmaterial sind die **Digitalen Orthophotos (20 cm) der LGB
+Brandenburg**, amtliche Daten als Open Data unter dl-de/by-2.0. Der
+Quellenvermerk unten rechts im Kartenbild ist Lizenzpflicht und bleibt deshalb
+stehen. Die Kacheln werden lokal zwischengespeichert (`%LOCALAPPDATA%\Kroste\Checkmk\tiles`),
+ein Wandmonitor befragt den Landesdienst also nicht stundenlang.
+
+> **Für Administratoren:** Kartenquelle, Layer und Quellenvermerk stehen in
+> `dbo.GlobalSetting` (`MapWmsUrl`, `MapWmsLayer`, `MapAttribution`). Ein
+> Quellenwechsel ist damit ein `UPDATE` auf eine Zeile — kein neues
+> Ausrollpaket. Anlegen mit [`db/seed-map-settings.sql`](db/seed-map-settings.sql);
+> ohne die Zeilen greifen dieselben Werte als eingebaute Vorgabe.
 
 ---
 

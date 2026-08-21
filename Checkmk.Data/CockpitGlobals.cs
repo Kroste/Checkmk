@@ -16,6 +16,9 @@ public sealed class CockpitGlobals
     public const string KeyUpdateChannelUrl    = "UpdateChannelUrl";
     public const string KeyHostOsAttributeKeys = "HostOsAttributeKeys";
     public const string KeyShowHostCreation    = "ShowHostCreation";
+    public const string KeyMapWmsUrl           = "MapWmsUrl";
+    public const string KeyMapWmsLayer         = "MapWmsLayer";
+    public const string KeyMapAttribution      = "MapAttribution";
 
     public string HostDefaultDomain { get; init; } = "lhp.intern";
 
@@ -36,6 +39,26 @@ public sealed class CockpitGlobals
     public bool ShowHostCreation { get; init; }
 
     /// <summary>
+    /// WMS-Basisadresse der Kartenkacheln. Vorgabe sind die Digitalen
+    /// Orthophotos 20 cm der LGB Brandenburg (Open Data, dl-de/by-2.0).
+    ///
+    /// Bewusst der <b>WMS</b>-Endpunkt und nicht WMTS: Das Matrix-Set
+    /// <c>grid_3857</c> der LGB hat einen auf Brandenburg beschraenkten
+    /// Ursprung und weist globale Slippy-Map-Kachelindizes mit
+    /// <c>TileOutOfRange</c> ab. Ueber <c>GetMap</c> gibt der Client die
+    /// Bounding-Box selbst vor — die rechnet <c>WebMercator</c> ohnehin aus,
+    /// und MapProxy liefert trotzdem aus seinem Kachel-Cache.
+    /// </summary>
+    public string MapWmsUrl { get; init; } =
+        "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms";
+
+    public string MapWmsLayer { get; init; } = "bebb_dop20c";
+
+    /// <summary>Quellenvermerk. <b>Pflicht</b> nach dl-de/by-2.0 und deshalb
+    /// fest im Kartenbild, nicht in einem Menue vergraben.</summary>
+    public string MapAttribution { get; init; } = "© GeoBasis-DE/LGB, dl-de/by-2-0";
+
+    /// <summary>
     /// Baut die Vorgaben aus den Schluessel/Wert-Zeilen. Unbekannte Schluessel
     /// werden ignoriert, fehlende behalten ihren Default — ein halb gepflegter
     /// Datenbestand darf die Anwendung nicht lahmlegen.
@@ -49,7 +72,10 @@ public sealed class CockpitGlobals
             HostDefaultDomain = Text(KeyHostDefaultDomain) ?? fallback.HostDefaultDomain,
             UpdateChannelUrl  = Text(KeyUpdateChannelUrl)  ?? fallback.UpdateChannelUrl,
             HostOsAttributeKeys = StringList(KeyHostOsAttributeKeys) ?? fallback.HostOsAttributeKeys,
-            ShowHostCreation  = Bool(KeyShowHostCreation) ?? fallback.ShowHostCreation
+            ShowHostCreation  = Bool(KeyShowHostCreation) ?? fallback.ShowHostCreation,
+            MapWmsUrl         = Text(KeyMapWmsUrl)        ?? fallback.MapWmsUrl,
+            MapWmsLayer       = Text(KeyMapWmsLayer)      ?? fallback.MapWmsLayer,
+            MapAttribution    = Text(KeyMapAttribution)   ?? fallback.MapAttribution
         };
 
         string? Text(string key)
@@ -81,6 +107,9 @@ public sealed class CockpitGlobals
         [KeyHostDefaultDomain]   = HostDefaultDomain,
         [KeyUpdateChannelUrl]    = UpdateChannelUrl,
         [KeyHostOsAttributeKeys] = JsonSerializer.Serialize(HostOsAttributeKeys),
-        [KeyShowHostCreation]    = ShowHostCreation.ToString()
+        [KeyShowHostCreation]    = ShowHostCreation.ToString(),
+        [KeyMapWmsUrl]           = MapWmsUrl,
+        [KeyMapWmsLayer]         = MapWmsLayer,
+        [KeyMapAttribution]      = MapAttribution
     };
 }

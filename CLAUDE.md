@@ -154,6 +154,32 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Der Sammelknoten **„Ohne Bereich"** ist kein Datensatz (`AreaId = -1`), sondern
   die Restmenge — die Arbeitsliste beim Zuordnen und der einzige Weg, einen
   vergessenen Host überhaupt zu bemerken.
+- **Karte im Bereiche-Tab** (`Controls/MapCanvas`): Kachelkarte mit
+  Polygon-Overlay, Baum links, Karte rechts, Auswahl in beiden Richtungen
+  verbunden. Flächen zeichnet man auf dem markierten Bereich (Punkte klicken,
+  Doppelklick/Enter schließt, Rücktaste nimmt zurück, Esc bricht ab), gespeichert
+  wird GeoJSON in `Area.GeometryJson`. Fünf Punkte, die Zeit gekostet haben:
+  1. **WMS, nicht WMTS.** Das Matrix-Set `grid_3857` der LGB hat einen auf
+     Brandenburg beschränkten Ursprung — globale Slippy-Map-Kachelindizes laufen
+     dort in `TileOutOfRange`. Über `GetMap` gibt der Client die BBOX selbst vor,
+     die `WebMercator` ohnehin ausrechnet; MapProxy liefert trotzdem aus seinem
+     Kachel-Cache.
+  2. **WMS 1.1.1 mit `SRS`, nicht 1.3.0 mit `CRS`.** In 1.3.0 hängt die
+     Achsenreihenfolge vom Koordinatensystem ab; daran vertauschen sich Länge und
+     Breite *lautlos*, und die Karte zeigt die falsche Weltgegend statt zu meckern.
+  3. **Antwort auf Bilddaten prüfen** (`LooksLikeImage`). WMS meldet Fehler gern
+     als XML mit Status 200 — ungeprüft landet die Fehlermeldung als „Kachel" im
+     Plattencache und wird nie wieder neu geholt.
+  4. **Schieben in Weltpixeln, nicht in Grad.** In Mercator sind Grad je nach
+     Breite unterschiedlich breit; wer Grad addiert, dessen Karte rutscht unter
+     dem Mauszeiger weg. Beim Zoomen bleibt der Punkt unter dem Zeiger stehen.
+  5. **Treffererkennung: kleinste Fläche gewinnt.** Sonst verdeckt der Campus
+     die Serverräume darin.
+  Kachel-URL, Layer und Quellenvermerk stehen in `GlobalSetting` — ein
+  Quellenwechsel ist ein `UPDATE`, kein Rollout (`db/seed-map-settings.sql`).
+  Der Cache-Pfad trägt einen Hash aus URL+Layer, sonst zeigt die Karte nach dem
+  Umstellen weiter das alte Bild. **Der Quellenvermerk im Kartenbild ist
+  Lizenzpflicht** (dl-de/by-2.0), nicht Zierde — nicht in ein Menü verschieben.
 - **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
   **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal
   aus `columns.json` (Normalmodus, `StatusGridColumns.Merge/Apply/Capture`) und einmal
@@ -569,6 +595,11 @@ sieht alles.
     Kachel-URL und Layer gehören in `GlobalSetting` — dann ist ein Wechsel
     der Quelle ein `UPDATE` und kein Rollout. Für die Campus-Ebene benennt
     `Area.MapLayerKey` die Rasterquelle je Bereich.
+
+    **Stand:** Kachelkarte, Polygon-Overlay mit Rollup-Einfärbung, Zeichnen und
+    Treffererkennung sind gebaut (Details in §4). Offen: eine bestehende Fläche
+    nachbearbeiten (Punkte ziehen) statt neu zu zeichnen, `MapLayerKey` je
+    Bereich für eigene Campus-Raster, und Hosts direkt aus der Karte zuweisen.
 28. **Team-Sichten/Kiosk** — Viewer-Modus um Startbereich + Zoom erweitern.
     Wie beim Viewer-Modus gilt: Sichtbarkeitsgrenzen sind Bedienkomfort, die
     echte Grenze ist die Checkmk-Rolle.

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Checkmk.App.ViewModels"
+             xmlns:controls="using:Checkmk.App.Controls"
              x:Class="Checkmk.App.Views.AreaView"
              x:DataType="vm:AreaViewModel">
 
@@ -22,12 +23,21 @@
               IsVisible="{Binding CanWrite}"
               IsEnabled="{Binding CanEditSelection}"
               ToolTip.Tip="Geht nur, wenn der Bereich keine Unterbereiche und keine Hosts mehr hat." />
+      <Button Grid.Column="4" Name="DrawButton" Content="Fläche zeichnen"
+              Click="OnDrawAreaClick" HorizontalAlignment="Left"
+              IsVisible="{Binding CanWrite}"
+              IsEnabled="{Binding CanEditSelection}"
+              ToolTip.Tip="Klicken setzt Punkte, Doppelklick oder Enter schließt die Fläche, Esc bricht ab, Rücktaste nimmt den letzten Punkt zurück." />
       <Button Grid.Column="5" Content="Neu laden" Command="{Binding ReloadCommand}"
               IsEnabled="{Binding !IsBusy}" />
     </Grid>
 
-    <!-- Bereichsbaum -->
-    <TreeView Grid.Row="1" ItemsSource="{Binding Roots}"
+    <!-- Baum links, Karte rechts. Auswahl ist in beiden Richtungen verbunden:
+         Klick im Baum springt auf die Fläche, Klick auf die Fläche markiert
+         den Knoten. -->
+    <Grid Grid.Row="1" ColumnDefinitions="320,4,*">
+
+    <TreeView Grid.Column="0" ItemsSource="{Binding Roots}"
               SelectedItem="{Binding SelectedNode}">
       <TreeView.ContextMenu>
         <ContextMenu>
@@ -59,6 +69,23 @@
         </TreeDataTemplate>
       </TreeView.DataTemplates>
     </TreeView>
+
+      <GridSplitter Grid.Column="1" Background="#333333" ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" BorderBrush="#3A3A3A" BorderThickness="1">
+        <Grid>
+          <controls:MapCanvas Name="Map" />
+          <!-- Hinweisleiste im Zeichenmodus: die Tastenkürzel stehen sonst nur
+               im ToolTip des Buttons, den man beim Zeichnen nicht mehr sieht. -->
+          <Border Name="DrawHint" IsVisible="False" VerticalAlignment="Top"
+                  HorizontalAlignment="Center" Margin="0,10,0,0"
+                  Background="#CC123E6B" CornerRadius="4" Padding="12,5">
+            <TextBlock Text="Punkte klicken · Doppelklick oder Enter schließt · Rücktaste nimmt zurück · Esc bricht ab"
+                       FontSize="12" />
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
 
     <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="4,8,4,4"
                FontSize="12" Foreground="#AAAAAA" TextWrapping="Wrap" />

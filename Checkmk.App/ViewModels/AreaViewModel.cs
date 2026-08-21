@@ -101,6 +101,7 @@ public sealed partial class AreaViewModel : ViewModelBase
             node.Apply(aggregates.GetValueOrDefault(areaId, AreaAggregate.Empty));
 
         ApplyUnassigned(snapshot, worstPerHost);
+        MapChanged?.Invoke();
     }
 
     /// <summary>
@@ -288,4 +289,42 @@ public sealed partial class AreaViewModel : ViewModelBase
     /// <summary>Alle echten Bereiche flach, für Auswahldialoge.</summary>
     public IReadOnlyList<AreaNodeViewModel> AllAreas()
         => [.. Roots.Where(r => !r.IsUnassigned).SelectMany(r => r.Flatten())];
+
+    // -----------------------------------------------------------------------
+    // Karte
+    // -----------------------------------------------------------------------
+
+    /// <summary>Wird gefeuert, wenn sich Flächen oder Farben geändert haben —
+    /// die Karte zeichnet daraufhin neu.</summary>
+    public event Action? MapChanged;
+
+    /// <summary>Rohe Fläche eines Bereichs (GeoJSON), oder <c>null</c>.</summary>
+    public string? GeometryOf(int areaId)
+        => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.GeometryJson;
+
+    /// <summary>Aggregat eines Bereichs für die Einfärbung auf der Karte.</summary>
+    public AreaNodeViewModel? NodeOf(int areaId) => _byId.GetValueOrDefault(areaId);
+
+    /// <summary>Speichert die gezeichnete Fläche. <c>null</c> entfernt sie.</summary>
+    public async Task SaveGeometryAsync(int areaId, string? geoJson)
+    {
+        if (!CanWrite) return;
+
+        try
+        {
+            IsBusy = true;
+            await _areas.SaveGeometryAsync(areaId, geoJson);
+            Recompute(_status.AllServices);
+            MapChanged?.Invoke();
+            StatusMessage = geoJson is null
+                ? $"Fläche entfernt: {NodeOf(areaId)?.Name}."
+                : $"Fläche gespeichert: {NodeOf(areaId)?.Name}.";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Flaeche konnte nicht gespeichert werden.");
+            StatusMessage = $"Speichern der Fläche fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
 }

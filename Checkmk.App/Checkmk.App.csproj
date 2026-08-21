@@ -41,6 +41,10 @@
     <ProjectReference Include="../Checkmk.Core/Checkmk.Core.csproj" />
     <ProjectReference Include="../Checkmk.Data/Checkmk.Data.csproj" />
     <ProjectReference Include="../Checkmk.PluginContracts/Checkmk.PluginContracts.csproj" />
+    <!-- Der Kachel-URL-Bau ist internal, muss aber geprueft werden: die exakte
+         Parameterfolge entscheidet, ob der WMS ein Luftbild oder eine
+         XML-Fehlermeldung liefert. -->
+    <InternalsVisibleTo Include="Checkmk.Core.Tests" />
   </ItemGroup>
 
   <!-- Baut alle Submodule-Plugins mit und kopiert die DLLs ins bin/.../plugins/,
