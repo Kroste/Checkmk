@@ -48,6 +48,12 @@ public sealed class PotsdamPlaceImporter : IDisposable
     private static readonly string[] StreetFields = ["ADRESSE", "STRASSE"];
     private static readonly string[] IdFields = ["GLOBALID", "OBJECTID"];
 
+    /// <summary>Kennzahl, die im Hostnamen steckt. Bei Schulen ist das
+    /// <c>SCHULNUM</c> — 45 der 82 tragen dort eine reine Nummer, dazu drei
+    /// zusammengelegte wie <c>25/26</c>. Freie Traeger und OSZ haben Kuerzel
+    /// (<c>SFT</c>, <c>F26</c>) und damit kein ableitbares Muster.</summary>
+    private static readonly string[] CodeFields = ["SCHULNUM"];
+
     public static readonly IReadOnlyList<PlaceSource> Sources =
     [
         new("LHP-Verwaltungsstandorte", "Verwaltungsstandorte",
@@ -130,6 +136,7 @@ public sealed class PotsdamPlaceImporter : IDisposable
                 var name = First(attrs, NameFields) ?? "Standort";
                 var address = BuildAddress(attrs);
                 var id = First(attrs, IdFields) ?? $"{lon:F6},{lat:F6}";
+                var code = First(attrs, CodeFields);
 
                 if (mergeByAddress)
                 {
@@ -140,7 +147,7 @@ public sealed class PotsdamPlaceImporter : IDisposable
                 // Doppelte Kennungen wuerden am eindeutigen Index scheitern.
                 if (!seenId.Add(id)) continue;
 
-                result.Add(new ExternalPlace(id, name.Trim(), lat, lon, address));
+                result.Add(new ExternalPlace(id, name.Trim(), lat, lon, address, code));
             }
         }
         catch (JsonException ex)

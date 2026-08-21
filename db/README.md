@@ -40,6 +40,7 @@ nicht. Reihenfolge:
 002-map-teams.sql    Bereiche, Host-Zuordnung, Teams, geteilte Filter, Sichten
 003-area-points.sql  Bereiche als Punkt, Anschrift, Herkunft (Standort-Import)
 004-area-sites.sql   Sichtbarkeit je Checkmk-Site (LHP / Schul_IT)
+005-area-hostpattern.sql  Namensmuster je Bereich fuer Zuordnungsvorschlaege
 ```
 
 Optional, kein Schema-Eingriff und ohne Versionssprung:

@@ -31,6 +31,9 @@
         <Button Content="Standorte übernehmen…" Click="OnImportPlacesClick"
                 IsVisible="{Binding CanWrite}" IsEnabled="{Binding !IsBusy}"
                 ToolTip.Tip="Holt Standortlisten der Landeshauptstadt vom Kartenserver und legt die ausgewählten als Bereiche an." />
+        <Button Content="Zuordnung vorschlagen…" Click="OnSuggestClick"
+                IsVisible="{Binding CanWrite}" IsEnabled="{Binding !IsBusy}"
+                ToolTip.Tip="Sucht anhand der Host-Muster, welche Hosts zu welchem Bereich gehören — zum Durchsehen und Bestätigen." />
         <Button Name="PrefetchButton" Content="Karten vorladen" Click="OnPrefetchClick"
                 ToolTip.Tip="Lädt die Kacheln rund um alle Standorte im Hintergrund. Danach ist die Karte sofort da — auch ohne Internet." />
       </StackPanel>
@@ -58,6 +61,9 @@
           <MenuItem Header="Sichtbar in Sites…" Click="OnEditSitesClick"
                     IsVisible="{Binding CanWrite}"
                     ToolTip.Tip="Legt fest, in welchen Checkmk-Sites dieser Bereich erscheint. Nichts angehakt = überall." />
+          <MenuItem Header="Host-Muster…" Click="OnEditPatternClick"
+                    IsVisible="{Binding CanWrite}"
+                    ToolTip.Tip="Namensmuster für Zuordnungsvorschläge — bei Schulen aus der Schulnummer vorbelegt." />
           <Separator IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Unterbereich…" Click="OnNewChildAreaClick"
                     IsVisible="{Binding CanWrite}" />

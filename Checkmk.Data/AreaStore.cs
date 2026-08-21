@@ -15,19 +15,24 @@ public sealed record AreaRow(
     double? Lon = null,
     string? Address = null,
     string? ExternalSource = null,
-    string? ExternalId = null)
+    string? ExternalId = null,
+    string? HostPattern = null,
+    string? ExternalCode = null)
 {
     /// <summary>Hat der Bereich ueberhaupt eine Lage auf der Karte?</summary>
     public bool HasPlace => !string.IsNullOrWhiteSpace(GeometryJson) || (Lat is not null && Lon is not null);
 }
 
 /// <summary>Ein zu importierender Standort aus einer externen Quelle.</summary>
+/// <param name="Code">Kennzahl aus der Quelle (z. B. SCHULNUM). Steckt bei
+/// Schulen im Hostnamen und liefert damit das Zuordnungsmuster.</param>
 public sealed record ExternalPlace(
     string ExternalId,
     string Name,
     double Lat,
     double Lon,
-    string? Address);
+    string? Address,
+    string? Code = null);
 
 /// <summary>Ergebnis eines Imports — fuer die Rueckmeldung an den Anwender.</summary>
 public sealed record ImportResult(int Created, int Updated, int Unchanged);
@@ -85,6 +90,9 @@ public interface IAreaStore
     /// <summary>Speichert die Punktlage. <c>null</c> entfernt sie.</summary>
     Task SavePointAsync(int areaId, double? lat, double? lon, CancellationToken ct = default);
 
+    /// <summary>Speichert das Host-Namensmuster. <c>null</c> entfernt es.</summary>
+    Task SaveHostPatternAsync(int areaId, string? pattern, CancellationToken ct = default);
+
     /// <summary>
     /// Legt Bereiche aus einer externen Standortliste an bzw. gleicht sie ab.
     /// Der Abgleich läuft über <c>ExternalSource</c>+<c>ExternalId</c>, ein
@@ -92,8 +100,13 @@ public interface IAreaStore
     /// </summary>
     /// <param name="sites">Checkmk-Sites, in denen die neuen Bereiche sichtbar
     /// sein sollen. Leer = in allen.</param>
+    /// <param name="patternFor">Erzeugt aus dem <c>Code</c> eines Standorts das
+    /// Host-Namensmuster. <c>null</c> = kein Muster. Wird als Funktion
+    /// hereingereicht, weil die Regex-Logik in der Anwendungsschicht sitzt und
+    /// <c>Checkmk.Data</c> davon nichts wissen muss.</param>
     Task<ImportResult> ImportPlacesAsync(string source, IReadOnlyList<ExternalPlace> places,
-        int? parentAreaId, IReadOnlyList<string> sites, CancellationToken ct = default);
+        int? parentAreaId, IReadOnlyList<string> sites,
+        Func<string?, string?>? patternFor = null, CancellationToken ct = default);
 
     /// <summary>
     /// Verschiebt <b>alle</b> Hosts eines Bereichs in einen anderen.
@@ -142,12 +155,30 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         {
             await using var db = database.CreateContext();
 
-            var areas = await db.Areas.AsNoTracking()
-                .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
-                .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
-                                         a.GeometryJson, a.MapLayerKey,
-                                         a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId))
-                .ToListAsync(ct).ConfigureAwait(false);
+            List<AreaRow> areas;
+            try
+            {
+                areas = await db.Areas.AsNoTracking()
+                    .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
+                    .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
+                                             a.GeometryJson, a.MapLayerKey,
+                                             a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId,
+                                             a.HostPattern, a.ExternalCode))
+                    .ToListAsync(ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Skript 005 noch nicht gefahren: ohne diesen Rueckfall waere
+                // der Bereichsbaum bis dahin komplett leer — das sieht aus wie
+                // Datenverlust, obwohl nur eine Spalte fehlt.
+                Log.Debug(ex, "Spalten aus Schema 5 nicht lesbar — lade Bereiche ohne Muster.");
+                areas = await db.Areas.AsNoTracking()
+                    .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
+                    .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
+                                             a.GeometryJson, a.MapLayerKey,
+                                             a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId))
+                    .ToListAsync(ct).ConfigureAwait(false);
+            }
 
             var assignments = await db.HostAreas.AsNoTracking()
                 .Select(h => new { h.HostName, h.AreaId })
@@ -369,9 +400,26 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         await RefreshAsync(ct).ConfigureAwait(false);
     }
 
+    public async Task SaveHostPatternAsync(int areaId, string? pattern, CancellationToken ct = default)
+    {
+        await using var db = database.CreateContext();
+
+        var area = await db.Areas.FirstOrDefaultAsync(a => a.AreaId == areaId, ct)
+            .ConfigureAwait(false);
+        if (area is null) return;
+
+        area.HostPattern = string.IsNullOrWhiteSpace(pattern) ? null : pattern.Trim();
+        area.ChangedAtUtc = DateTime.UtcNow;
+        area.ChangedBy = Environment.UserName;
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        await RefreshAsync(ct).ConfigureAwait(false);
+    }
+
     public async Task<ImportResult> ImportPlacesAsync(string source,
         IReadOnlyList<ExternalPlace> places, int? parentAreaId,
-        IReadOnlyList<string> sites, CancellationToken ct = default)
+        IReadOnlyList<string> sites, Func<string?, string?>? patternFor = null,
+        CancellationToken ct = default)
     {
         if (places.Count == 0) return new ImportResult(0, 0, 0);
 
@@ -412,11 +460,21 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
                 var moved = area.Lat != p.Lat || area.Lon != p.Lon;
                 var addressChanged = area.Address != p.Address;
 
+                // Muster nur setzen, wenn noch keines da ist ODER sich der Code
+                // geaendert hat. Ein von Hand angepasstes Muster darf ein
+                // erneuter Import nicht wegwerfen.
+                var codeChanged = area.ExternalCode != p.Code;
+                if (codeChanged || string.IsNullOrWhiteSpace(area.HostPattern))
+                {
+                    area.ExternalCode = p.Code;
+                    if (patternFor?.Invoke(p.Code) is { } fresh) area.HostPattern = fresh;
+                }
+
                 // Der bestehende Name bleibt seiner Ebene erhalten, damit ein
                 // neuer Eintrag nicht darauf ausweicht.
                 taken.Add(area.Name);
 
-                if (!moved && !addressChanged) { unchanged++; continue; }
+                if (!moved && !addressChanged && !codeChanged) { unchanged++; continue; }
 
                 area.Lat = p.Lat;
                 area.Lon = p.Lon;
@@ -439,6 +497,8 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
                     Address = p.Address,
                     ExternalSource = source,
                     ExternalId = p.ExternalId,
+                    ExternalCode = p.Code,
+                    HostPattern = patternFor?.Invoke(p.Code),
                     ChangedAtUtc = now,
                     ChangedBy = who
                 };

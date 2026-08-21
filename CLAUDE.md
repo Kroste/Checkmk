@@ -183,6 +183,28 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   **`SiteSelectDialog` („Sichtbar in Sites…") ist Pflichtbestandteil**, nicht
   Komfort: Ohne ihn konnte der Store die Sichtbarkeit setzen, die Oberfläche
   aber nicht — die Korrektur ging nur über SQL.
+- **Zuordnungsvorschläge über Namensmuster** (Schema 5, `Area.HostPattern`).
+  93 Bereiche, aber tausend Hosts von Hand zu verteilen ist keine Option — die
+  Namen tragen die Information schon: Schule 46 hat `46-SW04`, `46-USV`,
+  `NAS46-01`, `PA46-01`, `ESX46-02`, `iRMC-46`.
+  Drei Punkte, die nicht vereinfacht werden dürfen:
+  1. **Ziffern-Grenze im Muster** (`(?<!\d)46(?!\d)`). Ein simples „enthält 46"
+     träfe auch `146-SW01` und `460-…`, und Schule 4 bekäme alle Hosts der
+     Schulen 40–49.
+  2. **Nur Vorschläge, nie automatisch.** Ein Muster kann danebenliegen, und
+     tausend falsche Zuordnungen hinterher aufzuräumen ist teurer als einmal
+     durchsehen. Vorausgewählt sind nur die **eindeutigen neuen**; Hosts, die
+     schon woanders stehen oder auf mehrere Muster passen, bleiben eine bewusste
+     Entscheidung.
+  3. **Handgepflegte Muster überleben den Reimport.** `ExternalCode` steht
+     neben `HostPattern`: Nur wenn sich der Code ändert oder noch kein Muster
+     da ist, wird neu abgeleitet.
+  Für Schulen kommt das Muster aus `SCHULNUM` (45 der 82 tragen eine reine
+  Nummer, dazu drei zusammengelegte wie `25/26`; freie Träger und OSZ haben
+  Kürzel und damit keins). Für Verwaltungsstandorte stehen die Kürzel nicht in
+  den offenen Daten — die trägt man einmal je Bereich ein.
+  `HostPatternDialog` zeigt eine **Live-Vorschau der Treffer**: Ein Regex ist
+  für die meisten unlesbar, „diese 7 Hosts würden zugeordnet" versteht jeder.
 - **Technik ist verschiebbar** (`AreaStore.MoveHostsAsync`). Der Alltagsfall,
   den das Zuweisen einzelner Hosts nicht abdeckt: Ein Haus wird aufgelöst, die
   gesamte Technik wandert in den Container — und später vielleicht zurück.

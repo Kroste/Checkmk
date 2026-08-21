@@ -1114,6 +1114,30 @@ Zwei Wege, je nachdem wo du gerade bist:
 Ein Host gehört zu **genau einem** Bereich — ein Gerät steht an einem Ort. Wer
 es umträgt, ändert eine Zeile, und alle sehen es.
 
+### Hosts automatisch vorschlagen lassen
+
+Über tausend Geräte einzeln zuzuordnen wäre eine Woche Arbeit. Meist steht die
+Information aber schon im Hostnamen: Schule 46 hat `46-SW04`, `46-USV`,
+`NAS46-01`, `PA46-01`, `ESX46-02`, `iRMC-46`.
+
+Dafür trägt jeder Bereich ein **Host-Muster**. Bei den Schulen füllt der Import
+es aus der Schulnummer vor — bei den übrigen Standorten trägst du es einmal ein
+(Rechtsklick → **„Host-Muster…"**). Der Dialog zeigt dabei **sofort, welche
+Hosts treffen würden**, du siehst also direkt, ob das Muster stimmt.
+
+Dann **„Zuordnung vorschlagen…"** in der Toolbar. Die Liste zeigt jeden Treffer
+mit seinem Zielbereich und einer Notiz:
+
+| Notiz | heißt |
+|---|---|
+| *neu* | Host ist noch nirgends zugeordnet |
+| *verschiebt von …* | Host steht schon woanders |
+| *mehrdeutig* | Mehrere Muster passen — hier musst du entscheiden |
+
+**Vorausgewählt sind nur die eindeutigen neuen.** Verschiebungen und
+Mehrdeutigkeiten musst du bewusst ankreuzen. Zugeordnet wird erst mit
+„Zuordnen" — nichts passiert ungefragt.
+
 ### Wenn ein Standort aufgelöst wird
 
 Rechtsklick auf den Bereich → **„Technik verschieben nach…"** nimmt **alle**

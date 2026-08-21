@@ -71,6 +71,14 @@ public sealed class Area
     public string? ExternalSource { get; set; }
     public string? ExternalId { get; set; }
 
+    /// <summary>Regulaerer Ausdruck auf Hostnamen fuer Zuordnungsvorschlaege.</summary>
+    public string? HostPattern { get; set; }
+
+    /// <summary>Code aus der Herkunftsquelle (z. B. SCHULNUM). Getrennt vom
+    /// Muster, damit ein erneuter Import ein von Hand angepasstes Muster nicht
+    /// ueberschreibt.</summary>
+    public string? ExternalCode { get; set; }
+
     public string? MapLayerKey { get; set; }
     public int SortOrder { get; set; }
     public int? OwningTeamId { get; set; }

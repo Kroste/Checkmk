@@ -252,6 +252,46 @@ public partial class AreaView : UserControl
         RefreshMap();
     }
 
+    private async void OnEditPatternClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (vm.SelectedNode is not { IsUnassigned: false } node) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var dialog = new HostPatternDialog(node.Name, vm.HostPatternOf(node.AreaId), vm.KnownHosts());
+        if (await dialog.ShowDialog<string?>(owner) is not { } pattern) return;
+
+        await vm.SaveHostPatternAsync(node.AreaId, pattern.Length == 0 ? null : pattern);
+    }
+
+    /// <summary>
+    /// Sucht anhand der Host-Muster, welche Hosts zu welchem Bereich gehören.
+    /// Ordnet nichts selbst zu — 93 Bereiche und über tausend Hosts von Hand zu
+    /// verteilen ist keine Option, eine falsche Massenzuordnung hinterher
+    /// aufzuräumen aber auch nicht.
+    /// </summary>
+    private async void OnSuggestClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var suggestions = vm.SuggestAssignments();
+        if (suggestions.Count == 0)
+        {
+            vm.StatusMessage = "Keine Vorschläge — kein Bereich hat ein Host-Muster, "
+                             + "oder alles passt bereits. Rechtsklick auf einen Bereich "
+                             + "→ Host-Muster…";
+            return;
+        }
+
+        var dialog = new AssignSuggestionDialog(suggestions);
+        var accepted = await dialog.ShowDialog<IReadOnlyList<AssignmentSuggestion>?>(owner);
+        if (accepted is null || accepted.Count == 0) return;
+
+        await vm.ApplySuggestionsAsync(accepted);
+        RefreshMap();
+    }
+
     private CancellationTokenSource? _prefetchCts;
 
     /// <summary>

@@ -335,6 +335,74 @@ public sealed partial class AreaViewModel : ViewModelBase
     /// <summary>Sites, in denen ein Bereich sichtbar ist. Leer = überall.</summary>
     public IReadOnlyList<string> SitesOf(int areaId) => _areas.SitesOf(areaId);
 
+    /// <summary>Host-Namensmuster eines Bereichs, oder <c>null</c>.</summary>
+    public string? HostPatternOf(int areaId)
+        => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.HostPattern;
+
+    public async Task SaveHostPatternAsync(int areaId, string? pattern)
+    {
+        if (!CanWrite) return;
+        try
+        {
+            IsBusy = true;
+            await _areas.SaveHostPatternAsync(areaId, pattern);
+            StatusMessage = string.IsNullOrWhiteSpace(pattern)
+                ? $"Muster entfernt: {NodeOf(areaId)?.Name}."
+                : $"Muster gespeichert: {NodeOf(areaId)?.Name} → {pattern}";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Host-Muster konnte nicht gespeichert werden.");
+            StatusMessage = $"Speichern fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// Alle Hostnamen der aktuellen Sicht. Aus den Services abgeleitet, weil
+    /// der Status-Tab ohnehin serverseitig auf den aktiven Filter beschränkt
+    /// hat — Vorschläge sollen nur Hosts betreffen, die man auch sieht.
+    /// </summary>
+    public IReadOnlyList<string> KnownHosts()
+        => [.. _status.AllServices.Select(s => s.HostName)
+                                  .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>Zuordnungsvorschläge aus den Mustern der sichtbaren Bereiche.</summary>
+    public IReadOnlyList<AssignmentSuggestion> SuggestAssignments()
+    {
+        var snapshot = _areas.Current;
+        var visible = snapshot.Areas
+            .Where(a => snapshot.IsVisibleIn(a.AreaId, ActiveSite))
+            .ToList();
+        return AreaAssignmentSuggester.Suggest(visible, KnownHosts(), snapshot.HostToArea);
+    }
+
+    /// <summary>Übernimmt bestätigte Vorschläge.</summary>
+    public async Task ApplySuggestionsAsync(IReadOnlyList<AssignmentSuggestion> accepted)
+    {
+        if (!CanWrite || accepted.Count == 0) return;
+
+        try
+        {
+            IsBusy = true;
+            // Nach Zielbereich buendeln: ein Schreibvorgang je Bereich statt
+            // je Host — bei tausend Vorschlaegen macht das den Unterschied.
+            foreach (var group in accepted.GroupBy(s => s.AreaId))
+                await _areas.AssignAsync([.. group.Select(s => s.HostName)], group.Key);
+
+            Recompute(_status.AllServices);
+            MapChanged?.Invoke();
+            StatusMessage = $"{accepted.Count} Host(s) zugeordnet "
+                          + $"({accepted.Select(s => s.AreaId).Distinct().Count()} Bereiche).";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Zuordnung der Vorschlaege fehlgeschlagen.");
+            StatusMessage = $"Zuordnen fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>Setzt die Sichtbarkeit eines Bereichs. Leer = überall.</summary>
     public async Task SaveSitesAsync(int areaId, IReadOnlyList<string> sites)
     {
@@ -462,7 +530,10 @@ public sealed partial class AreaViewModel : ViewModelBase
         try
         {
             IsBusy = true;
-            var result = await _areas.ImportPlacesAsync(source, places, parentAreaId, sites);
+            // Muster gleich mit ableiten: Bei Schulen steckt die Nummer aus
+            // SCHULNUM im Hostnamen (46-SW04, NAS46-01, iRMC-46).
+            var result = await _areas.ImportPlacesAsync(source, places, parentAreaId, sites,
+                HostPatternMatcher.FromCode);
             Recompute(_status.AllServices);
             MapChanged?.Invoke();
             StatusMessage = $"Standorte übernommen: {result.Created} neu, "
