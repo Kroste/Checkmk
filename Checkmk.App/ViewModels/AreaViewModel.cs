@@ -302,6 +302,62 @@ public sealed partial class AreaViewModel : ViewModelBase
     public string? GeometryOf(int areaId)
         => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.GeometryJson;
 
+    /// <summary>Punktlage eines Bereichs, oder <c>null</c>.</summary>
+    public (double Lat, double Lon)? PointOf(int areaId)
+    {
+        var row = _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId);
+        return row is { Lat: { } lat, Lon: { } lon } ? (lat, lon) : null;
+    }
+
+    public string? AddressOf(int areaId)
+        => _areas.Current.Areas.FirstOrDefault(a => a.AreaId == areaId)?.Address;
+
+    /// <summary>Setzt die Punktlage (null entfernt sie).</summary>
+    public async Task SavePointAsync(int areaId, double? lat, double? lon)
+    {
+        if (!CanWrite) return;
+        try
+        {
+            IsBusy = true;
+            await _areas.SavePointAsync(areaId, lat, lon);
+            Recompute(_status.AllServices);
+            MapChanged?.Invoke();
+            StatusMessage = lat is null
+                ? $"Position entfernt: {NodeOf(areaId)?.Name}."
+                : $"Position gesetzt: {NodeOf(areaId)?.Name}.";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Position konnte nicht gespeichert werden.");
+            StatusMessage = $"Position speichern fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>Übernimmt ausgewählte Standorte als Bereiche.</summary>
+    public async Task<ImportResult?> ImportPlacesAsync(string source,
+        IReadOnlyList<ExternalPlace> places, int? parentAreaId)
+    {
+        if (!CanWrite || places.Count == 0) return null;
+        try
+        {
+            IsBusy = true;
+            var result = await _areas.ImportPlacesAsync(source, places, parentAreaId);
+            Recompute(_status.AllServices);
+            MapChanged?.Invoke();
+            StatusMessage = $"Standorte übernommen: {result.Created} neu, "
+                          + $"{result.Updated} aktualisiert, {result.Unchanged} unverändert.";
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Standort-Import fehlgeschlagen.");
+            StatusMessage = $"Import fehlgeschlagen: {ex.Message}";
+            return null;
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>Aggregat eines Bereichs für die Einfärbung auf der Karte.</summary>
     public AreaNodeViewModel? NodeOf(int areaId) => _byId.GetValueOrDefault(areaId);
 

@@ -51,7 +51,26 @@ public sealed class Area
     public int AreaId { get; set; }
     public int? ParentAreaId { get; set; }
     public string Name { get; set; } = "";
+
+    /// <summary>Flaeche (GeoJSON-Polygon, WGS84). Optional — die meisten
+    /// Standorte sind ein Punkt.</summary>
     public string? GeometryJson { get; set; }
+
+    /// <summary>Punktlage. Ein Bereich mit beidem wird als Flaeche gezeichnet;
+    /// der Punkt bleibt als Sprungziel erhalten.</summary>
+    public double? Lat { get; set; }
+    public double? Lon { get; set; }
+
+    /// <summary>Anschrift zur Anzeige. Ohne sie ist ein Marker auf der Karte
+    /// schwer einer Aussenstelle zuzuordnen.</summary>
+    public string? Address { get; set; }
+
+    /// <summary>Herkunft eines importierten Standorts (z. B.
+    /// <c>LHP-Verwaltungsstandorte</c>) und dessen Kennung dort. Beide leer bei
+    /// von Hand angelegten Bereichen.</summary>
+    public string? ExternalSource { get; set; }
+    public string? ExternalId { get; set; }
+
     public string? MapLayerKey { get; set; }
     public int SortOrder { get; set; }
     public int? OwningTeamId { get; set; }

@@ -38,7 +38,18 @@ nicht. Reihenfolge:
 ```
 001-initial.sql      Schema-Version, globale Einstellungen, Host-Domains
 002-map-teams.sql    Bereiche, Host-Zuordnung, Teams, geteilte Filter, Sichten
+003-area-points.sql  Bereiche als Punkt, Anschrift, Herkunft (Standort-Import)
 ```
+
+Optional, kein Schema-Eingriff und ohne Versionssprung:
+
+```
+seed-map-settings.sql   Kartenquellen als Zeilen in GlobalSetting
+```
+
+**Passt die Version nicht**, sagt das Cockpit es in der Statusleiste („Datenbank-Schema
+veraltet") und arbeitet mit dem weiter, was geht — es bricht nicht ab, aber die
+neuen Funktionen fehlen, bis das Skript gelaufen ist.
 
 ## Wenn die Datenbank nicht erreichbar ist
 

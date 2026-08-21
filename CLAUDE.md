@@ -154,6 +154,32 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Der Sammelknoten **„Ohne Bereich"** ist kein Datensatz (`AreaId = -1`), sondern
   die Restmenge — die Arbeitsliste beim Zuordnen und der einzige Weg, einen
   vergessenen Host überhaupt zu bemerken.
+- **Bereiche sind Punkt *oder* Fläche** (Schema 3). Der Normalfall ist ein
+  **Marker** — die meisten Standorte („Außenstelle X") sind auf einer Stadtkarte
+  ein Punkt; eine Fläche lohnt nur, wo es auf den Umriss ankommt (Campus mit
+  mehreren Serverräumen). Hat ein Bereich beides, gewinnt beim Zeichnen die
+  Fläche, der Punkt bleibt Sprungziel. **Treffererkennung: Marker vor Fläche** —
+  ein Marker ist wenige Pixel groß und liegt oft *in* einem größeren Bereich;
+  gewänne die Fläche, wäre er nicht anklickbar.
+- **Standort-Import** (`PotsdamPlaceImporter`): Verwaltungsstandorte der
+  Landeshauptstadt aus dem **FeatureServer** von `geoportal.potsdam.de`
+  (161 Stück, mit Behörde, Adresse, Koordinate). Bewusst über die
+  veröffentlichte REST-Schnittstelle und **nicht** direkt aus der Datenbank,
+  obwohl die auf demselben FOC-SQL01 liegt: Ein Tabellenzugriff hinge an einem
+  internen Schema, von dem der Fachbereich Vermessung nicht weiß, dass wir es
+  lesen — bei einem Umbau dort wäre das Cockpit kaputt, ohne dass es jemand
+  kommen sieht. Nicht „vereinfachen".
+  Abgleich über `ExternalSource`+`ExternalId` (gefilterter Unique-Index), ein
+  zweiter Lauf erzeugt also keine Dubletten. **Der Name wird beim Abgleich
+  nicht überschrieben** — wer „Stadthaus" statt der amtlichen Bezeichnung
+  eingetragen hat, soll das behalten. Standorte mit gleicher Adresse werden zu
+  einem zusammengefasst, sonst stapeln sich Marker übereinander.
+- **Schema-Warnung in der Statusleiste**: `CockpitDatabase.CheckAsync` läuft
+  beim Start, ein Versionsunterschied erscheint als rotes Feld. Ohne das
+  scheitert später irgendein Zugriff mit „Ungültiger Spaltenname" und niemand
+  kommt darauf, dass nur ein Skript aus `db/` fehlt. Verifiziert: mit Schema 2
+  und Programmstand 3 startet die App, warnt, und `AreaStore` behält seine alte
+  Momentaufnahme statt zu werfen.
 - **Karte im Bereiche-Tab** (`Controls/MapCanvas`): Kachelkarte mit
   Polygon-Overlay, Baum links, Karte rechts, Auswahl in beiden Richtungen
   verbunden. Flächen zeichnet man auf dem markierten Bereich (Punkte klicken,

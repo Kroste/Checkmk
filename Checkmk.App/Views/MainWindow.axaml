@@ -88,12 +88,23 @@
           <!-- Nur sichtbar, wenn die zentralen Einstellungen NICHT frisch aus
                der Datenbank kommen. Wer mit einem Cache-Stand arbeitet, soll das
                sehen, bevor er sich wundert, warum eine zentrale Änderung fehlt. -->
-          <Border Grid.Column="4" Background="#8D6E13" CornerRadius="3" Padding="8,1"
-                  VerticalAlignment="Center" Margin="10,0,0,0"
-                  IsVisible="{Binding HasCentralInfo}"
-                  ToolTip.Tip="{Binding CentralInfo}">
-            <TextBlock Text="Zentral: Cache" FontSize="12" />
-          </Border>
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8"
+                      VerticalAlignment="Center" Margin="10,0,0,0">
+            <!-- Schema-Warnung: Anwendung und Datenbank passen nicht zusammen.
+                 Rot, weil das ein Admin beheben muss (Skript aus db/ fehlt) —
+                 sonst scheitert später ein Zugriff mit einer Meldung über eine
+                 fehlende Spalte und niemand kommt auf die Ursache. -->
+            <Border Background="#B3261E" CornerRadius="3" Padding="8,1"
+                    IsVisible="{Binding HasSchemaWarning}"
+                    ToolTip.Tip="{Binding SchemaWarning}">
+              <TextBlock Text="Datenbank-Schema veraltet" FontSize="12" />
+            </Border>
+            <Border Background="#8D6E13" CornerRadius="3" Padding="8,1"
+                    IsVisible="{Binding HasCentralInfo}"
+                    ToolTip.Tip="{Binding CentralInfo}">
+              <TextBlock Text="Zentral: Cache" FontSize="12" />
+            </Border>
+          </StackPanel>
           <Button Grid.Column="5" Content="{Binding UpdateBadge}"
                   Command="{Binding OpenUpdateCommand}"
                   IsVisible="{Binding HasUpdate}"

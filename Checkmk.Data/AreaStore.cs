@@ -10,7 +10,27 @@ public sealed record AreaRow(
     string Name,
     int SortOrder,
     string? GeometryJson,
-    string? MapLayerKey);
+    string? MapLayerKey,
+    double? Lat = null,
+    double? Lon = null,
+    string? Address = null,
+    string? ExternalSource = null,
+    string? ExternalId = null)
+{
+    /// <summary>Hat der Bereich ueberhaupt eine Lage auf der Karte?</summary>
+    public bool HasPlace => !string.IsNullOrWhiteSpace(GeometryJson) || (Lat is not null && Lon is not null);
+}
+
+/// <summary>Ein zu importierender Standort aus einer externen Quelle.</summary>
+public sealed record ExternalPlace(
+    string ExternalId,
+    string Name,
+    double Lat,
+    double Lon,
+    string? Address);
+
+/// <summary>Ergebnis eines Imports — fuer die Rueckmeldung an den Anwender.</summary>
+public sealed record ImportResult(int Created, int Updated, int Unchanged);
 
 /// <summary>
 /// Momentaufnahme des Bereichsbaums samt Host-Zuordnung. Als Wert kopiert,
@@ -39,6 +59,17 @@ public interface IAreaStore
     Task RefreshAsync(CancellationToken ct = default);
 
     Task<int> CreateAsync(string name, int? parentAreaId, CancellationToken ct = default);
+
+    /// <summary>Speichert die Punktlage. <c>null</c> entfernt sie.</summary>
+    Task SavePointAsync(int areaId, double? lat, double? lon, CancellationToken ct = default);
+
+    /// <summary>
+    /// Legt Bereiche aus einer externen Standortliste an bzw. gleicht sie ab.
+    /// Der Abgleich läuft über <c>ExternalSource</c>+<c>ExternalId</c>, ein
+    /// zweiter Lauf erzeugt also keine Dubletten.
+    /// </summary>
+    Task<ImportResult> ImportPlacesAsync(string source, IReadOnlyList<ExternalPlace> places,
+        int? parentAreaId, CancellationToken ct = default);
 
     Task RenameAsync(int areaId, string name, CancellationToken ct = default);
 
@@ -78,7 +109,8 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
             var areas = await db.Areas.AsNoTracking()
                 .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
                 .Select(a => new AreaRow(a.AreaId, a.ParentAreaId, a.Name, a.SortOrder,
-                                         a.GeometryJson, a.MapLayerKey))
+                                         a.GeometryJson, a.MapLayerKey,
+                                         a.Lat, a.Lon, a.Address, a.ExternalSource, a.ExternalId))
                 .ToListAsync(ct).ConfigureAwait(false);
 
             var assignments = await db.HostAreas.AsNoTracking()
@@ -179,6 +211,88 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
             areaId, geoJson is null ? "geloescht" : "gespeichert");
 
         await RefreshAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task SavePointAsync(int areaId, double? lat, double? lon,
+        CancellationToken ct = default)
+    {
+        await using var db = database.CreateContext();
+
+        var area = await db.Areas.FirstOrDefaultAsync(a => a.AreaId == areaId, ct)
+            .ConfigureAwait(false);
+        if (area is null) return;
+
+        area.Lat = lat;
+        area.Lon = lon;
+        area.ChangedAtUtc = DateTime.UtcNow;
+        area.ChangedBy = Environment.UserName;
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        await RefreshAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task<ImportResult> ImportPlacesAsync(string source,
+        IReadOnlyList<ExternalPlace> places, int? parentAreaId, CancellationToken ct = default)
+    {
+        if (places.Count == 0) return new ImportResult(0, 0, 0);
+
+        await using var db = database.CreateContext();
+
+        var ids = places.Select(p => p.ExternalId).ToList();
+        var existing = await db.Areas
+            .Where(a => a.ExternalSource == source && ids.Contains(a.ExternalId!))
+            .ToListAsync(ct).ConfigureAwait(false);
+        var byId = existing
+            .Where(a => a.ExternalId is not null)
+            .ToDictionary(a => a.ExternalId!, StringComparer.OrdinalIgnoreCase);
+
+        var now = DateTime.UtcNow;
+        var who = Environment.UserName;
+        int created = 0, updated = 0, unchanged = 0;
+
+        foreach (var p in places)
+        {
+            if (byId.TryGetValue(p.ExternalId, out var area))
+            {
+                // Nur nachziehen, was sich geaendert hat. Der Name bleibt
+                // absichtlich anfassbar: Wer einen importierten Standort
+                // umbenannt hat ("Stadthaus" statt der amtlichen Bezeichnung),
+                // soll das beim naechsten Abgleich nicht verlieren.
+                var moved = area.Lat != p.Lat || area.Lon != p.Lon;
+                var addressChanged = area.Address != p.Address;
+                if (!moved && !addressChanged) { unchanged++; continue; }
+
+                area.Lat = p.Lat;
+                area.Lon = p.Lon;
+                area.Address = p.Address;
+                area.ChangedAtUtc = now;
+                area.ChangedBy = who;
+                updated++;
+            }
+            else
+            {
+                db.Areas.Add(new Area
+                {
+                    ParentAreaId = parentAreaId,
+                    Name = p.Name,
+                    Lat = p.Lat,
+                    Lon = p.Lon,
+                    Address = p.Address,
+                    ExternalSource = source,
+                    ExternalId = p.ExternalId,
+                    ChangedAtUtc = now,
+                    ChangedBy = who
+                });
+                created++;
+            }
+        }
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        Log.Info("Standort-Import aus {Source}: {Created} neu, {Updated} aktualisiert, "
+               + "{Unchanged} unveraendert.", source, created, updated, unchanged);
+
+        await RefreshAsync(ct).ConfigureAwait(false);
+        return new ImportResult(created, updated, unchanged);
     }
 
     public async Task AssignAsync(IReadOnlyList<string> hostNames, int? areaId,

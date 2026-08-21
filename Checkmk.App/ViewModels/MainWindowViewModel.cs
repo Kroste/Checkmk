@@ -17,8 +17,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     private readonly ViewerMode _viewer;
     private readonly IGlobalSettingsProvider _globals;
 
-    /// <summary>Nur gesetzt, wenn eine zentrale Datenbank konfiguriert ist.</summary>
+    /// <summary>Beide nur gesetzt, wenn eine zentrale Datenbank konfiguriert ist.</summary>
     private readonly DbHostDomainStore? _hostDomains;
+    private readonly CockpitDatabase? _database;
 
     // Verhindert, dass der Site-Setter waehrend Initialize/Reconnect einen echten
     // Switch triggert — wir wollen nur bei User-Auswahl reagieren.
@@ -70,6 +71,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase
 
     public bool HasCentralInfo => !string.IsNullOrEmpty(CentralInfo);
 
+    /// <summary>
+    /// Klartext-Warnung, wenn Anwendung und Datenbankschema nicht zusammen
+    /// passen. Gehört sichtbar in die Statusleiste: Sonst scheitert später
+    /// irgendein Zugriff mit einer Meldung über eine fehlende Spalte, und
+    /// niemand käme darauf, dass nur ein Skript aus <c>db/</c> fehlt.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSchemaWarning))]
+    private string _schemaWarning = "";
+
+    public bool HasSchemaWarning => !string.IsNullOrEmpty(SchemaWarning);
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UpdateBadge))]
     private UpdateInfo? _availableUpdate;
@@ -105,7 +118,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         IUpdatePreferences updatePrefs,
         ViewerMode viewer,
         IGlobalSettingsProvider globals,
-        DbHostDomainStore? hostDomains = null)
+        DbHostDomainStore? hostDomains = null,
+        CockpitDatabase? database = null)
     {
         Status = status;
         Config = config;
@@ -117,6 +131,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _viewer = viewer;
         _globals = globals;
         _hostDomains = hostDomains;
+        _database = database;
     }
 
     /// <summary>
@@ -128,6 +143,24 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
+            // Schema zuerst pruefen: Laeuft die Anwendung gegen eine aeltere
+            // Datenbank, scheitert sonst irgendein Zugriff spaeter mit einer
+            // Meldung ueber eine fehlende Spalte — und niemand kaeme darauf,
+            // dass nur ein Skript aus db/ fehlt.
+            if (_database is not null)
+            {
+                var health = await _database.CheckAsync().ConfigureAwait(true);
+                if (health.Reachable && !health.SchemaMatches && health.Problem is { } problem)
+                {
+                    SchemaWarning = problem;
+                    Log.Warn("Schema-Pruefung: {Problem}", problem);
+                }
+                else
+                {
+                    SchemaWarning = "";
+                }
+            }
+
             await _globals.LoadAsync().ConfigureAwait(true);
 
             if (_hostDomains is not null)

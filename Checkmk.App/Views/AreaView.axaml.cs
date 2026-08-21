@@ -92,13 +92,19 @@ public partial class AreaView : UserControl
 
         _map.HighlightedAreaId = Vm.SelectedNode is { IsUnassigned: false } n ? n.AreaId : null;
 
-        // Auf die Flaeche springen, wenn es eine gibt — sonst muesste man sie
-        // auf einer Stadtkarte erst suchen.
-        if (Vm.SelectedNode is { IsUnassigned: false } sel
-            && MapGeometry.Parse(Vm.GeometryOf(sel.AreaId)) is { Count: >= 3 } points)
-            _map.FitTo(points);
-        else
-            _map.InvalidateVisual();
+        // Auf die Lage springen, wenn es eine gibt — sonst muesste man sie auf
+        // einer Stadtkarte erst suchen. Flaeche gewinnt vor Punkt.
+        if (Vm.SelectedNode is { IsUnassigned: false } sel)
+        {
+            if (MapGeometry.Parse(Vm.GeometryOf(sel.AreaId)) is { Count: >= 3 } points)
+                _map.FitTo(points);
+            else if (Vm.PointOf(sel.AreaId) is { } p)
+                _map.CenterOnPoint(new GeoPoint(p.Lon, p.Lat));
+            else
+                _map.InvalidateVisual();
+            return;
+        }
+        _map.InvalidateVisual();
     }
 
     /// <summary>Flächen und Farben neu an die Karte geben.</summary>
@@ -110,8 +116,12 @@ public partial class AreaView : UserControl
         foreach (var node in vm.AllAreas())
         {
             var points = MapGeometry.Parse(vm.GeometryOf(node.AreaId));
-            if (points.Count < 3) continue;   // Bereich ohne Flaeche: nur im Baum
-            shapes.Add(new MapShape(node.AreaId, node.Name, points, ColorFor(node)));
+            var point = vm.PointOf(node.AreaId) is { } p ? new GeoPoint(p.Lon, p.Lat) : (GeoPoint?)null;
+
+            // Weder Flaeche noch Punkt: der Bereich existiert nur im Baum.
+            if (points.Count < 3 && point is null) continue;
+
+            shapes.Add(new MapShape(node.AreaId, node.Name, points, ColorFor(node), point));
         }
 
         _map.Shapes = shapes;
@@ -150,6 +160,37 @@ public partial class AreaView : UserControl
             b.Content = drawing ? "Zeichnen abbrechen" : "Fläche zeichnen";
         if (this.FindControl<Border>("DrawHint") is { } hint)
             hint.IsVisible = drawing;
+    }
+
+    /// <summary>
+    /// Holt die Verwaltungsstandorte der Landeshauptstadt und legt die
+    /// ausgewählten als Bereiche an. Ist im Baum ein Bereich markiert, kommen
+    /// sie darunter — so lassen sich „Außenstellen" gebündelt einhängen, statt
+    /// dreißig Wurzelknoten zu erzeugen.
+    /// </summary>
+    private async void OnImportPlacesClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var importer = App.Services?.GetService<PotsdamPlaceImporter>();
+        if (importer is null) return;
+
+        vm.StatusMessage = "Standorte werden vom Kartenserver geladen…";
+        var places = await importer.LoadAsync();
+        if (places.Count == 0)
+        {
+            vm.StatusMessage = "Keine Standorte erhalten — Kartenserver nicht erreichbar? Siehe Log.";
+            return;
+        }
+
+        var dialog = new PlaceImportDialog(places);
+        var chosen = await dialog.ShowDialog<IReadOnlyList<ExternalPlace>?>(owner);
+        if (chosen is null || chosen.Count == 0) return;
+
+        var parent = vm.SelectedNode is { IsUnassigned: false } n ? n.AreaId : (int?)null;
+        await vm.ImportPlacesAsync(PotsdamPlaceImporter.SourceId, chosen, parent);
+        RefreshMap();
     }
 
     private void OnDrawAreaClick(object? sender, RoutedEventArgs e)

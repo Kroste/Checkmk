@@ -145,6 +145,7 @@ internal static class Program
             services.AddSingleton<IAreaStore>(_ => new AreaStore(cockpitDb));
             services.AddSingleton<AreaViewModel>();
             services.AddSingleton<MapTileLoader>();
+            services.AddSingleton<PotsdamPlaceImporter>();
         }
         else
         {

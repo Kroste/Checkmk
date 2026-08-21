@@ -23,11 +23,15 @@
               IsVisible="{Binding CanWrite}"
               IsEnabled="{Binding CanEditSelection}"
               ToolTip.Tip="Geht nur, wenn der Bereich keine Unterbereiche und keine Hosts mehr hat." />
-      <Button Grid.Column="4" Name="DrawButton" Content="Fläche zeichnen"
-              Click="OnDrawAreaClick" HorizontalAlignment="Left"
-              IsVisible="{Binding CanWrite}"
-              IsEnabled="{Binding CanEditSelection}"
-              ToolTip.Tip="Klicken setzt Punkte, Doppelklick oder Enter schließt die Fläche, Esc bricht ab, Rücktaste nimmt den letzten Punkt zurück." />
+      <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+        <Button Name="DrawButton" Content="Fläche zeichnen" Click="OnDrawAreaClick"
+                IsVisible="{Binding CanWrite}"
+                IsEnabled="{Binding CanEditSelection}"
+                ToolTip.Tip="Klicken setzt Punkte, Doppelklick oder Enter schließt die Fläche, Esc bricht ab, Rücktaste nimmt den letzten Punkt zurück." />
+        <Button Content="Standorte übernehmen…" Click="OnImportPlacesClick"
+                IsVisible="{Binding CanWrite}" IsEnabled="{Binding !IsBusy}"
+                ToolTip.Tip="Holt die Verwaltungsstandorte der Landeshauptstadt vom Kartenserver und legt die ausgewählten als Bereiche an." />
+      </StackPanel>
       <TextBlock Grid.Column="5" Text="Karte:" VerticalAlignment="Center" Foreground="#AAAAAA" />
       <ComboBox Grid.Column="6" Name="LayerBox" MinWidth="160" VerticalAlignment="Center"
                 ToolTip.Tip="Kartenhintergrund. Auf dem Luftbild sind eingefärbte Flächen schwerer zu lesen — der Stadtplan hat Straßennamen, die Graustufenkarte lässt die Ampel am deutlichsten hervortreten." />

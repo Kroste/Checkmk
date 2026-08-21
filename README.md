@@ -1144,10 +1144,38 @@ Bereiche als farbige Flächen liegen. Die Farbe ist dieselbe Ampel wie im Baum.
   Bereich in einem großen, gewinnt der kleine.
 - **Klick im Baum** springt umgekehrt auf die Fläche.
 
+### Punkt oder Fläche
+
+Ein Bereich braucht keine gezeichnete Fläche. Die meisten Standorte sind auf
+einer Stadtkarte sinnvoll ein **Marker** — ein Fähnchen mit der Ampelfarbe. Eine
+Fläche lohnt nur da, wo es auf den Umriss ankommt: ein Campus mit mehreren
+Serverräumen etwa.
+
+Hat ein Bereich beides, wird die Fläche gezeichnet. Ein Klick trifft immer
+zuerst den Marker — er ist klein und liegt oft mitten in einer größeren Fläche.
+
 **Eine Fläche einzeichnen:** Bereich im Baum markieren → **„Fläche zeichnen"** →
 Ecken nacheinander anklicken. **Doppelklick** oder **Enter** schließt die Fläche,
 **Rücktaste** nimmt den letzten Punkt zurück, **Esc** bricht ab. Gespeichert wird
 sofort. Neu zeichnen ersetzt die alte Fläche.
+
+### Standorte übernehmen statt tippen
+
+Der Knopf **„Standorte übernehmen…"** holt die **Verwaltungsstandorte der
+Landeshauptstadt** vom städtischen Kartenserver — rund 160 Stück mit Behörde,
+Anschrift und Koordinate. Du wählst aus, was als Bereich angelegt werden soll;
+Filter und „Alle sichtbaren" helfen beim Eingrenzen.
+
+Nichts ist vorausgewählt: In der Liste stehen auch Bibliotheken und das Museum,
+und alles zu übernehmen macht den Bereichsbaum unbrauchbar.
+
+Ist im Baum ein Bereich markiert, kommen die Standorte **darunter** — so lassen
+sich „Außenstellen" gebündelt einhängen, statt dreißig Wurzelknoten zu erzeugen.
+
+Ein zweiter Lauf erzeugt **keine Dubletten**: Bekannte Standorte werden
+abgeglichen, verschobene bekommen die neue Koordinate. Ein Bereich, den du
+umbenannt hast — „Stadthaus" statt der amtlichen Bezeichnung — behält seinen
+Namen.
 
 Bereiche ohne Fläche verschwinden nicht — sie stehen im Baum und funktionieren
 dort vollständig. Die Karte ist eine zusätzliche Sicht, keine Voraussetzung.

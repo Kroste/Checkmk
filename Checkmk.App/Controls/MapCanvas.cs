@@ -9,12 +9,19 @@ namespace Checkmk.App.Controls;
 
 /// <summary>Ein Bereich, wie ihn die Karte zeichnet.</summary>
 /// <param name="AreaId">Kennung für den Rückweg (Klick → Bereich).</param>
-/// <param name="Outline">Farbe des Randes — kommt aus dem Status-Rollup.</param>
+/// <param name="Outline">Farbe — kommt aus dem Status-Rollup.</param>
+/// <param name="Points">Fläche, oder leer.</param>
+/// <param name="Point">Punktlage, oder <c>null</c>. Hat ein Bereich beides,
+/// gewinnt die Fläche — der Punkt bleibt aber als Sprungziel gültig.</param>
 public sealed record MapShape(
     int AreaId,
     string Name,
     IReadOnlyList<GeoPoint> Points,
-    Color Outline);
+    Color Outline,
+    GeoPoint? Point = null)
+{
+    public bool HasArea => Points.Count >= 3;
+}
 
 /// <summary>
 /// Kachelkarte mit Polygon-Overlay. Bewusst ein eigenes Control statt einer
@@ -238,16 +245,39 @@ public sealed class MapCanvas : Control
         }
     }
 
-    /// <summary>Welcher Bereich liegt unter dem Punkt? Kleinste Fläche gewinnt,
-    /// damit ein Serverraum im Campus nicht vom Campus verdeckt wird.</summary>
+    /// <summary>
+    /// Welcher Bereich liegt unter dem Punkt?
+    ///
+    /// <b>Marker gewinnen vor Flächen</b>: Ein Standort-Marker ist ein paar
+    /// Pixel groß und liegt oft innerhalb eines größeren Bereichs — würde die
+    /// Fläche gewinnen, wäre der Marker nicht anklickbar. Unter den Flächen
+    /// gewinnt die kleinste, damit ein Serverraum nicht vom Campus verdeckt wird.
+    /// </summary>
     private int? HitTest(Point position)
     {
+        const double MarkerRadius = 14;
+
+        int? nearest = null;
+        var nearestDistance = double.MaxValue;
+
+        foreach (var s in Shapes)
+        {
+            if (s.HasArea || s.Point is not { } point) continue;
+            var p = ToScreen(point);
+            var d = Math.Sqrt(Math.Pow(p.X - position.X, 2) + Math.Pow(p.Y - position.Y, 2));
+            if (d > MarkerRadius || d >= nearestDistance) continue;
+            nearestDistance = d;
+            nearest = s.AreaId;
+        }
+        if (nearest is not null) return nearest;
+
         var geo = ToGeo(position);
         int? best = null;
         var bestSize = double.MaxValue;
 
         foreach (var s in Shapes)
         {
+            if (!s.HasArea) continue;
             if (!MapGeometry.Contains(s.Points, geo)) continue;
             if (MapGeometry.Bounds(s.Points) is not { } b) continue;
 
@@ -257,6 +287,15 @@ public sealed class MapCanvas : Control
             best = s.AreaId;
         }
         return best;
+    }
+
+    /// <summary>Ansicht auf einen einzelnen Punkt zentrieren, ohne den Zoom zu
+    /// verlieren — für den Sprung auf einen Standort-Marker.</summary>
+    public void CenterOnPoint(GeoPoint point)
+    {
+        _center = point;
+        if (_zoom < 15) _zoom = 16;   // aus der Stadtsicht sinnvoll heranholen
+        InvalidateVisual();
     }
 
     // ------------------------------------------------------------------
@@ -335,9 +374,52 @@ public sealed class MapCanvas : Control
 
     private void DrawShapes(DrawingContext context)
     {
-        foreach (var shape in Shapes)
+        // Erst die Flaechen, dann die Marker: ein Punkt in einem Bereich soll
+        // nicht unter dessen Fuellung verschwinden.
+        foreach (var shape in Shapes) DrawArea(context, shape);
+        foreach (var shape in Shapes) DrawMarker(context, shape);
+    }
+
+    /// <summary>
+    /// Marker für Bereiche ohne Fläche — der Normalfall bei importierten
+    /// Standorten. Ein Kreis mit Fähnchenspitze auf der Position, damit die
+    /// Spitze und nicht die Kreismitte den Ort bezeichnet.
+    /// </summary>
+    private void DrawMarker(DrawingContext context, MapShape shape)
+    {
+        if (shape.HasArea || shape.Point is not { } point) return;
+
+        var p = ToScreen(point);
+        var highlighted = HighlightedAreaId == shape.AreaId;
+        var r = highlighted ? 9.0 : 7.0;
+        var tip = 7.0;
+
+        var brush = new SolidColorBrush(shape.Outline);
+        var pen = new Pen(Brushes.Black, 1.5);
+
+        // Spitze als Dreieck unter dem Kreis.
+        var flag = new StreamGeometry();
+        using (var ctx = flag.Open())
         {
-            if (shape.Points.Count < 3) continue;
+            ctx.BeginFigure(new Point(p.X, p.Y), isFilled: true);
+            ctx.LineTo(new Point(p.X - r * 0.7, p.Y - tip));
+            ctx.LineTo(new Point(p.X + r * 0.7, p.Y - tip));
+            ctx.EndFigure(true);
+        }
+        context.DrawGeometry(brush, pen, flag);
+        context.DrawEllipse(brush, pen, new Point(p.X, p.Y - tip - r * 0.6), r, r);
+
+        var text = new FormattedText(shape.Name, System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight, Typeface.Default, 12, Brushes.White);
+        var box = new Rect(p.X - text.Width / 2 - 4, p.Y + 3, text.Width + 8, text.Height + 4);
+        context.FillRectangle(new SolidColorBrush(Colors.Black, 0.6), box, 3);
+        context.DrawText(text, new Point(box.X + 4, box.Y + 2));
+    }
+
+    private void DrawArea(DrawingContext context, MapShape shape)
+    {
+        {
+            if (!shape.HasArea) return;
 
             var geometry = BuildGeometry(shape.Points, close: true);
             var highlighted = HighlightedAreaId == shape.AreaId;
@@ -347,7 +429,7 @@ public sealed class MapCanvas : Control
             context.DrawGeometry(fill, pen, geometry);
 
             // Beschriftung in die Mitte des umschliessenden Rechtecks.
-            if (MapGeometry.Bounds(shape.Points) is not { } b) continue;
+            if (MapGeometry.Bounds(shape.Points) is not { } b) return;
             var mid = ToScreen(new GeoPoint((b.Min.Lon + b.Max.Lon) / 2, (b.Min.Lat + b.Max.Lat) / 2));
             var text = new FormattedText(shape.Name, System.Globalization.CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight, Typeface.Default, 13, Brushes.White);
