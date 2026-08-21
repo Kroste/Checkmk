@@ -40,7 +40,12 @@ USING (VALUES
       {"Name":"Luftbild",           "Url":"https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",         "Layer":"bebb_dop20c"},
       {"Name":"Stadtplan",          "Url":"https://isk.geobasis-bb.de/mapproxy/basemapde-bebb/service/wms", "Layer":"basemapde_farbe"},
       {"Name":"Topographisch grau", "Url":"https://isk.geobasis-bb.de/mapproxy/dtk10grau/service/wms",      "Layer":"bb_dtk10_grau"},
-      {"Name":"Luftbild grau",      "Url":"https://isk.geobasis-bb.de/mapproxy/dop20g/service/wms",         "Layer":"bebb_dop20g"}
+      {"Name":"Luftbild grau",      "Url":"https://isk.geobasis-bb.de/mapproxy/dop20g/service/wms",         "Layer":"bebb_dop20g"},
+      {"Name":"Liegenschaftskarte", "Url":"https://isk.geobasis-bb.de/ows/alkis_wms",
+       "Layer":"adv_alkis_tatsaechliche_nutzung,adv_alkis_flurstuecke,adv_alkis_gebaeude"},
+      {"Name":"Stadtkarte Potsdam", "Url":"https://geoportal.potsdam.de/server/services/Stadtkarte/MapServer/WMSServer",
+       "Layer":"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
+       "Crs":"EPSG:4326"}
     ]')
 ) AS source ([Key], [Value])
     ON target.[Key] = source.[Key]

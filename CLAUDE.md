@@ -175,19 +175,38 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
      dem Mauszeiger weg. Beim Zoomen bleibt der Punkt unter dem Zeiger stehen.
   5. **Treffererkennung: kleinste Fläche gewinnt.** Sonst verdeckt der Campus
      die Serverräume darin.
-  **Vier Hintergründe umschaltbar** (`GlobalSetting.MapLayers`, alle gegen den
-  LGB-Dienst verifiziert): Luftbild (`bebb_dop20c`), Stadtplan
-  (`basemapde_farbe`), Topographisch grau (`bb_dtk10_grau`), Luftbild grau
-  (`bebb_dop20g`). Nicht wegkürzen auf „nur Luftbild": auf buntem Untergrund
-  sind eingefärbte Flächen schwer zu lesen, die Graustufenkarte ist für den
-  Ampelblick die bessere. Die Wahl liegt user-lokal in `statusview.json` —
-  persönliche Ansichtsvorliebe, keine zentrale Vorgabe.
+  **Sechs Hintergründe umschaltbar** (`GlobalSetting.MapLayers`, alle einzeln
+  gegen die Dienste verifiziert, Zoom 18 über dem Rathaus):
+
+  | Name | Dienst | Layer | CRS |
+  |---|---|---|---|
+  | Luftbild | `mapproxy/dop20c` | `bebb_dop20c` | 3857 |
+  | Stadtplan | `mapproxy/basemapde-bebb` | `basemapde_farbe` | 3857 |
+  | Topographisch grau | `mapproxy/dtk10grau` | `bb_dtk10_grau` | 3857 |
+  | Luftbild grau | `mapproxy/dop20g` | `bebb_dop20g` | 3857 |
+  | Liegenschaftskarte | `ows/alkis_wms` | drei `adv_alkis_*` kombiniert | 3857 |
+  | Stadtkarte Potsdam | `geoportal.potsdam.de` | `0..29` | **4326** |
+
+  Nicht wegkürzen auf „nur Luftbild": Auf buntem Untergrund sind eingefärbte
+  Flächen schwer zu lesen — die Graustufenkarte ist für den Ampelblick die
+  bessere, die Stadtkarte 1:500 für die Gebäudeebene. Die Wahl liegt user-lokal
+  in `statusview.json` (persönliche Ansichtsvorliebe, keine zentrale Vorgabe).
+
+  Zwei Fallen dabei:
+  - **ALKIS hat keine fertige Kartendarstellung.** `Farbe`/`SW`/`Gelb` sind
+    *Stile*, keine Layer (liefern Fehler-XML); die Liegenschaftskarte entsteht
+    erst aus der Kombination von `adv_alkis_tatsaechliche_nutzung`,
+    `…_flurstuecke` und `…_gebaeude`.
+  - **Nicht jeder Dienst kann Web-Mercator.** Der Kartenserver der
+    Landeshauptstadt spricht nur EPSG:4326 und 25833 — deshalb hat
+    `MapLayerDefinition` ein `Crs`-Feld, und `GeographicBbox` rechnet die
+    Kachelgrenzen in Grad um. Über eine einzelne Kachel ist der Unterschied
+    zwischen Mercator und Plattkarte vernachlässigbar; auf kleinen Zoomstufen
+    wäre er es nicht, aber Gebäudekarten benutzt man ohnehin nur nah heran.
+
   Der Cache-Pfad trägt einen Hash aus URL+Layer, sonst zeigt die Karte nach dem
   Umstellen weiter das alte Bild; beim Umschalten wird zusätzlich der
-  Speichercache geleert. ALKIS (`/ows/alkis_wms`) ist erreichbar, taugt aber
-  **nicht** als Hintergrund: `Farbe`/`SW`/`Gelb` sind Stile, keine Layer, und
-  die `adv_alkis_*`-Layer sind dünne Fachthemen — als Flächenkarte müsste man
-  sie kombinieren. **Der Quellenvermerk im Kartenbild ist
+  Speichercache geleert. **Der Quellenvermerk im Kartenbild ist
   Lizenzpflicht** (dl-de/by-2.0), nicht Zierde — nicht in ein Menü verschieben.
 - **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
   **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal

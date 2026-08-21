@@ -10,8 +10,20 @@ namespace Checkmk.Data;
 /// Nicht enthalten und niemals hier: das Verbindungs-Secret und die
 /// SSH-Passwoerter. Die bleiben user-lokal und DPAPI-gebunden.
 /// </summary>
-/// <summary>Ein auswaehlbarer Kartenhintergrund (WMS-Adresse + Layername).</summary>
-public sealed record MapLayerDefinition(string Name, string Url, string Layer);
+/// <summary>
+/// Ein auswaehlbarer Kartenhintergrund.
+/// </summary>
+/// <param name="Layer">WMS-Layername; mehrere kommagetrennt (ALKIS braucht das,
+/// dort ist die Karte auf Fachthemen aufgeteilt).</param>
+/// <param name="Crs">Koordinatensystem des Dienstes. Vorgabe Web-Mercator wie
+/// bei jeder Kachelkarte — <b>aber nicht jeder Dienst kann das</b>. Der
+/// Kartenserver der Landeshauptstadt Potsdam etwa spricht nur EPSG:4326 und
+/// EPSG:25833; deshalb ist das ein Feld und keine Konstante.</param>
+public sealed record MapLayerDefinition(
+    string Name,
+    string Url,
+    string Layer,
+    string Crs = "EPSG:3857");
 
 public sealed class CockpitGlobals
 {
@@ -77,7 +89,18 @@ public sealed class CockpitGlobals
         new("Luftbild",          "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",           "bebb_dop20c"),
         new("Stadtplan",         "https://isk.geobasis-bb.de/mapproxy/basemapde-bebb/service/wms",   "basemapde_farbe"),
         new("Topographisch grau","https://isk.geobasis-bb.de/mapproxy/dtk10grau/service/wms",        "bb_dtk10_grau"),
-        new("Luftbild grau",     "https://isk.geobasis-bb.de/mapproxy/dop20g/service/wms",           "bebb_dop20g")
+        new("Luftbild grau",     "https://isk.geobasis-bb.de/mapproxy/dop20g/service/wms",           "bebb_dop20g"),
+        // ALKIS ist auf Fachthemen aufgeteilt — die Liegenschaftskarte entsteht
+        // erst aus der Kombination. Reihenfolge = Zeichenreihenfolge.
+        new("Liegenschaftskarte","https://isk.geobasis-bb.de/ows/alkis_wms",
+            "adv_alkis_tatsaechliche_nutzung,adv_alkis_flurstuecke,adv_alkis_gebaeude"),
+        // Eigener Kartenserver der Landeshauptstadt: Stadtkarte 1:500 mit
+        // Gebäudeumringen, Höfen und Wegen — die detaillierteste Grundlage für
+        // die Gebäudeebene. Kann nur EPSG:4326.
+        new("Stadtkarte Potsdam",
+            "https://geoportal.potsdam.de/server/services/Stadtkarte/MapServer/WMSServer",
+            "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
+            "EPSG:4326")
     ];
 
     /// <summary>

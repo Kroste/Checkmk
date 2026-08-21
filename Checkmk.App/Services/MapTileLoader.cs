@@ -180,7 +180,7 @@ public sealed class MapTileLoader : IDisposable
         }
     }
 
-    private string BuildUrl(TileKey key) => BuildUrl(Active.Url, Active.Layer, key);
+    private string BuildUrl(TileKey key) => BuildUrl(Active.Url, Active.Layer, key, Active.Crs);
 
     /// <summary>
     /// WMS-GetMap für genau die Bounding-Box dieser Kachel, in EPSG:3857.
@@ -199,21 +199,54 @@ public sealed class MapTileLoader : IDisposable
     /// Kachel-Cache.</item>
     /// </list>
     /// </summary>
-    internal static string BuildUrl(string baseUrl, string layer, TileKey key)
+    internal static string BuildUrl(string baseUrl, string layer, TileKey key,
+        string crs = "EPSG:3857")
     {
-        var span = 2 * HalfWorld / Math.Pow(2, key.Zoom);
-        var minX = -HalfWorld + key.X * span;
-        var maxY = HalfWorld - key.Y * span;
-
-        var bbox = string.Join(',', new[] { minX, maxY - span, minX + span, maxY }
-            .Select(v => v.ToString("F3", CultureInfo.InvariantCulture)));
+        var bbox = crs.EndsWith("4326", StringComparison.Ordinal)
+            ? GeographicBbox(key)
+            : MercatorBbox(key);
 
         var separator = baseUrl.Contains('?') ? "&" : "?";
         return $"{baseUrl}{separator}REQUEST=GetMap&SERVICE=WMS&VERSION=1.1.1"
              + $"&FORMAT=image/png&LAYERS={Uri.EscapeDataString(layer)}"
-             + $"&SRS=EPSG:3857&WIDTH={WebMercator.TileSize}&HEIGHT={WebMercator.TileSize}"
-             + $"&BBOX={bbox}&STYLES=";
+             + $"&SRS={Uri.EscapeDataString(crs)}"
+             + $"&WIDTH={WebMercator.TileSize}&HEIGHT={WebMercator.TileSize}"
+             + $"&BBOX={bbox}&STYLES=&TRANSPARENT=FALSE";
     }
+
+    private static string MercatorBbox(TileKey key)
+    {
+        var span = 2 * HalfWorld / Math.Pow(2, key.Zoom);
+        var minX = -HalfWorld + key.X * span;
+        var maxY = HalfWorld - key.Y * span;
+        return Join(minX, maxY - span, minX + span, maxY, "F3");
+    }
+
+    /// <summary>
+    /// Kachelgrenzen in Grad — für Dienste, die kein Web-Mercator können.
+    ///
+    /// Der Server rendert die Grad-Ausdehnung linear (Plattkarte), Web-Mercator
+    /// ist dagegen in der Breite gestreckt. Über eine einzelne Kachel ist der
+    /// Unterschied vernachlässigbar, weil sich der Streckungsfaktor auf so
+    /// kleiner Fläche kaum ändert — bei ~150 m Kantenlänge (Zoom 18) liegt der
+    /// Versatz weit unter einem Pixel. Auf kleinen Zoomstufen wäre das nicht
+    /// mehr wahr; die betroffenen Dienste sind aber ohnehin Gebäudekarten, die
+    /// man nur nah heran benutzt.
+    ///
+    /// WMS 1.1.1 erwartet bei EPSG:4326 die Reihenfolge Länge, Breite — in
+    /// 1.3.0 wäre sie umgekehrt. Noch ein Grund, bei 1.1.1 zu bleiben.
+    /// </summary>
+    private static string GeographicBbox(TileKey key)
+    {
+        var size = (double)WebMercator.TileSize;
+        var topLeft = WebMercator.ToGeo(key.X * size, key.Y * size, key.Zoom);
+        var bottomRight = WebMercator.ToGeo((key.X + 1) * size, (key.Y + 1) * size, key.Zoom);
+        return Join(topLeft.Lon, bottomRight.Lat, bottomRight.Lon, topLeft.Lat, "F7");
+    }
+
+    private static string Join(double a, double b, double c, double d, string format)
+        => string.Join(',', new[] { a, b, c, d }
+            .Select(v => v.ToString(format, CultureInfo.InvariantCulture)));
 
     /// <summary>PNG- oder JPEG-Signatur. Reicht, um XML-Fehlermeldungen abzuweisen.</summary>
     private static bool LooksLikeImage(byte[] bytes)

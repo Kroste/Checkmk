@@ -32,7 +32,9 @@ public class MapTileUrlTests
         var url = MapTileLoader.BuildUrl(Wms, Layer, new TileKey(13, 4393, 2691));
 
         url.Should().Contain("VERSION=1.1.1");
-        url.Should().Contain("SRS=EPSG:3857");
+        // Der Doppelpunkt wird kodiert — gegen alle sechs Dienste geprueft,
+        // beide Schreibweisen liefern Kacheln.
+        url.Should().Contain("SRS=EPSG%3A3857");
         url.Should().NotContain("CRS=");
     }
 
@@ -84,6 +86,58 @@ public class MapTileUrlTests
         var url = MapTileLoader.BuildUrl(Wms, "ein layer", new TileKey(5, 1, 1));
 
         url.Should().Contain("LAYERS=ein%20layer");
+    }
+
+    // --- Dienste ohne Web-Mercator -------------------------------------
+
+    [Fact]
+    public void Geographic_service_gets_degrees_in_lon_lat_order()
+    {
+        // Der Kartenserver der Landeshauptstadt Potsdam kann nur EPSG:4326.
+        // WMS 1.1.1 erwartet dort Laenge, Breite — in 1.3.0 waere es umgekehrt,
+        // und die Karte zeigte Somalia statt Potsdam.
+        var url = MapTileLoader.BuildUrl(
+            "https://geoportal.potsdam.de/server/services/Stadtkarte/MapServer/WMSServer",
+            "0,1,2", new TileKey(13, 4393, 2691), "EPSG:4326");
+
+        url.Should().Contain("SRS=EPSG%3A4326");
+
+        var bbox = Bbox(url);
+        bbox[0].Should().BeApproximately(13.0518, 0.001);   // minLon
+        bbox[2].Should().BeApproximately(13.0957, 0.001);   // maxLon
+        bbox[1].Should().BeInRange(52.3, 52.5);             // minLat
+        bbox[3].Should().BeInRange(52.3, 52.5);             // maxLat
+        bbox[3].Should().BeGreaterThan(bbox[1], "maxLat gehoert hinter minLat");
+    }
+
+    [Fact]
+    public void Mercator_stays_the_default_when_no_crs_is_given()
+    {
+        var url = MapTileLoader.BuildUrl(Wms, Layer, new TileKey(13, 4393, 2691));
+
+        url.Should().Contain("SRS=EPSG%3A3857");
+        Bbox(url)[0].Should().BeApproximately(1452915.034, 0.01);
+    }
+
+    [Fact]
+    public void Geographic_tiles_also_share_their_edges()
+    {
+        var upper = MapTileLoader.BuildUrl(Wms, Layer, new TileKey(18, 140581, 86123), "EPSG:4326");
+        var lower = MapTileLoader.BuildUrl(Wms, Layer, new TileKey(18, 140581, 86124), "EPSG:4326");
+
+        // Untere Kachel endet oben genau dort, wo die obere unten aufhoert.
+        Bbox(lower)[3].Should().BeApproximately(Bbox(upper)[1], 1e-9);
+    }
+
+    [Fact]
+    public void Multiple_layers_are_passed_through_comma_separated()
+    {
+        // ALKIS ist auf Fachthemen aufgeteilt; die Liegenschaftskarte entsteht
+        // erst aus der Kombination.
+        var url = MapTileLoader.BuildUrl("https://isk.geobasis-bb.de/ows/alkis_wms",
+            "adv_alkis_flurstuecke,adv_alkis_gebaeude", new TileKey(18, 140581, 86123));
+
+        url.Should().Contain("LAYERS=adv_alkis_flurstuecke%2Cadv_alkis_gebaeude");
     }
 
     private static double[] Bbox(string url)

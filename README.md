@@ -1154,8 +1154,7 @@ dort vollständig. Die Karte ist eine zusätzliche Sicht, keine Voraussetzung.
 
 ### Kartenhintergrund wechseln
 
-Oben rechts das Auswahlfeld **„Karte:"** — vier amtliche Hintergründe der LGB
-Brandenburg:
+Oben rechts das Auswahlfeld **„Karte:"** — sechs amtliche Hintergründe:
 
 | | wofür |
 |---|---|
@@ -1163,6 +1162,11 @@ Brandenburg:
 | **Stadtplan** | basemap.de mit Straßennamen und Beschriftung — am besten zum Wiederfinden von Adressen. |
 | **Topographisch grau** | DTK 1:10.000 in Graustufen. Hier tritt die Ampelfarbe der Bereiche am deutlichsten hervor. |
 | **Luftbild grau** | Orthophoto in Graustufen — Luftbild-Detail ohne Farbkonkurrenz. |
+| **Liegenschaftskarte** | ALKIS: Flurstücke mit Nummern, Gebäudeumringe, Hausnummern. |
+| **Stadtkarte Potsdam** | Die eigene Stadtkarte 1:500 der Landeshauptstadt — Gebäudeumringe, Höfe, Wege, Treppen. Die detaillierteste Grundlage, wenn es um einzelne Gebäude auf einem Gelände geht. |
+
+Die ersten fünf kommen von der LGB Brandenburg, die letzte vom Kartenserver der
+Landeshauptstadt (`geoportal.potsdam.de`).
 
 Die Wahl wird pro Benutzer gemerkt. Der Kachel-Cache ist je Hintergrund
 getrennt, ein Wechsel mischt also nichts.
