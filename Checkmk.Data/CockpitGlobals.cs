@@ -35,6 +35,8 @@ public sealed class CockpitGlobals
     public const string KeyMapWmsLayer         = "MapWmsLayer";
     public const string KeyMapAttribution      = "MapAttribution";
     public const string KeyMapLayers           = "MapLayers";
+    public const string KeyMapTileSharePath    = "MapTileSharePath";
+    public const string KeyMapTileMaxAgeDays   = "MapTileMaxAgeDays";
 
     public string HostDefaultDomain { get; init; } = "lhp.intern";
 
@@ -73,6 +75,32 @@ public sealed class CockpitGlobals
     /// <summary>Quellenvermerk. <b>Pflicht</b> nach dl-de/by-2.0 und deshalb
     /// fest im Kartenbild, nicht in einem Menue vergraben.</summary>
     public string MapAttribution { get; init; } = "© GeoBasis-DE/LGB, dl-de/by-2-0";
+
+    /// <summary>
+    /// Gemeinsamer Kachelspeicher, z. B. ein Ordner auf dem Fileshare. Wird
+    /// <b>vor</b> dem Kartendienst gelesen und, wenn schreibbar, mitgefuellt.
+    ///
+    /// Sinn: Eine kalte Kachel kostet gut eine Sekunde, aus dem Cache acht
+    /// Millisekunden. Ohne gemeinsamen Speicher zahlt jeder der 48 Nutzer
+    /// dieselbe Wartezeit noch einmal und laedt dieselben ~200 MB erneut vom
+    /// Landesdienst. Mit ihm zahlt der Erste, alle anderen lesen.
+    ///
+    /// Leer = nur lokaler Cache. Nicht erreichbar = still uebergangen; die
+    /// Karte faellt auf den lokalen Cache und den Dienst zurueck. Kacheln sind
+    /// Beiwerk, ihr Ausfall darf nichts blockieren.
+    /// </summary>
+    public string MapTileSharePath { get; init; } = "";
+
+    /// <summary>
+    /// Ab welchem Alter eine zwischengespeicherte Kachel im Hintergrund neu
+    /// geholt wird. Angezeigt wird immer sofort der vorhandene Stand — der
+    /// Anwender wartet nie auf eine Auffrischung.
+    ///
+    /// 180 Tage als Vorgabe, weil sich die Datengrundlage daran orientiert:
+    /// Orthophotos werden jaehrlich beflogen, die Stadtkarte laufend, aber
+    /// nicht kachelweise sichtbar. 0 = nie auffrischen.
+    /// </summary>
+    public int MapTileMaxAgeDays { get; init; } = 180;
 
     /// <summary>
     /// Auswaehlbare Kartenhintergruende. Alle vier sind gegen den Dienst der LGB
@@ -121,7 +149,9 @@ public sealed class CockpitGlobals
             MapWmsUrl         = Text(KeyMapWmsUrl)        ?? fallback.MapWmsUrl,
             MapWmsLayer       = Text(KeyMapWmsLayer)      ?? fallback.MapWmsLayer,
             MapAttribution    = Text(KeyMapAttribution)   ?? fallback.MapAttribution,
-            MapLayers         = LayerList(KeyMapLayers)   ?? fallback.MapLayers
+            MapLayers         = LayerList(KeyMapLayers)   ?? fallback.MapLayers,
+            MapTileSharePath  = Text(KeyMapTileSharePath) ?? fallback.MapTileSharePath,
+            MapTileMaxAgeDays = Int(KeyMapTileMaxAgeDays) ?? fallback.MapTileMaxAgeDays
         };
 
         string? Text(string key)
@@ -129,6 +159,11 @@ public sealed class CockpitGlobals
 
         bool? Bool(string key)
             => Text(key) is { } s && bool.TryParse(s, out var b) ? b : null;
+
+        // Negative Werte werden verworfen statt uebernommen — ein Tippfehler
+        // soll auf den Default fallen, nicht in eine Sonderbedeutung kippen.
+        int? Int(string key)
+            => Text(key) is { } s && int.TryParse(s, out var n) && n >= 0 ? n : null;
 
         IReadOnlyList<MapLayerDefinition>? LayerList(string key)
         {
@@ -179,6 +214,8 @@ public sealed class CockpitGlobals
         [KeyMapWmsUrl]           = MapWmsUrl,
         [KeyMapWmsLayer]         = MapWmsLayer,
         [KeyMapAttribution]      = MapAttribution,
-        [KeyMapLayers]           = JsonSerializer.Serialize(MapLayers)
+        [KeyMapLayers]           = JsonSerializer.Serialize(MapLayers),
+        [KeyMapTileSharePath]    = MapTileSharePath,
+        [KeyMapTileMaxAgeDays]   = MapTileMaxAgeDays.ToString()
     };
 }

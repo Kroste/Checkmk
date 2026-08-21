@@ -46,6 +46,13 @@ public sealed class MapTileLoader : IDisposable
     /// 40 Kacheln auf einmal an, und der Dienst ist kein Content-Delivery-Netz.</summary>
     private readonly SemaphoreSlim _gate = new(4, 4);
 
+    /// <summary>Eigener, kleinerer Deckel fuers Vorabladen und Auffrischen —
+    /// Hintergrundarbeit darf das Schieben und Zoomen nie ausbremsen.</summary>
+    private readonly SemaphoreSlim _prefetchGate = new(2, 2);
+
+    /// <summary>Kacheln, die in dieser Sitzung schon auf Alter geprueft wurden.</summary>
+    private readonly ConcurrentDictionary<TileKey, byte> _refreshed = new();
+
     public MapTileLoader(IGlobalSettingsProvider globals)
     {
         _globals = globals;
@@ -137,13 +144,39 @@ public sealed class MapTileLoader : IDisposable
             try
             {
                 await using var fs = File.OpenRead(path);
-                return new Bitmap(fs);
+                var cached = new Bitmap(fs);
+                // Alt gewordene Kachel im Hintergrund erneuern, aber SOFORT die
+                // vorhandene zeigen. Der Anwender wartet nie auf eine
+                // Auffrischung — dafuer aendern sich Luftbilder viel zu selten.
+                ScheduleRefreshIfStale(key, path);
+                return cached;
             }
             catch (Exception ex)
             {
                 // Halb geschriebene Datei nach einem Absturz: wegwerfen und neu holen.
                 Log.Debug(ex, "Kachel aus dem Cache unlesbar, hole neu: {Path}", path);
                 TryDelete(path);
+            }
+        }
+
+        // Gemeinsamer Speicher: Was ein Kollege schon geholt hat, muss niemand
+        // erneut beim Landesdienst anfragen. Kalt kostet eine Kachel ueber eine
+        // Sekunde, aus dem Cache acht Millisekunden.
+        if (SharedPath(key) is { } shared && File.Exists(shared))
+        {
+            try
+            {
+                var bytes = await File.ReadAllBytesAsync(shared).ConfigureAwait(false);
+                if (LooksLikeImage(bytes))
+                {
+                    WriteCache(path, bytes);   // lokal spiegeln: der Share kann weg sein
+                    using var ms = new MemoryStream(bytes);
+                    return new Bitmap(ms);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Kachel aus dem gemeinsamen Speicher nicht lesbar: {Path}", shared);
             }
         }
 
@@ -171,12 +204,126 @@ public sealed class MapTileLoader : IDisposable
             }
 
             WriteCache(path, bytes);
+            if (SharedPath(key) is { } target) WriteShared(target, bytes);
+
             using var ms = new MemoryStream(bytes);
             return new Bitmap(ms);
         }
         finally
         {
             _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Laedt Kacheln im Hintergrund, damit der erste Blick auf einen Standort
+    /// nicht fuenf Sekunden dauert. Eigener, kleinerer Deckel als der
+    /// interaktive Pfad: Vorabladen darf das Schieben und Zoomen nie ausbremsen.
+    /// </summary>
+    public async Task PrefetchAsync(IEnumerable<TileKey> keys, IProgress<(int Done, int Total)>? progress,
+        CancellationToken ct = default)
+    {
+        var todo = keys.Where(k => !_memory.ContainsKey(k) && !File.Exists(CachePath(k))).ToList();
+        if (todo.Count == 0) return;
+
+        Log.Info("Kachel-Vorabladen: {Count} fehlen fuer Ebene '{Layer}'.", todo.Count, Active.Name);
+
+        var done = 0;
+        foreach (var key in todo)
+        {
+            if (ct.IsCancellationRequested) break;
+            await _prefetchGate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var bitmap = await LoadAsync(key).ConfigureAwait(false);
+                // Nicht in den Speichercache legen: Vorabladen fuellt die
+                // Platte, nicht den Arbeitsspeicher — sonst haelt eine
+                // Hintergrundaufgabe hunderte Bitmaps fest.
+                bitmap?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Vorabladen von {Z}/{X}/{Y} fehlgeschlagen.", key.Zoom, key.X, key.Y);
+            }
+            finally
+            {
+                _prefetchGate.Release();
+                progress?.Report((Interlocked.Increment(ref done), todo.Count));
+            }
+        }
+
+        Log.Info("Kachel-Vorabladen abgeschlossen: {Done}/{Total}.", done, todo.Count);
+    }
+
+    /// <summary>Erneuert eine veraltete Kachel im Hintergrund — hoechstens eine
+    /// je Kachel und Sitzung.</summary>
+    private void ScheduleRefreshIfStale(TileKey key, string path)
+    {
+        var maxAge = _globals.Current.MapTileMaxAgeDays;
+        if (maxAge <= 0) return;
+        if (!_refreshed.TryAdd(key, 0)) return;
+
+        try
+        {
+            if (DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < TimeSpan.FromDays(maxAge)) return;
+        }
+        catch (IOException) { return; }
+
+        _ = Task.Run(async () =>
+        {
+            await _prefetchGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var url = BuildUrl(key);
+                using var response = await _http.GetAsync(url).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode) return;
+                var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                if (!LooksLikeImage(bytes)) return;
+
+                WriteCache(path, bytes);
+                if (SharedPath(key) is { } target) WriteShared(target, bytes);
+                Log.Debug("Kachel {Z}/{X}/{Y} aufgefrischt.", key.Zoom, key.X, key.Y);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Auffrischen von {Z}/{X}/{Y} fehlgeschlagen.", key.Zoom, key.X, key.Y);
+            }
+            finally { _prefetchGate.Release(); }
+        });
+    }
+
+    /// <summary>Pfad im gemeinsamen Speicher, oder <c>null</c> wenn keiner
+    /// eingerichtet ist.</summary>
+    private string? SharedPath(TileKey key)
+    {
+        var root = _globals.Current.MapTileSharePath;
+        if (string.IsNullOrWhiteSpace(root)) return null;
+        return Path.Combine(root, LayerId(), key.Zoom.ToString(), key.X.ToString(), $"{key.Y}.png");
+    }
+
+    /// <summary>
+    /// Schreibt in den gemeinsamen Speicher, wenn es geht. Fehlschlaege sind
+    /// der Normalfall — die meisten Nutzer haben dort nur Leserecht, und das
+    /// ist Absicht.
+    /// </summary>
+    private static void WriteShared(string path, byte[] bytes)
+    {
+        try
+        {
+            if (File.Exists(path)) return;
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            // Ueber eine Datei mit Zufallsnamen: zwei Clients koennen dieselbe
+            // Kachel gleichzeitig schreiben wollen.
+            var tmp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+            File.WriteAllBytes(tmp, bytes);
+            try { File.Move(tmp, path, overwrite: false); }
+            catch (IOException) { File.Delete(tmp); }   // war jemand schneller
+        }
+        catch (Exception)
+        {
+            // Kein Log: bei fehlendem Schreibrecht waere das eine Zeile je Kachel.
         }
     }
 
@@ -260,11 +407,13 @@ public sealed class MapTileLoader : IDisposable
     /// zeigt die Karte nach dem Umstellen weiter das alte Bild.
     /// </summary>
     private string CachePath(TileKey key)
-    {
-        var id = Convert.ToHexString(
+        => Path.Combine(_cacheRoot, LayerId(), key.Zoom.ToString(), key.X.ToString(), $"{key.Y}.png");
+
+    /// <summary>Kurz-Hash aus Adresse und Layer — trennt die Ebenen im Cache,
+    /// sonst zeigt die Karte nach dem Umschalten weiter das alte Bild.</summary>
+    private string LayerId()
+        => Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(Active.Url + "|" + Active.Layer)))[..8];
-        return Path.Combine(_cacheRoot, id, key.Zoom.ToString(), key.X.ToString(), $"{key.Y}.png");
-    }
 
     private static void WriteCache(string path, byte[] bytes)
     {

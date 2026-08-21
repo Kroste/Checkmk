@@ -232,6 +232,72 @@ public partial class AreaView : UserControl
         RefreshMap();
     }
 
+    private CancellationTokenSource? _prefetchCts;
+
+    /// <summary>
+    /// Lädt die Kacheln rund um alle Standorte im Hintergrund. Danach ist der
+    /// erste Blick auf einen Standort sofort da statt nach fünf Sekunden — und
+    /// die Sicht funktioniert auch ohne Internet.
+    /// </summary>
+    private async void OnPrefetchClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { } vm) return;
+        var tiles = App.Services?.GetService<MapTileLoader>();
+        if (tiles is null) return;
+
+        // Zweiter Klick bricht ab — sonst müsste man die App beenden.
+        if (_prefetchCts is { } running)
+        {
+            running.Cancel();
+            return;
+        }
+
+        var points = vm.PlacePoints();
+        if (points.Count == 0)
+        {
+            vm.StatusMessage = "Keine Standorte mit Lage — erst Bereiche anlegen oder übernehmen.";
+            return;
+        }
+
+        // Stadtübersicht aus den Standorten selbst ableiten, mit etwas Rand.
+        // So passt sie zu dem, was tatsächlich gebraucht wird, statt eine feste
+        // Bounding-Box für Potsdam einzubauen.
+        var bounds = MapGeometry.Bounds(points) is { } b
+            ? (new GeoPoint(b.Min.Lon - 0.02, b.Min.Lat - 0.02),
+               new GeoPoint(b.Max.Lon + 0.02, b.Max.Lat + 0.02))
+            : ((GeoPoint, GeoPoint)?)null;
+
+        var plan = MapPrefetchPlanner.Plan(points, bounds);
+
+        _prefetchCts = new CancellationTokenSource();
+        var button = this.FindControl<Button>("PrefetchButton");
+        if (button is not null) button.Content = "Vorladen abbrechen";
+
+        var progress = new Progress<(int Done, int Total)>(p =>
+            vm.StatusMessage = $"Karten vorladen: {p.Done}/{p.Total} Kacheln "
+                             + $"({tiles.Active.Name})…");
+
+        try
+        {
+            vm.StatusMessage = $"Karten vorladen: {plan.Count} Kacheln geplant…";
+            await tiles.PrefetchAsync(plan, progress, _prefetchCts.Token);
+            vm.StatusMessage = _prefetchCts.IsCancellationRequested
+                ? "Vorladen abgebrochen — was geladen ist, bleibt im Cache."
+                : $"Karten vorgeladen ({tiles.Active.Name}). Die Sicht funktioniert jetzt auch ohne Internet.";
+        }
+        catch (OperationCanceledException)
+        {
+            vm.StatusMessage = "Vorladen abgebrochen — was geladen ist, bleibt im Cache.";
+        }
+        finally
+        {
+            _prefetchCts.Dispose();
+            _prefetchCts = null;
+            if (button is not null) button.Content = "Karten vorladen";
+            _map?.InvalidateVisual();
+        }
+    }
+
     private void OnDrawAreaClick(object? sender, RoutedEventArgs e)
     {
         if (_map is null || Vm is not { CanWrite: true } vm) return;

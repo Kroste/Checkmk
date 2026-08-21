@@ -30,7 +30,9 @@
                 ToolTip.Tip="Klicken setzt Punkte, Doppelklick oder Enter schließt die Fläche, Esc bricht ab, Rücktaste nimmt den letzten Punkt zurück." />
         <Button Content="Standorte übernehmen…" Click="OnImportPlacesClick"
                 IsVisible="{Binding CanWrite}" IsEnabled="{Binding !IsBusy}"
-                ToolTip.Tip="Holt die Verwaltungsstandorte der Landeshauptstadt vom Kartenserver und legt die ausgewählten als Bereiche an." />
+                ToolTip.Tip="Holt Standortlisten der Landeshauptstadt vom Kartenserver und legt die ausgewählten als Bereiche an." />
+        <Button Name="PrefetchButton" Content="Karten vorladen" Click="OnPrefetchClick"
+                ToolTip.Tip="Lädt die Kacheln rund um alle Standorte im Hintergrund. Danach ist die Karte sofort da — auch ohne Internet." />
       </StackPanel>
       <TextBlock Grid.Column="5" Text="Karte:" VerticalAlignment="Center" Foreground="#AAAAAA" />
       <ComboBox Grid.Column="6" Name="LayerBox" MinWidth="160" VerticalAlignment="Center"

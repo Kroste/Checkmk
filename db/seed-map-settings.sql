@@ -36,6 +36,22 @@ USING (VALUES
        weil der Untergrund selbst bunt ist — deshalb gehoert mindestens eine
        Karte ohne Foto dazu. Reihenfolge = Reihenfolge im Auswahlfeld,
        der erste Eintrag ist die Vorgabe. */
+    /* Gemeinsamer Kachelspeicher. LEER = nur lokaler Cache je Arbeitsplatz.
+
+       Eintragen lohnt sich: Eine kalte Kachel kostet gut eine Sekunde, aus dem
+       Cache acht Millisekunden. Ohne gemeinsamen Ordner laedt jeder der 48
+       Nutzer dieselben ~200 MB einzeln beim Landesdienst. Mit ihm zahlt der
+       Erste die Wartezeit, alle anderen lesen. Leserecht genuegt; wer schreiben
+       darf, fuellt ihn im Vorbeigehen mit.
+       Beispiel: \\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\tiles */
+    (N'MapTileSharePath', N''),
+
+    /* Ab welchem Alter eine Kachel im Hintergrund erneuert wird. Angezeigt
+       wird immer sofort der vorhandene Stand - niemand wartet auf eine
+       Auffrischung. 0 = nie. Orthophotos werden jaehrlich beflogen, oefter
+       nachzuladen kostet Bandbreite ohne Gegenwert. */
+    (N'MapTileMaxAgeDays', N'180'),
+
     (N'MapLayers', N'[
       {"Name":"Luftbild",           "Url":"https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",         "Layer":"bebb_dop20c"},
       {"Name":"Stadtplan",          "Url":"https://isk.geobasis-bb.de/mapproxy/basemapde-bebb/service/wms", "Layer":"basemapde_farbe"},

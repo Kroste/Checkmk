@@ -320,6 +320,26 @@ public sealed partial class AreaViewModel : ViewModelBase
     /// <summary>Hostnamen im Bereich — die „Technik", die dort steht.</summary>
     public IReadOnlyList<string> HostsIn(int areaId) => _areas.HostsIn(areaId);
 
+    /// <summary>Lagen aller sichtbaren Bereiche — Mittelpunkt der Fläche oder
+    /// der Punkt. Grundlage für das Vorabladen der Kacheln.</summary>
+    public IReadOnlyList<GeoPoint> PlacePoints()
+    {
+        var points = new List<GeoPoint>();
+        foreach (var node in AllAreas())
+        {
+            if (MapGeometry.Parse(GeometryOf(node.AreaId)) is { Count: >= 3 } shape
+                && MapGeometry.Bounds(shape) is { } b)
+            {
+                points.Add(new GeoPoint((b.Min.Lon + b.Max.Lon) / 2, (b.Min.Lat + b.Max.Lat) / 2));
+            }
+            else if (PointOf(node.AreaId) is { } p)
+            {
+                points.Add(new GeoPoint(p.Lon, p.Lat));
+            }
+        }
+        return points;
+    }
+
     /// <summary>
     /// Verschiebt die gesamte Technik eines Bereichs in einen anderen. Der
     /// Alltagsfall: Ein Haus wird aufgelöst, alles wandert in den Container —

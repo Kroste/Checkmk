@@ -268,7 +268,33 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
 
   Der Cache-Pfad trägt einen Hash aus URL+Layer, sonst zeigt die Karte nach dem
   Umstellen weiter das alte Bild; beim Umschalten wird zusätzlich der
-  Speichercache geleert. **Der Quellenvermerk im Kartenbild ist
+  Speichercache geleert.
+- **Kachel-Caching ist tragend, nicht Beiwerk.** Gemessen am 2026-08-21 gegen
+  den LGB-Dienst: **eine kalte Kachel ~1,2 s, aus dem Cache ~0,7 ms — Faktor
+  680.** Ein Bildschirm sind ~12 Kacheln, also 5 s für jeden neuen Ausschnitt
+  und *jede* Zoomstufe. Drei Stufen, in dieser Reihenfolge gelesen:
+  1. **Speicher** (`_memory`), 2. **lokale Platte**
+  (`%LOCALAPPDATA%\Kroste\Checkmk\tiles`), 3. **gemeinsamer Speicher**
+  (`GlobalSetting.MapTileSharePath`, z. B. Fileshare), erst dann der Dienst.
+  Aus dem Netz Geholtes landet lokal *und* — wenn schreibbar — im gemeinsamen
+  Speicher. Ohne den zahlen 48 Nutzer dieselbe Wartezeit und laden dieselben
+  ~200 MB einzeln beim Landesdienst.
+  **Fehlschläge beim Schreiben in den gemeinsamen Speicher werden nicht
+  geloggt** — die meisten haben dort nur Leserecht, und das wäre eine Logzeile
+  je Kachel.
+- **Vorabladen** (`MapPrefetchPlanner` + `MapTileLoader.PrefetchAsync`):
+  Stadtübersicht (z11–14) plus 3×3 Kacheln je Standort (z15–18). Bewusst
+  **keine Flächendeckung** — Potsdam vollständig bis z18 wären >40.000 Kacheln
+  *je Ebene*, mehrere GB. Gemessene Größenordnung: 35 Standorte → ~1000
+  Kacheln (~10 min, ~100 MB), 117 Standorte → ~3300 (~33 min, ~320 MB).
+  Eigener Semaphor (2) getrennt vom interaktiven (4): Hintergrundarbeit darf
+  Schieben und Zoomen nie ausbremsen. Danach funktioniert die Standort-Sicht
+  **auch ohne Internet**.
+- **Auffrischen ist „stale-while-revalidate"**: Eine veraltete Kachel wird
+  *sofort* angezeigt und nur im Hintergrund erneuert
+  (`MapTileMaxAgeDays`, Vorgabe 180, 0 = nie). Niemand wartet je auf eine
+  Auffrischung — Orthophotos werden jährlich beflogen, häufiger nachzuladen
+  kostet Bandbreite ohne Gegenwert. **Der Quellenvermerk im Kartenbild ist
   Lizenzpflicht** (dl-de/by-2.0), nicht Zierde — nicht in ein Menü verschieben.
 - **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
   **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal

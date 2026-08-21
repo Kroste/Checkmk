@@ -1232,11 +1232,46 @@ Landeshauptstadt (`geoportal.potsdam.de`).
 Die Wahl wird pro Benutzer gemerkt. Der Kachel-Cache ist je Hintergrund
 getrennt, ein Wechsel mischt also nichts.
 
+### Karten vorladen — und offline arbeiten
+
+Eine Kachel, die noch nie geholt wurde, dauert gut **eine Sekunde**; aus dem
+Zwischenspeicher **acht Millisekunden**. Ein Bildschirm sind rund ein Dutzend
+Kacheln — deshalb fühlt sich der *erste* Blick auf einen Standort zäh an und
+jeder danach sofort.
+
+Der Knopf **„Karten vorladen"** erledigt das im Voraus: Er holt die
+Stadtübersicht und die Umgebung aller Standorte im Hintergrund. Ein zweiter
+Klick bricht ab, das schon Geladene bleibt.
+
+| Standorte | Kacheln | Dauer | Platz |
+|---|---|---|---|
+| 35 | ~1.000 | ~10 min | ~100 MB |
+| 80 | ~2.300 | ~23 min | ~220 MB |
+
+(Luftbild; die Graustufenkarte braucht etwa ein Viertel davon. Jeder
+Kartenhintergrund wird getrennt vorgeladen.)
+
+**Danach funktioniert die Standort-Sicht auch ohne Internet.** Die Karte
+zeichnet aus dem Zwischenspeicher; nur Ausschnitte, die noch nie jemand
+angesehen hat, bleiben leer.
+
+Die Kacheln altern still: Was älter als ein halbes Jahr ist, wird beim nächsten
+Anzeigen im Hintergrund erneuert — angezeigt wird immer sofort der vorhandene
+Stand. Orthophotos werden jährlich beflogen, häufiger lohnt es nicht.
+
+> **Für Administratoren — einmal laden statt 48-mal:** Trägt man in
+> `dbo.GlobalSetting` unter `MapTileSharePath` einen Ordner ein (etwa auf dem
+> Fileshare), lesen alle Clients zuerst von dort. Wer Schreibrecht hat, füllt
+> ihn im Vorbeigehen mit. So zahlt der Erste die Wartezeit und alle anderen
+> lesen — und der Landesdienst bekommt nicht 48-mal dieselbe Anfrage. Ist der
+> Ordner nicht erreichbar, wird er stillschweigend übergangen.
+> `MapTileMaxAgeDays` steuert das Auffrischen (Vorgabe 180, `0` = nie).
+
 Das Kartenmaterial sind amtliche Geobasisdaten der **LGB Brandenburg**, Open
 Data unter dl-de/by-2.0. Der Quellenvermerk unten rechts im Kartenbild ist
-Lizenzpflicht und bleibt deshalb stehen. Die Kacheln werden lokal
-zwischengespeichert (`%LOCALAPPDATA%\Kroste\Checkmk\tiles`), ein Wandmonitor
-befragt den Landesdienst also nicht stundenlang.
+Lizenzpflicht und bleibt deshalb stehen. Zwischengespeichert wird lokal unter
+`%LOCALAPPDATA%\Kroste\Checkmk\tiles` — ein Wandmonitor befragt den
+Landesdienst also nicht stundenlang.
 
 > **Für Administratoren:** Die Auswahlliste steht in `dbo.GlobalSetting` unter
 > `MapLayers` (JSON: Name, Url, Layer), der Quellenvermerk unter
