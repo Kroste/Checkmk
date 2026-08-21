@@ -52,16 +52,49 @@ public class HostPatternTests
         HostPatternMatcher.Matches(four, "NAS4-01").Should().BeTrue();
     }
 
-    [Fact]
-    public void Combined_schools_match_either_number()
+    [Theory]
+    // Zusammengelegte Schulen stehen mit zwei Nummern in den Daten, benutzt wird
+    // aber nur eine — und welche, steht nirgends. Angabe des Fachbereichs:
+    [InlineData("25/26", "25")]   // Karl-Foerster-Schule
+    [InlineData("10/30", "30")]   // Schule am Nuthetal
+    [InlineData("42/44", "44")]   // Wilhelm-von-Türk-Schule
+    [InlineData("36/45", "36")]   // Grundschule Am Pappelhain
+    public void Combined_schools_use_the_number_that_is_actually_in_use(string code, string expected)
     {
-        // Zusammengelegte Schulen stehen als 25/26 in den Daten.
-        var pattern = HostPatternMatcher.FromCode("25/26");
+        PotsdamPlaceImporter.EffectiveCode(code).Should().Be(expected);
+
+        var pattern = PotsdamPlaceImporter.PatternFor(code);
+        HostPatternMatcher.Matches(pattern, $"{expected}-SW01").Should().BeTrue();
+    }
+
+    [Fact]
+    public void The_unused_half_of_a_combined_code_is_not_claimed()
+    {
+        // Frueher erzeugte der Import eine Alternative (?:25|26) und haette
+        // damit Hosts beansprucht, die es unter 26 gar nicht gibt — und im
+        // schlechteren Fall die einer anderen Schule.
+        var pattern = PotsdamPlaceImporter.PatternFor("25/26");
 
         HostPatternMatcher.Matches(pattern, "25-SW01").Should().BeTrue();
-        HostPatternMatcher.Matches(pattern, "26-USV").Should().BeTrue();
-        HostPatternMatcher.Matches(pattern, "27-SW01").Should().BeFalse();
-        HostPatternMatcher.Matches(pattern, "125-SW01").Should().BeFalse();
+        HostPatternMatcher.Matches(pattern, "26-USV").Should().BeFalse();
+    }
+
+    [Fact]
+    public void An_unknown_combined_code_yields_no_pattern_instead_of_a_guess()
+    {
+        // Raten hiesse, die Hosts einer fremden Nummer zu beanspruchen. Ein
+        // fehlendes Muster faellt dagegen daran auf, dass keine Vorschlaege
+        // kommen, und ist in zehn Sekunden nachgetragen.
+        PotsdamPlaceImporter.EffectiveCode("77/88").Should().BeNull();
+        PotsdamPlaceImporter.PatternFor("77/88").Should().BeNull();
+    }
+
+    [Fact]
+    public void Plain_numbers_pass_through_the_importer_unchanged()
+    {
+        PotsdamPlaceImporter.EffectiveCode("46").Should().Be("46");
+        PotsdamPlaceImporter.EffectiveCode("SFT").Should().BeNull();
+        PotsdamPlaceImporter.EffectiveCode("OSZ III").Should().BeNull();
     }
 
     [Theory]

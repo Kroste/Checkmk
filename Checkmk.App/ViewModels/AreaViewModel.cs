@@ -531,9 +531,10 @@ public sealed partial class AreaViewModel : ViewModelBase
         {
             IsBusy = true;
             // Muster gleich mit ableiten: Bei Schulen steckt die Nummer aus
-            // SCHULNUM im Hostnamen (46-SW04, NAS46-01, iRMC-46).
+            // SCHULNUM im Hostnamen (46-SW04, NAS46-01, iRMC-46). Der Importer
+            // kennt dabei die Potsdamer Eigenheit der zusammengelegten Schulen.
             var result = await _areas.ImportPlacesAsync(source, places, parentAreaId, sites,
-                HostPatternMatcher.FromCode);
+                PotsdamPlaceImporter.PatternFor);
             Recompute(_status.AllServices);
             MapChanged?.Invoke();
             StatusMessage = $"Standorte übernommen: {result.Created} neu, "

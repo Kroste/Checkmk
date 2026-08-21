@@ -199,10 +199,18 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   3. **Handgepflegte Muster überleben den Reimport.** `ExternalCode` steht
      neben `HostPattern`: Nur wenn sich der Code ändert oder noch kein Muster
      da ist, wird neu abgeleitet.
-  Für Schulen kommt das Muster aus `SCHULNUM` (45 der 82 tragen eine reine
-  Nummer, dazu drei zusammengelegte wie `25/26`; freie Träger und OSZ haben
-  Kürzel und damit keins). Für Verwaltungsstandorte stehen die Kürzel nicht in
-  den offenen Daten — die trägt man einmal je Bereich ein.
+  Für Schulen kommt das Muster aus `SCHULNUM`: 45 tragen eine reine Nummer,
+  vier sind **zusammengelegte** Schulen. Die stehen mit *zwei* Nummern in den
+  Daten (`25/26`), im Betrieb wird aber nur **eine** benutzt — und welche, steht
+  nirgends. `PotsdamPlaceImporter.CombinedSchoolNumbers` hält die Zuordnung
+  (25/26→25, 10/30→30, 42/44→44, 36/45→36; Angabe des Fachbereichs,
+  2026-08-21). Ein **unbekannter** Doppelcode bekommt bewusst **kein** Muster:
+  Eine Alternative `(?:25|26)` zu bauen hieße, die Hosts einer Nummer zu
+  beanspruchen, die vielleicht einer anderen Schule gehört — ein fehlendes
+  Muster fällt dagegen daran auf, dass keine Vorschläge kommen.
+  Die 33 ohne Nummer sind freie Träger und OSZ, also nicht städtisch und nicht
+  im Monitoring. Für Verwaltungsstandorte stehen die Kürzel gar nicht in den
+  offenen Daten — die trägt man einmal je Bereich ein.
   `HostPatternDialog` zeigt eine **Live-Vorschau der Treffer**: Ein Regex ist
   für die meisten unlesbar, „diese 7 Hosts würden zugeordnet" versteht jeder.
 - **Technik ist verschiebbar** (`AreaStore.MoveHostsAsync`). Der Alltagsfall,

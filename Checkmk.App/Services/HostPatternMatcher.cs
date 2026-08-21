@@ -18,35 +18,28 @@ public static class HostPatternMatcher
     private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(100);
 
     /// <summary>
-    /// Baut aus einem Standort-Code das Muster. Für Zahlen wird eine
-    /// <b>Ziffern-Grenze</b> gesetzt: <c>46</c> trifft <c>46-SW04</c> und
+    /// Baut aus einer Standortnummer das Muster. Gesetzt wird eine
+    /// <b>Ziffern-Grenze</b>: <c>46</c> trifft <c>46-SW04</c> und
     /// <c>NAS46-01</c>, aber <b>nicht</b> <c>146-SW01</c> oder <c>460</c>.
     /// Ohne diese Grenze bekäme Schule 4 alle Hosts der Schulen 40–49.
     ///
-    /// Mehrfachnummern in der Form <c>25/26</c> (zusammengelegte Schulen)
-    /// werden zu einer Alternative. Gibt <c>null</c> zurück, wenn sich kein
-    /// sinnvolles Muster ableiten lässt — etwa bei <c>SFT</c> oder
-    /// <c>OSZ III</c>; das sind freie Träger und berufliche Schulen ohne
-    /// städtische Nummer.
+    /// Erwartet <b>genau eine</b> Nummer. Alles andere — Kürzel wie
+    /// <c>SFT</c> oder <c>OSZ III</c>, aber auch Doppelangaben wie
+    /// <c>25/26</c> — ergibt <c>null</c>. Welche Nummer bei zusammengelegten
+    /// Schulen tatsächlich benutzt wird, steht nirgends in den Daten und lässt
+    /// sich nicht erraten; das klärt der Aufrufer
+    /// (<see cref="PotsdamPlaceImporter.EffectiveCode"/>).
     /// </summary>
     public static string? FromCode(string? code)
     {
-        if (string.IsNullOrWhiteSpace(code)) return null;
+        var trimmed = code?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        if (!trimmed.All(char.IsAsciiDigit)) return null;
 
-        var numbers = code
-            .Split(['/', ',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(p => p.Length > 0 && p.All(char.IsAsciiDigit))
-            .Select(p => p.TrimStart('0') is { Length: > 0 } t ? t : "0")
-            .Distinct()
-            .ToList();
+        var number = trimmed.TrimStart('0');
+        if (number.Length == 0) number = "0";
 
-        if (numbers.Count == 0) return null;
-
-        var alternatives = numbers.Count == 1
-            ? numbers[0]
-            : $"(?:{string.Join('|', numbers)})";
-
-        return $@"(?<!\d){alternatives}(?!\d)";
+        return $@"(?<!\d){number}(?!\d)";
     }
 
     /// <summary>

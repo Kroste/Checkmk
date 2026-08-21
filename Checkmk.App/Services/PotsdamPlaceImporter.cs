@@ -54,6 +54,58 @@ public sealed class PotsdamPlaceImporter : IDisposable
     /// (<c>SFT</c>, <c>F26</c>) und damit kein ableitbares Muster.</summary>
     private static readonly string[] CodeFields = ["SCHULNUM"];
 
+    /// <summary>
+    /// Zusammengelegte Schulen stehen mit zwei Nummern in den Daten
+    /// (<c>25/26</c>), im Betrieb wird aber nur <b>eine</b> davon benutzt —
+    /// und welche, steht nirgends. Deshalb diese Zuordnung, angegeben vom
+    /// Fachbereich am 2026-08-21:
+    ///
+    /// <list type="bullet">
+    /// <item><c>25/26</c> Karl-Foerster-Schule → 25</item>
+    /// <item><c>10/30</c> Schule am Nuthetal → 30</item>
+    /// <item><c>42/44</c> Wilhelm-von-Türk-Schule → 44</item>
+    /// <item><c>36/45</c> Grundschule Am Pappelhain → 36</item>
+    /// </list>
+    ///
+    /// Ein <b>unbekannter</b> Doppelcode bekommt bewusst <b>kein</b> Muster.
+    /// Zu raten hiesse, die Hosts einer Nummer zu beanspruchen, die vielleicht
+    /// einer anderen Schule gehört — ein fehlendes Muster fällt dagegen daran
+    /// auf, dass für diesen Bereich keine Vorschläge kommen, und lässt sich per
+    /// „Host-Muster…" in zehn Sekunden nachtragen.
+    /// </summary>
+    private static readonly Dictionary<string, string> CombinedSchoolNumbers = new()
+    {
+        ["25/26"] = "25",
+        ["10/30"] = "30",
+        ["42/44"] = "44",
+        ["36/45"] = "36",
+    };
+
+    /// <summary>
+    /// Übersetzt einen Roh-Code in die Nummer, die tatsächlich in Hostnamen
+    /// steckt. Gibt <c>null</c> zurück, wenn sich das nicht sicher sagen lässt.
+    /// </summary>
+    public static string? EffectiveCode(string? raw)
+    {
+        var code = raw?.Trim();
+        if (string.IsNullOrEmpty(code)) return null;
+
+        if (CombinedSchoolNumbers.TryGetValue(code, out var mapped)) return mapped;
+
+        // Reine Nummer: direkt. Alles andere (SFT, F26, OSZ III, unbekannte
+        // Doppelcodes) bewusst nicht.
+        if (code.All(char.IsAsciiDigit)) return code;
+
+        if (code.Contains('/'))
+            Log.Info("Unbekannter Doppelcode '{Code}' — kein Muster abgeleitet, "
+                   + "bitte per Host-Muster nachtragen.", code);
+        return null;
+    }
+
+    /// <summary>Muster für einen Roh-Code, zum Hereinreichen in den Import.</summary>
+    public static string? PatternFor(string? rawCode)
+        => HostPatternMatcher.FromCode(EffectiveCode(rawCode));
+
     public static readonly IReadOnlyList<PlaceSource> Sources =
     [
         new("LHP-Verwaltungsstandorte", "Verwaltungsstandorte",
