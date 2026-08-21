@@ -1114,6 +1114,17 @@ Zwei Wege, je nachdem wo du gerade bist:
 Ein Host gehört zu **genau einem** Bereich — ein Gerät steht an einem Ort. Wer
 es umträgt, ändert eine Zeile, und alle sehen es.
 
+### Wenn ein Standort aufgelöst wird
+
+Rechtsklick auf den Bereich → **„Technik verschieben nach…"** nimmt **alle**
+Hosts mit. Genau der Fall, wenn Haus 2 aufgelöst wird und die Technik in den
+Container wandert: einmal auswählen statt zwölf Hosts einzeln umzuhängen.
+
+Das geht in beide Richtungen und beliebig oft — kommt die Technik später zurück
+oder zieht ganz woanders hin, ist es derselbe Handgriff. Der leere Bereich lässt
+sich danach löschen (das geht erst, wenn keine Technik mehr drinsteht) oder für
+den Rückzug stehen lassen.
+
 ### Bereiche pflegen
 
 **„Neuer Bereich…"** legt einen auf oberster Ebene an, **„Unterbereich…"**
@@ -1170,8 +1181,17 @@ Kartenserver der Landeshauptstadt. Drei stehen zur Wahl:
 | **Schulen** | 82 Schulen mit Schulform und Träger — die Site `Schul_IT` |
 | **Hochschulen** | 11 Standorte |
 
-Du wählst erst die Liste, dann die Einträge; Filter und „Alle sichtbaren" helfen
-beim Eingrenzen.
+Du wählst erst die Liste **und die Sites**, dann die Einträge; Filter und „Alle
+sichtbaren" helfen beim Eingrenzen.
+
+**Für welche Site?** Im ersten Dialog hakst du an, in welchen Checkmk-Sites die
+neuen Bereiche erscheinen sollen — die aktive ist vorausgewählt. Schulen gehören
+typischerweise zu `Schul_IT`, Dienstgebäude zu `LHP`, und beides gleichzeitig ist
+erlaubt: In einem Haus kann Technik aus beiden Sites stehen.
+
+Nichts angehakt heißt **überall sichtbar**. Werden die Sites irgendwann
+zusammengeführt, nimmt man die Einschränkung einfach wieder heraus — die
+Bereiche und alle Host-Zuordnungen bleiben, wie sie sind.
 
 Nichts ist vorausgewählt: In den Listen stehen auch Bibliotheken und das Museum,
 und alles zu übernehmen macht den Bereichsbaum unbrauchbar.

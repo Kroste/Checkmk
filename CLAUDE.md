@@ -154,6 +154,19 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Der Sammelknoten **„Ohne Bereich"** ist kein Datensatz (`AreaId = -1`), sondern
   die Restmenge — die Arbeitsliste beim Zuordnen und der einzige Weg, einen
   vergessenen Host überhaupt zu bemerken.
+- **Bereiche je Site sichtbar** (Schema 4, Tabelle `AreaSite`). LHP und
+  `Schul_IT` sind heute getrennt, sollen aber irgendwann zusammengeführt werden.
+  Deshalb **keine Spalte `Site` auf `Area`**: Ein Standort ist ein Ort, kein
+  Site-Eigentum — im Stadthaus kann Technik aus beiden Sites stehen. Die
+  n:m-Zuordnung ist ein reiner **Sichtbarkeitsfilter** mit der Regel
+  **keine Zeile = in allen Sites sichtbar**. Damit bleiben Bereiche aus der Zeit
+  davor unverändert, und die Zusammenführung ist ein `DELETE FROM AreaSite`.
+  `AreaStore` liest die Tabelle in einem **eigenen** try — fehlt sie, gelten
+  die Bereiche überall, statt dass der ganze Refresh scheitert.
+- **Technik ist verschiebbar** (`AreaStore.MoveHostsAsync`). Der Alltagsfall,
+  den das Zuweisen einzelner Hosts nicht abdeckt: Ein Haus wird aufgelöst, die
+  gesamte Technik wandert in den Container — und später vielleicht zurück.
+  Im Kontextmenü des Bereichsbaums als „Technik verschieben nach…".
 - **Bereiche sind Punkt *oder* Fläche** (Schema 3). Der Normalfall ist ein
   **Marker** — die meisten Standorte („Außenstelle X") sind auf einer Stadtkarte
   ein Punkt; eine Fläche lohnt nur, wo es auf den Umriss ankommt (Campus mit

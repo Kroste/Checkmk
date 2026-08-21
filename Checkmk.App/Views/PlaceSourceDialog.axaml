@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:Checkmk.App.Controls"
         x:Class="Checkmk.App.Views.PlaceSourceDialog"
-        Width="460" Height="250"
+        Width="460" Height="360"
         Title="Standortliste wählen"
         WindowStartupLocation="CenterOwner">
 
@@ -16,6 +16,18 @@
                    Text="Welche Liste vom Kartenserver der Landeshauptstadt soll übernommen werden? Jede Liste wird getrennt abgeglichen — ein späterer Lauf einer anderen Liste stört die erste nicht." />
         <ComboBox Name="SourceBox" HorizontalAlignment="Stretch"
                   PlaceholderText="Liste wählen" />
+
+        <TextBlock Text="Sichtbar in welchen Checkmk-Sites?" Margin="0,8,0,0"
+                   FontWeight="SemiBold" />
+        <TextBlock Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap"
+                   Text="Nichts angehakt = überall sichtbar. Werden die Sites irgendwann zusammengeführt, lässt sich die Einschränkung einfach wieder entfernen." />
+        <ItemsControl Name="SiteList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <CheckBox Content="{Binding}" Margin="0,1" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"

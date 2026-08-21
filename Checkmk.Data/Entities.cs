@@ -84,6 +84,22 @@ public sealed class Area
 /// Zuordnung geteilt statt pro Team gepflegt — wer einen Switch umtraegt,
 /// aendert eine Zeile und alle Sichten stimmen wieder.
 /// </summary>
+/// <summary>
+/// In welchen Checkmk-Sites ein Bereich sichtbar ist. Reiner
+/// Sichtbarkeitsfilter, kein Eigentum: Ein Ort ist ein Ort, und im Stadthaus
+/// kann Technik aus beiden Sites stehen.
+///
+/// <b>Keine Zeile für einen Bereich = in allen Sites sichtbar.</b> Deshalb
+/// bleiben bestehende Bereiche unverändert, und die Zusammenführung der Sites
+/// ist ein DELETE auf diese Tabelle.
+/// </summary>
+public sealed class AreaSite
+{
+    public int AreaId { get; set; }
+    public string Site { get; set; } = "";
+    public DateTime AddedAtUtc { get; set; }
+}
+
 public sealed class HostArea
 {
     public string HostName { get; set; } = "";

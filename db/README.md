@@ -39,6 +39,7 @@ nicht. Reihenfolge:
 001-initial.sql      Schema-Version, globale Einstellungen, Host-Domains
 002-map-teams.sql    Bereiche, Host-Zuordnung, Teams, geteilte Filter, Sichten
 003-area-points.sql  Bereiche als Punkt, Anschrift, Herkunft (Standort-Import)
+004-area-sites.sql   Sichtbarkeit je Checkmk-Site (LHP / Schul_IT)
 ```
 
 Optional, kein Schema-Eingriff und ohne Versionssprung:

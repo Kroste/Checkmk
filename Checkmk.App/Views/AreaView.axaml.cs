@@ -176,25 +176,59 @@ public partial class AreaView : UserControl
         var importer = App.Services?.GetService<PotsdamPlaceImporter>();
         if (importer is null) return;
 
-        // Welche Liste? Verwaltungsstandorte, Schulen oder Hochschulen —
-        // die Schulen gehoeren zur Site Schul_IT und sind ein eigener Dienst.
-        var pick = new PlaceSourceDialog(PotsdamPlaceImporter.Sources);
-        if (await pick.ShowDialog<PlaceSource?>(owner) is not { } source) return;
+        // Welche Liste, und fuer welche Sites? Die Schulen gehoeren zur Site
+        // Schul_IT und sind ein eigener Dienst.
+        var settings = App.Services?.GetService<IConnectionSettingsStore>()?.Load();
+        var knownSites = settings?.KnownSites is { Count: > 0 } k
+            ? k
+            : settings?.Site is { Length: > 0 } s ? [s] : new List<string>();
 
-        vm.StatusMessage = $"{source.Label} werden vom Kartenserver geladen…";
-        var places = await importer.LoadAsync(source);
+        var pick = new PlaceSourceDialog(PotsdamPlaceImporter.Sources, knownSites, vm.ActiveSite);
+        if (await pick.ShowDialog<PlaceSourceChoice?>(owner) is not { } choice) return;
+
+        vm.StatusMessage = $"{choice.Source.Label} werden vom Kartenserver geladen…";
+        var places = await importer.LoadAsync(choice.Source);
         if (places.Count == 0)
         {
-            vm.StatusMessage = $"Keine {source.Label} erhalten — Kartenserver nicht erreichbar? Siehe Log.";
+            vm.StatusMessage =
+                $"Keine {choice.Source.Label} erhalten — Kartenserver nicht erreichbar? Siehe Log.";
             return;
         }
 
-        var dialog = new PlaceImportDialog(source.Label, places);
+        var dialog = new PlaceImportDialog(choice.Source.Label, places);
         var chosen = await dialog.ShowDialog<IReadOnlyList<ExternalPlace>?>(owner);
         if (chosen is null || chosen.Count == 0) return;
 
         var parent = vm.SelectedNode is { IsUnassigned: false } n ? n.AreaId : (int?)null;
-        await vm.ImportPlacesAsync(source.Id, chosen, parent);
+        await vm.ImportPlacesAsync(choice.Source.Id, chosen, parent, choice.Sites);
+        RefreshMap();
+    }
+
+    /// <summary>
+    /// Verschiebt die gesamte Technik eines Bereichs. Der Alltagsfall: Haus 2
+    /// wird aufgelöst, alles wandert in den Container — und irgendwann
+    /// vielleicht zurück.
+    /// </summary>
+    private async void OnMoveHostsClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (vm.SelectedNode is not { IsUnassigned: false } node) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var hosts = vm.HostsIn(node.AreaId);
+        if (hosts.Count == 0)
+        {
+            vm.StatusMessage = $"In „{node.Name}“ steht keine Technik.";
+            return;
+        }
+
+        var dialog = new AreaPickerDialog(
+            $"{hosts.Count} Host(s) aus „{node.Name}“ verschieben nach:", vm.Roots);
+        var result = await dialog.ShowDialog<AreaPickResult?>(owner);
+        if (result is null) return;
+        if (result.AreaId == node.AreaId) return;   // Ziel = Quelle
+
+        await vm.MoveHostsAsync(node.AreaId, result.AreaId);
         RefreshMap();
     }
 

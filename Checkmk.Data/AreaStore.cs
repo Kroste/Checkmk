@@ -38,10 +38,26 @@ public sealed record ImportResult(int Created, int Updated, int Unchanged);
 /// </summary>
 public sealed record AreaSnapshot(
     IReadOnlyList<AreaRow> Areas,
-    IReadOnlyDictionary<string, int> HostToArea)
+    IReadOnlyDictionary<string, int> HostToArea,
+    IReadOnlyDictionary<int, IReadOnlyList<string>> SitesByArea)
 {
-    public static readonly AreaSnapshot Empty =
-        new([], new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+    public static readonly AreaSnapshot Empty = new(
+        [],
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+        new Dictionary<int, IReadOnlyList<string>>());
+
+    /// <summary>
+    /// Ist der Bereich in dieser Site sichtbar? <b>Ohne Eintrag: ja.</b>
+    /// Keine Zuordnung heisst „gilt ueberall" — so bleiben Bereiche aus der
+    /// Zeit vor Schema 4 unveraendert sichtbar, und das Zusammenfuehren der
+    /// Sites ist spaeter ein Loeschen der Zuordnungen.
+    /// </summary>
+    public bool IsVisibleIn(int areaId, string? site)
+    {
+        if (string.IsNullOrWhiteSpace(site)) return true;
+        if (!SitesByArea.TryGetValue(areaId, out var sites) || sites.Count == 0) return true;
+        return sites.Contains(site, StringComparer.OrdinalIgnoreCase);
+    }
 }
 
 /// <summary>Warum ein Loeschen abgelehnt wurde — der Aufrufer soll es dem
@@ -68,8 +84,22 @@ public interface IAreaStore
     /// Der Abgleich läuft über <c>ExternalSource</c>+<c>ExternalId</c>, ein
     /// zweiter Lauf erzeugt also keine Dubletten.
     /// </summary>
+    /// <param name="sites">Checkmk-Sites, in denen die neuen Bereiche sichtbar
+    /// sein sollen. Leer = in allen.</param>
     Task<ImportResult> ImportPlacesAsync(string source, IReadOnlyList<ExternalPlace> places,
-        int? parentAreaId, CancellationToken ct = default);
+        int? parentAreaId, IReadOnlyList<string> sites, CancellationToken ct = default);
+
+    /// <summary>
+    /// Verschiebt <b>alle</b> Hosts eines Bereichs in einen anderen.
+    /// <paramref name="toAreaId"/> = null löst die Zuordnung.
+    /// </summary>
+    Task<int> MoveHostsAsync(int fromAreaId, int? toAreaId, CancellationToken ct = default);
+
+    /// <summary>Hostnamen, die diesem Bereich zugeordnet sind — ohne I/O.</summary>
+    IReadOnlyList<string> HostsIn(int areaId);
+
+    /// <summary>Setzt die Sites, in denen ein Bereich sichtbar ist. Leer = überall.</summary>
+    Task SaveSitesAsync(int areaId, IReadOnlyList<string> sites, CancellationToken ct = default);
 
     Task RenameAsync(int areaId, string name, CancellationToken ct = default);
 
@@ -120,9 +150,30 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
             var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var a in assignments) map[a.HostName] = a.AreaId;
 
-            _current = new AreaSnapshot(areas, map);
-            Log.Info("Bereiche gelesen: {Areas} Bereiche, {Hosts} zugeordnete Hosts.",
-                areas.Count, map.Count);
+            // Eigener Versuch: Fehlt die Tabelle (Skript 004 noch nicht
+            // gefahren), sollen die Bereiche trotzdem erscheinen. Ohne
+            // Zuordnungen sind sie in allen Sites sichtbar — genau das
+            // Verhalten von vorher.
+            var siteRows = new List<(int AreaId, string Site)>();
+            try
+            {
+                siteRows = await db.AreaSites.AsNoTracking()
+                    .Select(s => new ValueTuple<int, string>(s.AreaId, s.Site))
+                    .ToListAsync(ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Site-Zuordnungen nicht lesbar — Bereiche gelten ueberall.");
+            }
+
+            var sites = siteRows
+                .GroupBy(s => s.AreaId)
+                .ToDictionary(g => g.Key,
+                              g => (IReadOnlyList<string>)[.. g.Select(x => x.Site).Distinct()]);
+
+            _current = new AreaSnapshot(areas, map, sites);
+            Log.Info("Bereiche gelesen: {Areas} Bereiche, {Hosts} zugeordnete Hosts, "
+                   + "{Sites} Site-Zuordnungen.", areas.Count, map.Count, siteRows.Count);
         }
         catch (Exception ex)
         {
@@ -231,8 +282,72 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         await RefreshAsync(ct).ConfigureAwait(false);
     }
 
+    public IReadOnlyList<string> HostsIn(int areaId)
+        => [.. _current.HostToArea.Where(kv => kv.Value == areaId)
+                                  .Select(kv => kv.Key)
+                                  .OrderBy(h => h, StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>
+    /// Verschiebt alle Hosts eines Bereichs. Das ist der Alltagsfall, den das
+    /// Zuweisen einzelner Hosts nicht abdeckt: Ein Haus wird aufgeloest, die
+    /// Technik wandert in den Container — und spaeter vielleicht zurueck.
+    /// </summary>
+    public async Task<int> MoveHostsAsync(int fromAreaId, int? toAreaId,
+        CancellationToken ct = default)
+    {
+        if (fromAreaId == toAreaId) return 0;
+
+        await using var db = database.CreateContext();
+
+        var rows = await db.HostAreas.Where(h => h.AreaId == fromAreaId)
+            .ToListAsync(ct).ConfigureAwait(false);
+        if (rows.Count == 0) return 0;
+
+        if (toAreaId is null)
+        {
+            db.HostAreas.RemoveRange(rows);
+        }
+        else
+        {
+            var now = DateTime.UtcNow;
+            var who = Environment.UserName;
+            foreach (var r in rows)
+            {
+                r.AreaId = toAreaId.Value;
+                r.AssignedAtUtc = now;
+                r.AssignedBy = who;
+            }
+        }
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        Log.Info("{Count} Hosts verschoben: Bereich {From} -> {To}.",
+            rows.Count, fromAreaId, toAreaId?.ToString() ?? "(ohne Bereich)");
+
+        await RefreshAsync(ct).ConfigureAwait(false);
+        return rows.Count;
+    }
+
+    public async Task SaveSitesAsync(int areaId, IReadOnlyList<string> sites,
+        CancellationToken ct = default)
+    {
+        await using var db = database.CreateContext();
+
+        var existing = await db.AreaSites.Where(s => s.AreaId == areaId)
+            .ToListAsync(ct).ConfigureAwait(false);
+        db.AreaSites.RemoveRange(existing);
+
+        foreach (var site in sites.Where(s => !string.IsNullOrWhiteSpace(s))
+                                  .Select(s => s.Trim())
+                                  .Distinct(StringComparer.OrdinalIgnoreCase))
+            db.AreaSites.Add(new AreaSite { AreaId = areaId, Site = site, AddedAtUtc = DateTime.UtcNow });
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await RefreshAsync(ct).ConfigureAwait(false);
+    }
+
     public async Task<ImportResult> ImportPlacesAsync(string source,
-        IReadOnlyList<ExternalPlace> places, int? parentAreaId, CancellationToken ct = default)
+        IReadOnlyList<ExternalPlace> places, int? parentAreaId,
+        IReadOnlyList<string> sites, CancellationToken ct = default)
     {
         if (places.Count == 0) return new ImportResult(0, 0, 0);
 
@@ -260,6 +375,7 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         var now = DateTime.UtcNow;
         var who = Environment.UserName;
         int created = 0, updated = 0, unchanged = 0;
+        var added = new List<Area>();
 
         foreach (var p in places)
         {
@@ -290,7 +406,7 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
                 var name = UniqueName(p, taken);
                 taken.Add(name);
 
-                db.Areas.Add(new Area
+                var fresh = new Area
                 {
                     ParentAreaId = parentAreaId,
                     Name = name,
@@ -301,12 +417,28 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
                     ExternalId = p.ExternalId,
                     ChangedAtUtc = now,
                     ChangedBy = who
-                });
+                };
+                db.Areas.Add(fresh);
+                added.Add(fresh);
                 created++;
             }
         }
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        // Site-Zuordnung erst nach dem Speichern: vorher gibt es keine AreaId.
+        // Leere Liste = ueberall sichtbar, dann bleibt die Tabelle leer.
+        var wantedSites = sites.Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (wantedSites.Count > 0 && added.Count > 0)
+        {
+            foreach (var area in added)
+                foreach (var site in wantedSites)
+                    db.AreaSites.Add(new AreaSite { AreaId = area.AreaId, Site = site, AddedAtUtc = now });
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
         Log.Info("Standort-Import aus {Source}: {Created} neu, {Updated} aktualisiert, "
                + "{Unchanged} unveraendert.", source, created, updated, unchanged);
 

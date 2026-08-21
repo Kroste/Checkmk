@@ -17,14 +17,15 @@ public sealed class CockpitDbContext(DbContextOptions<CockpitDbContext> options)
     : DbContext(options)
 {
     /// <summary>Schema-Stand, den dieser Programmstand erwartet. Muss zu den
-    /// Skripten in <c>db/</c> passen (aktuell 003-area-points.sql).</summary>
-    public const int ExpectedSchemaVersion = 3;
+    /// Skripten in <c>db/</c> passen (aktuell 004-area-sites.sql).</summary>
+    public const int ExpectedSchemaVersion = 4;
 
     public DbSet<SchemaVersionRow> SchemaVersion => Set<SchemaVersionRow>();
     public DbSet<GlobalSetting> GlobalSettings => Set<GlobalSetting>();
     public DbSet<HostDomain> HostDomains => Set<HostDomain>();
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<HostArea> HostAreas => Set<HostArea>();
+    public DbSet<AreaSite> AreaSites => Set<AreaSite>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -70,6 +71,13 @@ public sealed class CockpitDbContext(DbContextOptions<CockpitDbContext> options)
             // wird komplett geladen und im Speicher gebaut (ein paar Dutzend
             // Zeilen), Lazy Loading auf einer Selbstreferenz waere ein
             // N+1-Generator ohne Gegenwert.
+        });
+
+        b.Entity<AreaSite>(e =>
+        {
+            e.ToTable("AreaSite");
+            e.HasKey(x => new { x.AreaId, x.Site });
+            e.Property(x => x.Site).HasMaxLength(128);
         });
 
         b.Entity<HostArea>(e =>

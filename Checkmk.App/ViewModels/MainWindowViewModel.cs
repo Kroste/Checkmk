@@ -29,6 +29,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     public ConfigViewModel Config { get; }
     public DashboardViewModel Dashboard { get; }
 
+    /// <summary>Nur gesetzt, wenn eine zentrale Datenbank konfiguriert ist.</summary>
+    public AreaViewModel? Areas { get; }
+
     // Kein ObservableCollection + Clear/Add, weil Avalonias ComboBox unter
     // TwoWay-SelectedItem-Binding beim Zwischenzustand "Collection ist leer"
     // die Selection fallen laesst und den Refresh danach nicht sauber re-synced.
@@ -97,6 +100,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase
 
     partial void OnActiveSiteChanged(string? oldValue, string? newValue)
     {
+        // Bereichsbaum mitziehen — auch beim Setzen waehrend Initialize, sonst
+        // stuenden nach einem Schul-Import 82 graue Marker in der LHP-Sicht.
+        if (Areas is not null) Areas.ActiveSite = newValue;
+
         if (_suppressSiteSwitch) return;
         if (string.IsNullOrWhiteSpace(newValue)) return;
         if (string.Equals(oldValue, newValue, StringComparison.Ordinal)) return;
@@ -119,7 +126,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         ViewerMode viewer,
         IGlobalSettingsProvider globals,
         DbHostDomainStore? hostDomains = null,
-        CockpitDatabase? database = null)
+        CockpitDatabase? database = null,
+        AreaViewModel? areas = null)
     {
         Status = status;
         Config = config;
@@ -132,6 +140,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _globals = globals;
         _hostDomains = hostDomains;
         _database = database;
+        Areas = areas;
     }
 
     /// <summary>

@@ -50,6 +50,9 @@
         <ContextMenu>
           <MenuItem Header="Hosts zuweisen…" Click="OnAssignHostsClick"
                     IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Technik verschieben nach…" Click="OnMoveHostsClick"
+                    IsVisible="{Binding CanWrite}"
+                    ToolTip.Tip="Verschiebt alle Hosts dieses Bereichs in einen anderen — etwa wenn ein Haus aufgelöst wird." />
           <Separator IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Unterbereich…" Click="OnNewChildAreaClick"
                     IsVisible="{Binding CanWrite}" />

@@ -53,6 +53,25 @@ public sealed partial class AreaViewModel : ViewModelBase
     /// beim Zuordnen.</summary>
     public IReadOnlyList<string> UnassignedHosts { get; private set; } = [];
 
+    /// <summary>
+    /// Aktive Checkmk-Site. Bereiche, die ausdrücklich einer anderen Site
+    /// zugeordnet sind, bleiben ausgeblendet — sonst stünden nach dem
+    /// Schul-Import 82 graue Marker in der LHP-Sicht. Bereiche ohne
+    /// Site-Zuordnung sind überall sichtbar.
+    /// </summary>
+    public string? ActiveSite
+    {
+        get => _activeSite;
+        set
+        {
+            if (string.Equals(_activeSite, value, StringComparison.OrdinalIgnoreCase)) return;
+            _activeSite = value;
+            _builtFrom = "";              // Baum neu aufbauen, die Menge ändert sich
+            Recompute(_status.AllServices);
+        }
+    }
+    private string? _activeSite;
+
     public AreaViewModel(IAreaStore areas, StatusViewModel status, ViewerMode viewer)
     {
         _areas = areas;
@@ -95,7 +114,7 @@ public sealed partial class AreaViewModel : ViewModelBase
         RebuildIfChanged(snapshot);
 
         var worstPerHost = AreaRollup.WorstStatePerHost(services);
-        var aggregates = AreaRollup.Compute(snapshot.Areas, snapshot.HostToArea, worstPerHost);
+        var aggregates = AreaRollup.Compute(VisibleAreas(snapshot), snapshot.HostToArea, worstPerHost);
 
         foreach (var (areaId, node) in _byId)
             node.Apply(aggregates.GetValueOrDefault(areaId, AreaAggregate.Empty));
@@ -113,7 +132,10 @@ public sealed partial class AreaViewModel : ViewModelBase
     private void ApplyUnassigned(AreaSnapshot snapshot,
         IReadOnlyDictionary<string, ServiceState> worstPerHost)
     {
-        var known = snapshot.Areas.Select(a => a.AreaId).ToHashSet();
+        // Nur sichtbare Bereiche zaehlen: Ein Host in einem Bereich einer
+        // anderen Site steht hier zu Recht unter "Ohne Bereich" — in DIESER
+        // Sicht hat er keinen.
+        var known = VisibleAreas(snapshot).Select(a => a.AreaId).ToHashSet();
 
         var hosts = new List<string>();
         var problems = 0;
@@ -143,9 +165,14 @@ public sealed partial class AreaViewModel : ViewModelBase
         };
     }
 
+    /// <summary>Bereiche, die in der aktiven Site sichtbar sind.</summary>
+    private List<AreaRow> VisibleAreas(AreaSnapshot snapshot)
+        => [.. snapshot.Areas.Where(a => snapshot.IsVisibleIn(a.AreaId, ActiveSite))];
+
     private void RebuildIfChanged(AreaSnapshot snapshot)
     {
-        var signature = string.Join('|', snapshot.Areas
+        var visible = VisibleAreas(snapshot);
+        var signature = ActiveSite + "#" + string.Join('|', visible
             .OrderBy(a => a.AreaId)
             .Select(a => $"{a.AreaId}:{a.ParentAreaId}:{a.Name}"));
         if (signature == _builtFrom && Roots.Count > 0) return;
@@ -156,10 +183,10 @@ public sealed partial class AreaViewModel : ViewModelBase
         _byId.Clear();
         Roots.Clear();
 
-        foreach (var a in snapshot.Areas)
+        foreach (var a in visible)
             _byId[a.AreaId] = new AreaNodeViewModel(a.AreaId, a.Name);
 
-        foreach (var a in snapshot.Areas.OrderBy(a => a.SortOrder).ThenBy(a => a.Name))
+        foreach (var a in visible.OrderBy(a => a.SortOrder).ThenBy(a => a.Name))
         {
             var node = _byId[a.AreaId];
             if (a.ParentAreaId is { } p && _byId.TryGetValue(p, out var parent))
@@ -290,6 +317,39 @@ public sealed partial class AreaViewModel : ViewModelBase
     public IReadOnlyList<AreaNodeViewModel> AllAreas()
         => [.. Roots.Where(r => !r.IsUnassigned).SelectMany(r => r.Flatten())];
 
+    /// <summary>Hostnamen im Bereich — die „Technik", die dort steht.</summary>
+    public IReadOnlyList<string> HostsIn(int areaId) => _areas.HostsIn(areaId);
+
+    /// <summary>
+    /// Verschiebt die gesamte Technik eines Bereichs in einen anderen. Der
+    /// Alltagsfall: Ein Haus wird aufgelöst, alles wandert in den Container —
+    /// und später vielleicht zurück.
+    /// </summary>
+    public async Task<int> MoveHostsAsync(int fromAreaId, int? toAreaId)
+    {
+        if (!CanWrite) return 0;
+        try
+        {
+            IsBusy = true;
+            var moved = await _areas.MoveHostsAsync(fromAreaId, toAreaId);
+            Recompute(_status.AllServices);
+            MapChanged?.Invoke();
+
+            var target = toAreaId is { } id ? NodeOf(id)?.Name ?? id.ToString() : "(ohne Bereich)";
+            StatusMessage = moved == 0
+                ? "Dort steht keine Technik — nichts zu verschieben."
+                : $"{moved} Host(s) verschoben nach {target}.";
+            return moved;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Verschieben fehlgeschlagen.");
+            StatusMessage = $"Verschieben fehlgeschlagen: {ex.Message}";
+            return 0;
+        }
+        finally { IsBusy = false; }
+    }
+
     // -----------------------------------------------------------------------
     // Karte
     // -----------------------------------------------------------------------
@@ -336,13 +396,13 @@ public sealed partial class AreaViewModel : ViewModelBase
 
     /// <summary>Übernimmt ausgewählte Standorte als Bereiche.</summary>
     public async Task<ImportResult?> ImportPlacesAsync(string source,
-        IReadOnlyList<ExternalPlace> places, int? parentAreaId)
+        IReadOnlyList<ExternalPlace> places, int? parentAreaId, IReadOnlyList<string> sites)
     {
         if (!CanWrite || places.Count == 0) return null;
         try
         {
             IsBusy = true;
-            var result = await _areas.ImportPlacesAsync(source, places, parentAreaId);
+            var result = await _areas.ImportPlacesAsync(source, places, parentAreaId, sites);
             Recompute(_status.AllServices);
             MapChanged?.Invoke();
             StatusMessage = $"Standorte übernommen: {result.Created} neu, "
