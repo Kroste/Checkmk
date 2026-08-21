@@ -31,6 +31,7 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 17. [Hilfe und Kontakt](#17-hilfe-und-kontakt)
 18. [Viewer-Modus: nur-lesen-Ausgabe an Fachbereiche](#18-viewer-modus-nur-lesen-ausgabe-an-fachbereiche)
 19. [Zentrale Einstellungen in der Datenbank](#19-zentrale-einstellungen-in-der-datenbank)
+20. [Bereiche: welcher Standort hat gerade ein Problem](#20-bereiche-welcher-standort-hat-gerade-ein-problem)
 
 ---
 
@@ -117,10 +118,12 @@ Ganz oben die eigene Titelleiste mit:
 - **„Einstellungen"** und **„Über"**
 - Fensterkontroll-Buttons
 
-Darunter drei Reiter:
+Darunter die Reiter:
 
 - **Status** — Live-Status aller überwachten Services (Startseite).
 - **Hosts** — Host-Liste im Setup, Service Discovery, Änderungen aktivieren.
+- **Bereiche** — Standorte mit Ampel je Bereich ([Abschnitt 20](#20-bereiche-welcher-standort-hat-gerade-ein-problem)).
+  Nur vorhanden, wenn die zentrale Datenbank erreichbar ist.
 - **Dashboard** — Kacheln je Favorit mit Hosts-Zahl und Service-Aggregat.
 
 Am unteren Rand die blaue **Statusleiste** mit:
@@ -1061,6 +1064,77 @@ die nach einem Passwortproblem aussieht.
 > Bitte nicht als „das Passwort ist ja verschlüsselt" weitererzählen.
 
 Technische Details und das Schema: [`db/README.md`](db/README.md).
+
+---
+
+## 20. Bereiche: welcher Standort hat gerade ein Problem
+
+Der Tab **„Bereiche"** ordnet Hosts ihrem physischen Standort zu und zeigt je
+Standort einen Ampelpunkt: **schlechtester Status der Hosts, die dort stehen.**
+Er erscheint nur, wenn die zentrale Datenbank erreichbar ist — Bereiche leben
+dort.
+
+### Der Baum
+
+Bereiche sind verschachtelt, weil Stadtsicht und Gebäudesicht dasselbe auf zwei
+Zoomstufen sind:
+
+```
+● ZR2                    14 Hosts · 1 Problem
+  ● Serverraum 3          8 Hosts
+  ● Serverraum 4          6 Hosts · 1 Problem
+● Stadthaus              23 Hosts
+● Ohne Bereich          412 Hosts · 7 Probleme
+```
+
+Der Status rollt nach oben durch: Ist ein Host in Serverraum 4 kritisch, wird
+auch ZR2 rot. So sieht man auf der obersten Ebene, wo es brennt, und klappt sich
+nach unten durch.
+
+**„Ohne Bereich"** ist kein echter Bereich, sondern die Restmenge — alle Hosts,
+die noch nirgends zugeordnet sind. Das ist die Arbeitsliste: Solange dort etwas
+steht, ist die Zuordnung nicht fertig. Und es ist der einzige Weg, einen
+vergessenen Host zu bemerken; sonst taucht er schlicht nirgends auf.
+
+Ein **grauer Punkt** heißt „diesem Bereich sind keine Hosts zugeordnet" — bewusst
+nicht grün, denn ein leerer Bereich ist nicht dasselbe wie ein gesunder.
+
+### Hosts zuordnen
+
+Zwei Wege, je nachdem wo du gerade bist:
+
+- **Aus dem Status-Tab**: Zeilen markieren (Ctrl/Shift wie gewohnt) →
+  Rechtsklick → **„Bereich zuweisen…"**. Der Alltagsweg, wenn du die Hosts
+  ohnehin vor dir hast.
+- **Aus dem Bereiche-Tab**: Bereich markieren → Rechtsklick → **„Hosts
+  zuweisen…"**. Öffnet die Liste der noch nicht zugeordneten Hosts mit
+  Freitextfilter und „Alle sichtbaren" — gedacht für den ersten Durchgang, wenn
+  ein paar hundert Geräte zu verteilen sind.
+
+Ein Host gehört zu **genau einem** Bereich — ein Gerät steht an einem Ort. Wer
+es umträgt, ändert eine Zeile, und alle sehen es.
+
+### Bereiche pflegen
+
+**„Neuer Bereich…"** legt einen auf oberster Ebene an, **„Unterbereich…"**
+unterhalb des markierten. **„Löschen"** geht nur, wenn der Bereich weder
+Unterbereiche noch zugeordnete Hosts hat — sonst sagt die Statuszeile, was noch
+drin steckt. Das ist Absicht: Ein Löschen, das stillschweigend Zuordnungen
+mitnimmt, fällt erst Wochen später auf.
+
+### Warum dasselbe Zimmer für dein Team eine andere Farbe hat
+
+Die Ampel bezieht sich immer auf den **aktiven Host-Filter**. Steht im
+Serverraum 3 sowohl ein Datenbankserver als auch die USV, dann ist derselbe Raum
+für das DB-Team grün und für den Wachschutz rot, wenn die USV Netzausfall meldet.
+
+Das ist kein Fehler, sondern der Kern: Der Ort wird **einmal** gezeichnet und ein
+Gerät **einmal** zugeordnet — was ein Team davon sieht, entscheidet sein Filter.
+Andernfalls müsste jedes Team seine eigene Zuordnung pflegen, und wer einen
+Switch umträgt, müsste es acht Teams sagen.
+
+Später kommt auf diese Struktur eine Karte (Punkte werden zu Flächen auf dem
+Stadtplan). Die Zuordnung, die du jetzt anlegst, gilt dann unverändert weiter.
 
 ---
 

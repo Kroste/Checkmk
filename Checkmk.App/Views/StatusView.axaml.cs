@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -342,6 +342,42 @@ public partial class StatusView : UserControl
             ExplicitHosts = hosts.ToList()
         });
         vm.StatusMessage = $"Favorit „{name.Trim()}“ mit {hosts.Count} Host(s) gespeichert.";
+    }
+
+    /// <summary>
+    /// Ordnet die markierten Hosts einem Bereich zu. Der Weg ueber das
+    /// Kontextmenue ist der eigentliche Alltagspfad: Hier stehen die Hosts, die
+    /// man gerade vor sich hat, und die Mehrfachauswahl gibt es schon.
+    /// Ohne zentrale Datenbank ist <c>AreaViewModel</c> nicht registriert — dann
+    /// sagt die Statuszeile, warum nichts passiert.
+    /// </summary>
+    private async void OnAssignAreaClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not StatusViewModel vm || !vm.CanWrite) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var areas = App.Services?.GetService<AreaViewModel>();
+        if (areas is null)
+        {
+            vm.StatusMessage = "Bereiche brauchen die zentrale Datenbank — keine Verbindung konfiguriert.";
+            return;
+        }
+
+        var hosts = GetTargetHostNames();
+        if (hosts.Count == 0) return;
+
+        if (areas.AllAreas().Count == 0)
+        {
+            vm.StatusMessage = "Noch kein Bereich angelegt — im Tab „Bereiche“ anfangen.";
+            return;
+        }
+
+        var dialog = new AreaPickerDialog($"{hosts.Count} Host(s) zuordnen:", areas.Roots);
+        var result = await dialog.ShowDialog<AreaPickResult?>(owner);
+        if (result is null) return;
+
+        await areas.AssignAsync(hosts, result.AreaId);
+        vm.StatusMessage = areas.StatusMessage ?? "";
     }
 
     private async void OnAddHostsToFavoriteClick(object? sender, RoutedEventArgs e)

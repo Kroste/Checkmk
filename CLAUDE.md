@@ -129,6 +129,31 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   und kurzem Intervall nie einer durch. `_refreshRun` verwirft verspätete
   Fortschrittsmeldungen abgebrochener Läufe, sonst verstellen sie den Balken des
   Nachfolgers.
+- **Bereiche-Tab** (nur mit zentraler Datenbank; ohne sie wird der Tab in
+  `MainWindow.axaml.cs` **entfernt**, nicht versteckt — ein Tab, der nur „nicht
+  verfügbar" sagt, ist schlechter als keiner). Bereichsbaum mit Status-Rollup:
+  Ampelpunkt = schlechtester Status der Hosts im Bereich *und darunter*.
+  Anlegen/Umbenennen/Löschen, Unterbereiche, Zuweisung per Mehrfachauswahl
+  (`HostMultiSelectDialog` mit Freitextfilter — 1105 Hosts einzeln zuzuweisen
+  ist keine Option) sowie „Bereich zuweisen…" im Kontextmenü des Status-Tabs.
+  Vier Punkte, die nicht wegoptimiert werden dürfen:
+  1. **Die Host-Menge IST die Linse.** `AreaRollup.Compute` bekommt nur die
+     Hosts, die auf den aktiven Filter passen; im Rollup wird **nicht** noch
+     einmal gefiltert. Genau daher ist derselbe Serverraum für das DB-Team grün
+     und für den Wachschutz rot.
+  2. **Leer ≠ grün.** `AreaAggregate.HasHosts` unterscheidet „keine Hosts" von
+     „alles in Ordnung"; das XAML zeichnet dafür einen grauen statt grünen Punkt.
+     Sonst hält man 0 zugewiesene Hosts für ein gesundes System.
+  3. **Der Baum wird nur neu gebaut, wenn sich der Bereichssatz ändert**
+     (`RebuildIfChanged` über eine Signatur). Ein Neuaufbau bei jedem
+     Status-Refresh klappt alle 30 s jeden aufgeklappten Ast zu.
+  4. **Löschen nur, wenn leer.** `AreaStore.DeleteAsync` liefert die Zahlen
+     zurück statt Unterbereiche mitzulöschen oder Hosts stillschweigend
+     freizusetzen. `AreaRollup` schützt zusätzlich per `visited`-Satz gegen einen
+     Zyklus im Baum — die Datenbank verhindert ihn nicht, ein `UPDATE` reicht.
+  Der Sammelknoten **„Ohne Bereich"** ist kein Datensatz (`AreaId = -1`), sondern
+  die Restmenge — die Arbeitsliste beim Zuordnen und der einzige Weg, einen
+  vergessenen Host überhaupt zu bemerken.
 - **Spaltenkonfiguration (Status-Tab):** Der Spaltensatz der Service-Tabelle steht
   **nicht mehr im XAML**, sondern entsteht immer über `StatusColumnFactory` — einmal
   aus `columns.json` (Normalmodus, `StatusGridColumns.Merge/Apply/Capture`) und einmal
@@ -500,10 +525,11 @@ Teams sind **Organisation, kein Zugriffsschutz** (alle 48 dürfen alle Hosts
 sehen, so gewollt). Admin-Zuordnung über `dbo.AppAdmin`; wer in keinem Team ist,
 sieht alles.
 
-25. **Bereiche ohne Karte** — Bereichsbaum, Zuweisung per Mehrfachauswahl
-    (die Geste „Auswahl als Favorit" gibt es schon; 1105 Hosts einzeln
-    zuzuweisen ist keine Option), Status-Rollup nach oben. Schon nutzbar,
-    bevor eine Karte existiert — deshalb bewusst **vor** Punkt 27.
+25. ✅ **Bereiche ohne Karte** — Bereichsbaum, Zuweisung per Mehrfachauswahl,
+    Status-Rollup nach oben, Sammelknoten „Ohne Bereich" als Arbeitsliste.
+    Details und die vier Nicht-Wegoptimieren-Punkte in §4. `Area.GeometryJson`
+    bleibt vorerst leer — die Zuordnung, die hier entsteht, muss für die Karte
+    nicht noch einmal angefasst werden.
 26. **Teams + geteilte Filter** — `filter.json` zieht in die DB, ein Filter
     gehört entweder einem Team oder einer Person. Der Alltagsgewinn: heute baut
     sich jeder der 48 seinen eigenen, und die Urlaubsvertretung fängt bei null an.

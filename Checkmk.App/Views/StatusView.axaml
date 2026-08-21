@@ -81,6 +81,9 @@
                     IsVisible="{Binding CanWrite}" />
           <MenuItem Header="Als neuen Favorit speichern…" Click="OnSaveHostsAsFavoriteClick"
                     IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Bereich zuweisen…" Click="OnAssignAreaClick"
+                    IsVisible="{Binding CanWrite}"
+                    ToolTip.Tip="Ordnet die markierten Hosts einem Standort zu (Bereiche-Tab)." />
           <Separator />
           <MenuItem Header="Im Checkmk-Web öffnen" Click="OnOpenInWebClick" />
           <Separator IsVisible="{Binding CanWrite}" />

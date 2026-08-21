@@ -38,6 +38,8 @@ public partial class MainWindow : ChromeWindow
         _canWrite = viewer?.CanWrite ?? true;
         if (viewer?.IsActive == true)
             RemoveNonViewerTabs();
+        else
+            SetUpAreasTab();
 
         Opened += (_, _) => AddPluginTabs();
 
@@ -47,20 +49,44 @@ public partial class MainWindow : ChromeWindow
         Closing += (_, _) => this.FindDescendantOfType<StatusView>()?.SaveColumnLayout();
     }
 
-    /// <summary>Entfernt Hosts- und Dashboard-Tab. Der Hosts-Tab kann Config
-    /// schreiben (Discovery, Host anlegen, Aenderungen aktivieren), das Dashboard
-    /// haengt an Filtern, die es im Viewer-Modus so nicht gibt.</summary>
+    /// <summary>Entfernt Hosts-, Bereiche- und Dashboard-Tab. Der Hosts-Tab kann
+    /// Config schreiben (Discovery, Host anlegen, Aenderungen aktivieren), das
+    /// Dashboard haengt an Filtern, die es im Viewer-Modus so nicht gibt, und die
+    /// Bereichspflege ist eine Schreibaktion. Der Kiosk-Blick auf Bereiche kommt
+    /// spaeter mit der Karte (Roadmap 28) und dann lesend.</summary>
     private void RemoveNonViewerTabs()
     {
         var tabs = this.FindControl<TabControl>("MainTabs");
         if (tabs is null) return;
 
-        foreach (var name in new[] { "HostsTab", "DashboardTab" })
+        foreach (var name in new[] { "HostsTab", "AreasTab", "DashboardTab" })
         {
             if (this.FindControl<TabItem>(name) is { } tab)
                 tabs.Items.Remove(tab);
         }
         tabs.SelectedIndex = 0;
+    }
+
+    /// <summary>
+    /// Haengt den Bereiche-Tab an sein ViewModel — oder entfernt ihn, wenn keine
+    /// zentrale Datenbank konfiguriert ist. Bereiche leben ausschliesslich dort;
+    /// ein leerer Tab, der nur „nicht verfuegbar" sagt, waere schlechter als kein Tab.
+    /// </summary>
+    private void SetUpAreasTab()
+    {
+        var tabs = this.FindControl<TabControl>("MainTabs");
+        var tab = this.FindControl<TabItem>("AreasTab");
+        if (tabs is null || tab is null) return;
+
+        var vm = App.Services?.GetService<AreaViewModel>();
+        if (vm is null)
+        {
+            tabs.Items.Remove(tab);
+            return;
+        }
+
+        this.FindControl<AreaView>("AreasView")!.DataContext = vm;
+        _ = vm.InitializeAsync();
     }
 
     /// <summary>Fuegt Tabs, die von Plugins beigesteuert werden, rechts von den

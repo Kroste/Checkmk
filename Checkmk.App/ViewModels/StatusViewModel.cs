@@ -40,6 +40,13 @@ public sealed partial class StatusViewModel : ViewModelBase
     /// <summary>Baum-Ansicht: Hosts als Knoten (OS-Pictogram + Problem-Zaehler), Services als Kinder.</summary>
     public BulkObservableCollection<HostNodeViewModel> HostTree { get; } = [];
 
+    /// <summary>
+    /// Alle Services des letzten Refreshs — bereits serverseitig auf den aktiven
+    /// Host-Filter beschraenkt, aber vor den Ansichtsfiltern („Nur Probleme",
+    /// Freitext). Genau die Menge, die der Bereichs-Rollup als Linse braucht.
+    /// </summary>
+    public IReadOnlyList<ServiceStatus> AllServices => _allServices;
+
     /// <summary>false = Tabelle, true = Baum.</summary>
     [ObservableProperty]
     private bool _treeView;

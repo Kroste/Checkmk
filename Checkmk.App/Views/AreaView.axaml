@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Checkmk.App.ViewModels"
+             x:Class="Checkmk.App.Views.AreaView"
+             x:DataType="vm:AreaViewModel">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Toolbar -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="8"
+          Margin="4,4,4,8">
+      <Button Grid.Column="0" Content="Neuer Bereich…" Click="OnNewAreaClick"
+              IsVisible="{Binding CanWrite}" IsEnabled="{Binding !IsBusy}" />
+      <Button Grid.Column="1" Content="Unterbereich…" Click="OnNewChildAreaClick"
+              IsVisible="{Binding CanWrite}"
+              IsEnabled="{Binding CanEditSelection}"
+              ToolTip.Tip="Legt einen Bereich unterhalb des markierten an." />
+      <Button Grid.Column="2" Content="Umbenennen…" Click="OnRenameClick"
+              IsVisible="{Binding CanWrite}"
+              IsEnabled="{Binding CanEditSelection}" />
+      <Button Grid.Column="3" Content="Löschen" Click="OnDeleteClick"
+              IsVisible="{Binding CanWrite}"
+              IsEnabled="{Binding CanEditSelection}"
+              ToolTip.Tip="Geht nur, wenn der Bereich keine Unterbereiche und keine Hosts mehr hat." />
+      <Button Grid.Column="5" Content="Neu laden" Command="{Binding ReloadCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+    </Grid>
+
+    <!-- Bereichsbaum -->
+    <TreeView Grid.Row="1" ItemsSource="{Binding Roots}"
+              SelectedItem="{Binding SelectedNode}">
+      <TreeView.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Hosts zuweisen…" Click="OnAssignHostsClick"
+                    IsVisible="{Binding CanWrite}" />
+          <Separator IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Unterbereich…" Click="OnNewChildAreaClick"
+                    IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Umbenennen…" Click="OnRenameClick"
+                    IsVisible="{Binding CanWrite}" />
+          <MenuItem Header="Löschen" Click="OnDeleteClick"
+                    IsVisible="{Binding CanWrite}" />
+        </ContextMenu>
+      </TreeView.ContextMenu>
+      <TreeView.DataTemplates>
+        <TreeDataTemplate DataType="vm:AreaNodeViewModel" ItemsSource="{Binding Children}">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <!-- Grauer Punkt bei leeren Bereichen: „keine Hosts" ist nicht
+                 dasselbe wie „alles in Ordnung". -->
+            <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center"
+                    Background="{Binding WorstState, Converter={StaticResource StateToBrush}}"
+                    IsVisible="{Binding !IsEmptyOfHosts}" />
+            <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center"
+                    Background="#555555" IsVisible="{Binding IsEmptyOfHosts}"
+                    ToolTip.Tip="Diesem Bereich sind (im aktiven Filter) keine Hosts zugeordnet." />
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Badge}" Foreground="#AAAAAA" VerticalAlignment="Center" />
+          </StackPanel>
+        </TreeDataTemplate>
+      </TreeView.DataTemplates>
+    </TreeView>
+
+    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="4,8,4,4"
+               FontSize="12" Foreground="#AAAAAA" TextWrapping="Wrap" />
+  </Grid>
+</UserControl>

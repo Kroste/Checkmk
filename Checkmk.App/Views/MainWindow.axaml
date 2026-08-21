@@ -51,6 +51,12 @@
         <TabItem Name="HostsTab" Header="Hosts">
           <views:ConfigView DataContext="{Binding Config}" />
         </TabItem>
+        <!-- Bereiche gibt es nur mit zentraler Datenbank — ohne sie wird der Tab
+             in MainWindow.axaml.cs entfernt (nicht versteckt, sonst bleibt er
+             per Ctrl+Tab erreichbar). -->
+        <TabItem Name="AreasTab" Header="Bereiche">
+          <views:AreaView Name="AreasView" />
+        </TabItem>
         <TabItem Name="DashboardTab" Header="Dashboard">
           <views:DashboardView DataContext="{Binding Dashboard}" />
         </TabItem>
