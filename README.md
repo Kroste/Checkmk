@@ -802,7 +802,7 @@ demselben Binary.
 | | ohne `viewer.json` | mit `viewer.json` |
 |---|---|---|
 | Verbindung | Einstellungen-Dialog, `%APPDATA%\…\settings.json` (DPAPI) | aus der Datei |
-| Tabs | Status, Hosts, Dashboard | nur **Status** |
+| Tabs | Status, Hosts, Dashboard, Bereiche | nur **Status** — plus **Bereiche**, wenn `map.show` gesetzt ist |
 | Einstellungen-Button | da | weg |
 | Ack / Downtime / Kommentar | da | weg (Toolbar, Kontextmenü **und** Hotkeys Ctrl+A/D/K) |
 | RDP / SSH / Ping / Host-Einstellungen | da | weg |
@@ -974,6 +974,37 @@ davon unberührt.
 > Windows gibt einer Hintergrund-Anwendung nicht immer den Tastaturfokus. Das
 > Fenster wird zuverlässig sichtbar und nach ganz oben geholt; ob es zusätzlich
 > den Fokus bekommt, entscheidet Windows.
+
+### `map` — Standortkarte im Kiosk
+
+Für den Bildschirm im Leitstand oder beim Wachschutz: eine Stadtkarte, auf der
+jeder Standort grün, gelb oder rot ist. Ohne diesen Abschnitt bleibt es beim
+reinen Status-Tab.
+
+```jsonc
+"map": {
+  "show": true,                    // ohne das bleibt der Bereiche-Tab weg
+  "area": "Stadthaus",             // Startbereich per Name; leer = ganze Stadt
+  "zoom": 16,                      // 0 = automatisch einpassen
+  "layer": "Topographisch grau",   // Name aus den Kartenquellen
+  "tree": false                    // Baum links weg -> reine Kartenwand
+}
+```
+
+**Der Tab ist rein lesend.** Anlegen, Umbenennen, Löschen, Zuweisen, Zeichnen
+und Importieren sind im Viewer-Modus ohnehin nicht da; dieser Abschnitt schaltet
+nichts davon frei.
+
+`area` ist der **Name** des Bereichs, nicht seine Nummer — die steht nirgends,
+wo du sie ablesen könntest. Gibt es den Namen nicht, bleibt die Karte auf der
+Gesamtübersicht und schreibt eine Zeile ins Log.
+
+Die Werte sind **Startwerte**. Wer vor dem Bildschirm steht, darf schieben und
+zoomen; nach einem Neustart steht wieder die vorgesehene Sicht da.
+
+> Welche Hosts die Ampel eines Standorts bestimmen, entscheidet weiterhin allein
+> der Filter aus `view`. Derselbe Serverraum ist für das DB-Team grün und für den
+> Wachschutz rot, wenn die USV Netzausfall meldet.
 
 ### Log beim Start
 

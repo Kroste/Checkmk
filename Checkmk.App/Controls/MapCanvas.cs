@@ -110,6 +110,14 @@ public sealed class MapCanvas : Control
         InvalidateVisual();
     }
 
+    /// <summary>Zoomstufe setzen, Mittelpunkt behalten — für die Kiosk-Vorgabe,
+    /// die das automatische Einpassen überstimmen soll.</summary>
+    public void SetZoom(double zoom)
+    {
+        _zoom = Math.Clamp(zoom, 2, 20);
+        InvalidateVisual();
+    }
+
     /// <summary>Ansicht auf ein Polygon einpassen, mit etwas Luft am Rand.</summary>
     public void FitTo(IReadOnlyList<GeoPoint> points)
     {

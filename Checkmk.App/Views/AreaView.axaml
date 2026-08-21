@@ -53,7 +53,7 @@
     <!-- Baum links, Karte rechts. Auswahl ist in beiden Richtungen verbunden:
          Klick im Baum springt auf die Fläche, Klick auf die Fläche markiert
          den Knoten. -->
-    <Grid Grid.Row="1" ColumnDefinitions="320,4,*">
+    <Grid Grid.Row="1" Name="SplitGrid" ColumnDefinitions="320,4,*">
 
     <TreeView Grid.Column="0" ItemsSource="{Binding Roots}"
               SelectedItem="{Binding SelectedNode}">

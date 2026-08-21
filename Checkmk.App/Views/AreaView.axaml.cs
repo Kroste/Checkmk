@@ -17,6 +17,8 @@ namespace Checkmk.App.Views;
 
 public partial class AreaView : UserControl
 {
+    private static readonly NLog.Logger Log = NLog.LogManager.GetCurrentClassLogger();
+
     private MapCanvas? _map;
 
     public AreaView()
@@ -90,7 +92,64 @@ public partial class AreaView : UserControl
         vm.MapChanged += RefreshMap;
         vm.PropertyChanged += OnVmPropertyChanged;
         RefreshMap();
+        ApplyViewerMap();
     }
+
+    /// <summary>
+    /// Wendet die Kiosk-Vorgaben aus <c>viewer.json</c> an: Startbereich, Zoom,
+    /// Hintergrund und ob der Baum überhaupt zu sehen ist.
+    ///
+    /// Läuft nur einmal. Die Werte sind <b>Startwerte</b>, keine Sperre — wer
+    /// vor dem Bildschirm steht, darf verschieben und zoomen; nach einem
+    /// Neustart steht wieder die vorgesehene Sicht da.
+    /// </summary>
+    private void ApplyViewerMap()
+    {
+        if (_viewerMapApplied) return;
+        if (App.Services?.GetService<ViewerMode>()?.Map is not { } map) return;
+        if (Vm is not { } vm || _map is null) return;
+
+        _viewerMapApplied = true;
+
+        // Baum ausblenden lassen sich Spalte und Splitter nur zusammen — bleibt
+        // einer stehen, klafft links eine leere Spalte.
+        if (!map.Tree && this.FindControl<Grid>("SplitGrid") is { } grid)
+        {
+            grid.ColumnDefinitions[0].Width = new GridLength(0);
+            grid.ColumnDefinitions[1].Width = new GridLength(0);
+        }
+
+        if (!string.IsNullOrWhiteSpace(map.Layer)
+            && App.Services?.GetService<MapTileLoader>() is { } tiles
+            && tiles.Layers.FirstOrDefault(
+                   l => l.Name.Equals(map.Layer, StringComparison.OrdinalIgnoreCase)) is { } chosen)
+        {
+            tiles.Active = chosen;
+            _userLayer = chosen;
+            if (this.FindControl<ComboBox>("LayerBox") is { } box) box.SelectedItem = chosen;
+        }
+
+        // Erst den Bereich suchen, dann springen. Ein Name, den es nicht gibt,
+        // ist ein Tippfehler im Profil und gehoert ins Log — nicht in eine
+        // stumme Gesamtuebersicht, bei der niemand merkt, dass die Vorgabe
+        // wirkungslos war.
+        if (!string.IsNullOrWhiteSpace(map.Area))
+        {
+            var node = vm.AllAreas().FirstOrDefault(
+                n => n.Name.Equals(map.Area, StringComparison.OrdinalIgnoreCase));
+            if (node is null)
+                Log.Warn("Viewer-Profil: Startbereich '{Area}' gibt es nicht — "
+                       + "Karte bleibt auf der Gesamtübersicht.", map.Area);
+            else
+                vm.SelectedNode = node;
+        }
+
+        // Zoom nach dem Sprung: SelectedNode passt die Ansicht ein, eine
+        // ausdrueckliche Angabe soll das ueberstimmen.
+        if (map.Zoom > 0) _map.SetZoom(map.Zoom);
+    }
+
+    private bool _viewerMapApplied;
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

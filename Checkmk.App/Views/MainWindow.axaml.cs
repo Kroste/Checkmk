@@ -59,21 +59,32 @@ public partial class MainWindow : ChromeWindow
         Closing += (_, _) => this.FindDescendantOfType<StatusView>()?.SaveColumnLayout();
     }
 
-    /// <summary>Entfernt Hosts-, Bereiche- und Dashboard-Tab. Der Hosts-Tab kann
-    /// Config schreiben (Discovery, Host anlegen, Aenderungen aktivieren), das
-    /// Dashboard haengt an Filtern, die es im Viewer-Modus so nicht gibt, und die
-    /// Bereichspflege ist eine Schreibaktion. Der Kiosk-Blick auf Bereiche kommt
-    /// spaeter mit der Karte (Roadmap 28) und dann lesend.</summary>
+    /// <summary>
+    /// Entfernt Hosts- und Dashboard-Tab. Der Hosts-Tab kann Config schreiben
+    /// (Discovery, Host anlegen, Aenderungen aktivieren), das Dashboard haengt
+    /// an Filtern, die es im Viewer-Modus so nicht gibt.
+    ///
+    /// Der Bereiche-Tab bleibt <b>nur</b>, wenn das Profil ihn ausdruecklich
+    /// verlangt (<c>map.show</c>) — sonst bekaeme jede bestehende
+    /// Kiosk-Ausgabe beim Update ungefragt einen neuen Tab. Er ist dann rein
+    /// lesend: Saemtliche Schreibknoepfe haengen an <c>CanWrite</c>, das im
+    /// Viewer-Modus false ist.
+    /// </summary>
     private void RemoveNonViewerTabs()
     {
         var tabs = this.FindControl<TabControl>("MainTabs");
         if (tabs is null) return;
 
+        var keepAreas = App.Services?.GetService<ViewerMode>()?.Map is not null;
+
         foreach (var name in new[] { "HostsTab", "AreasTab", "DashboardTab" })
         {
+            if (name == "AreasTab" && keepAreas) continue;
             if (this.FindControl<TabItem>(name) is { } tab)
                 tabs.Items.Remove(tab);
         }
+
+        if (keepAreas) SetUpAreasTab();
         tabs.SelectedIndex = 0;
     }
 

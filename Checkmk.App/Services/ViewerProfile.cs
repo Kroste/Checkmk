@@ -148,6 +148,44 @@ public sealed class ViewerView
 }
 
 /// <summary>
+/// Kiosk-Karte. Steht <see cref="Show"/> auf true, bleibt der Bereiche-Tab im
+/// Viewer-Modus erhalten — <b>lesend</b>: Alle Schreibknöpfe hängen ohnehin an
+/// <c>CanWrite</c> und sind damit weg.
+///
+/// Gedacht für den Bildschirm im Leitstand oder beim Wachschutz: eine Stadtkarte,
+/// auf der ein Standort grün, gelb oder rot ist. Welche Hosts dabei zählen,
+/// entscheidet weiterhin allein der Filter aus <c>view</c> — derselbe Raum ist für
+/// das DB-Team grün und für den Wachschutz rot.
+/// </summary>
+public sealed class ViewerMap
+{
+    /// <summary>Bereiche-Tab im Viewer-Modus zeigen. Default false — ohne
+    /// ausdrückliche Angabe bleibt der Kiosk beim reinen Status-Tab.</summary>
+    public bool Show { get; set; }
+
+    /// <summary>
+    /// Name des Startbereichs. Die Karte springt beim Start dorthin. Leer =
+    /// Gesamtübersicht.
+    ///
+    /// Bewusst der <b>Name</b> und keine Id: Das Profil wird von Hand
+    /// geschrieben, und eine Id steht nirgends, wo ein Mensch sie ablesen könnte.
+    /// </summary>
+    public string? Area { get; set; }
+
+    /// <summary>Zoomstufe für den Start. 0 = automatisch (Fläche einpassen bzw.
+    /// Stadtübersicht).</summary>
+    public double Zoom { get; set; }
+
+    /// <summary>Kartenhintergrund per Name aus <c>GlobalSetting.MapLayers</c>.
+    /// Leer = erster Eintrag.</summary>
+    public string? Layer { get; set; }
+
+    /// <summary>Bereichsbaum links zeigen. Für eine reine Kartenwand auf false —
+    /// dann bleibt die volle Breite für die Karte.</summary>
+    public bool Tree { get; set; } = true;
+}
+
+/// <summary>
 /// Optionales Profil in <c>viewer.json</c> <b>neben der Exe</b>. Liegt die Datei da,
 /// laeuft das Cockpit im Viewer-Modus: Verbindung, Spalten und Start-Filter kommen
 /// aus der Datei, und alles Schreibende ist aus der Oberflaeche entfernt (nur der
@@ -184,6 +222,9 @@ public sealed class ViewerProfile
     public List<string> Columns { get; set; } = [];
 
     public ViewerView View { get; set; } = new();
+
+    /// <summary>Kiosk-Karte. Ohne Angabe bleibt der Bereiche-Tab weg.</summary>
+    public ViewerMap Map { get; set; } = new();
 
     /// <summary>
     /// Holt das Fenster bei einer Verschlechterung nach vorn (maximiert) und springt
@@ -306,4 +347,11 @@ public sealed class ViewerMode
     /// <summary>false im Viewer-Modus — steuert die Sichtbarkeit aller Aktionen,
     /// die in Checkmk schreiben (Ack, Downtime, Kommentar, Discovery, Host anlegen).</summary>
     public bool CanWrite => Profile is null;
+
+    /// <summary>
+    /// Bleibt der Bereiche-Tab im Viewer-Modus erhalten? Nur, wenn das Profil es
+    /// ausdrücklich verlangt — sonst bekäme jede bestehende Kiosk-Ausgabe beim
+    /// Update ungefragt einen neuen Tab.
+    /// </summary>
+    public ViewerMap? Map => Profile is { Map.Show: true } p ? p.Map : null;
 }

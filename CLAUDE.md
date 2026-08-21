@@ -572,6 +572,19 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   2. **Kaputtes JSON schaltet den Viewer-Modus NICHT ab** — `LoadFrom` gibt dann ein
      Profil mit `LoadError` zurück. Ein Tippfehler darf keinem Nur-Gucker die volle
      Oberfläche freischalten.
+  **Kiosk-Karte** (`map`-Abschnitt, Roadmap 28): `show: true` lässt den
+  Bereiche-Tab im Viewer-Modus stehen, dazu `area` (Startbereich per **Name** —
+  eine Id steht nirgends, wo ein Mensch sie ablesen könnte), `zoom`, `layer` und
+  `tree` (Baum links; false = reine Kartenwand). Drei Punkte:
+  1. **Ohne `show: true` bleibt der Tab weg.** Sonst bekäme jede bestehende
+     Kiosk-Ausgabe beim Update ungefragt einen neuen Tab.
+  2. **Lesend, ohne neue Sperren.** Sämtliche Schreibknöpfe der `AreaView`
+     hängen schon an `CanWrite`; der Abschnitt schaltet nichts frei. Das
+     Kontextmenü der Karte prüft zusätzlich in `OnMapAreaRightClicked`.
+  3. **Startwerte, keine Sperre.** Wer vor dem Bildschirm steht, darf schieben
+     und zoomen; nach dem Neustart steht wieder die vorgesehene Sicht da
+     (`_viewerMapApplied` läuft genau einmal). Ein Bereichsname, den es nicht
+     gibt, kommt ins Log statt in eine stumme Gesamtübersicht.
   Zusätzlich im Viewer-Modus: **`popUpOnProblem`** (Default true) holt bei einer
   Verschlechterung das Fenster maximiert nach vorn (`TrayController.PopUpForProblem`)
   und markiert die betroffene Zeile über `StatusViewModel.RequestSpotlight`. Nur bei
@@ -877,9 +890,11 @@ sieht alles.
     ✅ **Fertig.** Kachelkarte, Polygon-Overlay mit Rollup-Einfärbung, Zeichnen,
     Treffererkennung, **Nachbearbeiten**, Kontextmenü auf der Karte und
     `MapLayerKey` je Bereich (Details in §4).
-28. **Team-Sichten/Kiosk** — Viewer-Modus um Startbereich + Zoom erweitern.
-    Wie beim Viewer-Modus gilt: Sichtbarkeitsgrenzen sind Bedienkomfort, die
-    echte Grenze ist die Checkmk-Rolle.
+28. ✅ **Team-Sichten/Kiosk** — `viewer.json` kennt einen `map`-Abschnitt
+    (`show`, `area`, `zoom`, `layer`, `tree`). Damit bleibt der Bereiche-Tab im
+    Kiosk erhalten, **lesend**. Details in §4. Wie beim übrigen Viewer-Modus
+    gilt: Sichtbarkeitsgrenzen sind Bedienkomfort, die echte Grenze ist die
+    Checkmk-Rolle.
 
 **Nicht gebaut und warum:** Koordinate je Host (unnötig — Hosts hängen an
 Bereichen, Bereiche haben die Geometrie; spart Geocoding komplett).
