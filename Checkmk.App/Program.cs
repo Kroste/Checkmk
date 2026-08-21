@@ -35,6 +35,7 @@ internal static class Program
             if (TryRunProtectDb(args)) return;
             if (TryRunUpdateKey(args)) return;
             if (TryRunSignUpdate(args)) return;
+            if (TryShowUsage(args)) return;
 
             App.Services = BuildServiceProvider();
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
@@ -182,6 +183,54 @@ internal static class Program
         {
             Console.Error.WriteLine($"Fehlgeschlagen: {ex.Message}");
         }
+        return true;
+    }
+
+    /// <summary>Werkzeug-Schalter, die diese Exe kennt.</summary>
+    private static readonly string[] KnownSwitches =
+        ["--protect-db", "--make-update-key", "--sign-update", "--help"];
+
+    /// <summary>
+    /// Fängt unbekannte <c>--</c>-Schalter ab und zeigt die Kurzhilfe.
+    ///
+    /// <b>Warum das nötig ist:</b> Ohne diesen Griff startet ein Vertipper —
+    /// oder ein veraltetes Binary, das den Schalter noch nicht kennt —
+    /// wortlos die Oberfläche. Man sieht dann <i>gar nichts</i> im Terminal und
+    /// sucht den Fehler beim Werkzeug, während in Wahrheit ein weiteres Cockpit
+    /// im Hintergrund läuft. Genau so ist es einmal passiert.
+    ///
+    /// Nur <c>--</c>-Argumente werden geprüft; alles andere reicht die Methode
+    /// unangetastet an Avalonia weiter.
+    /// </summary>
+    private static bool TryShowUsage(string[] args)
+    {
+        var unknown = args.FirstOrDefault(a =>
+            a.StartsWith("--", StringComparison.Ordinal)
+            && !KnownSwitches.Contains(a, StringComparer.OrdinalIgnoreCase));
+
+        var wantsHelp = args.Any(a =>
+            string.Equals(a, "--help", StringComparison.OrdinalIgnoreCase));
+
+        if (unknown is null && !wantsHelp) return false;
+
+        AttachConsole(AttachParentProcess);
+
+        if (unknown is not null)
+            Console.Error.WriteLine($"Unbekannter Schalter: {unknown}");
+
+        Console.WriteLine();
+        Console.WriteLine("Checkmk Cockpit — Werkzeug-Modus");
+        Console.WriteLine();
+        Console.WriteLine("  --protect-db \"<Verbindungsstring>\" [Zielpfad]");
+        Console.WriteLine("      Schreibt database.json mit verschleiertem Wert neben die Exe.");
+        Console.WriteLine();
+        Console.WriteLine("  --make-update-key");
+        Console.WriteLine("      Erzeugt ein Schluesselpaar fuer die Update-Signatur.");
+        Console.WriteLine();
+        Console.WriteLine("  --sign-update <paket.zip> <version> <privkey-base64> [ziel]");
+        Console.WriteLine("      Schreibt das signierte update.json zu einem Paket.");
+        Console.WriteLine();
+        Console.WriteLine("Ohne Schalter startet die Oberflaeche.");
         return true;
     }
 
