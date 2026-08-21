@@ -506,13 +506,37 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Prozessende wartet, die Dateien ersetzt und neu startet — die laufende `.exe`
   kann sich unter Windows nicht selbst überschreiben.
 
-  **Warum die Signatur wirklich da ist** — nicht wegen des Fileshares (die
-  Prämisse war falsch, §8.29), sondern: `UpdateChannelUrl` steht in
-  `GlobalSetting`, und auf diese Tabelle darf das Laufzeitkonto schreiben. Ohne
-  Signatur genügt ein `UPDATE` in der Datenbank, um 48 Rechnern ein beliebiges
-  ZIP unterzuschieben, das sie entpacken und starten. Das gilt bei jedem Kanal.
+  **Die Signaturprüfung ist gebaut und bewusst AUS** (`PublicKeyBase64` leer).
+  Das ist eine Entscheidung, keine offene Aufgabe — bitte nicht „nachziehen".
 
-  Sechs Punkte, die nicht aufgeweicht werden dürfen:
+  Sie war als Roadmap-Punkt 17 unter der Annahme notiert, ein Innentäter könne
+  über `GlobalSetting.UpdateChannelUrl` allen ein Paket unterschieben. Technisch
+  stimmt das (nachgemessen: `CheckMK_Copilot_Worker` hat `UPDATE` auf
+  `GlobalSetting`, und der Verbindungsstring liegt entschlüsselbar neben jeder
+  EXE) — **das Bedrohungsmodell trägt hier aber nicht:**
+
+  - Alle 48 Nutzer sind **Systemadministratoren zentraler Dienste** — AD,
+    Netzwerk, Dateidienste, Datenbanken. Wer von ihnen Code auf fremden
+    Rechnern ausführen wollte, nähme Gruppenrichtlinien oder die
+    Softwareverteilung, nicht den Update-Kanal eines Monitoring-Beiboots.
+  - Schreibrecht auf dem Kanal-Ordner haben nur zwei Personen; die übrigen
+    lesen. Der Vertrauensanker ist damit die **NTFS-Berechtigung**, und die ist
+    mit Bordmitteln kontrollierbar.
+  - Der Preis wäre dauerhaft: jedes Paket signieren, ein Schlüssel, der nie
+    verlorengehen darf (sonst brauchen alle 48 ein von Hand verteiltes Binary),
+    und eine Reihenfolge-Falle beim Ausrollen.
+
+  Auch das naheliegende Ersatzargument trägt nicht: Ein halb kopiertes ZIP
+  fängt die Prüfsumme nicht *nötigerweise* ab — ein abgeschnittenes Archiv hat
+  kein gültiges Zentralverzeichnis, `ExtractToDirectory` wirft, und der
+  Austausch startet gar nicht erst. Der Programmordner bleibt unangetastet.
+
+  **Der Code bleibt trotzdem stehen**, weil er nichts kostet (ein `if` auf einen
+  leeren String) und die Lage sich ändern kann — etwa wenn das Cockpit einmal
+  über diesen Kreis hinaus verteilt wird oder der Kanal in ein weniger
+  kontrolliertes Netz wandert. Dann genügt ein Schlüsselpaar.
+
+  Sechs Punkte, die gelten, *falls* jemand sie einschaltet:
   1. **Der öffentliche Schlüssel steckt im Binary** (`UpdateSignature.PublicKeyBase64`),
      nicht in `GlobalSetting`. Läge er dort, könnte derselbe Zugriff, der die
      Adresse ändert, auch den Schlüssel austauschen.
@@ -849,18 +873,18 @@ den Commit-Log an.
     prozessweiter Cache. StatusViewModel.OsFor bevorzugt Cache, fällt auf
     OsDetection zurück. Vollständige OS-Version (2022, RHEL 9 usw.) bleibt offen.
 17. ✅ **Autoupdater Phase 2**: Selbst-Ersetzen des Binary (`UpdateInstaller`,
-    Austausch per `.bat` nach dem Prozessende) und **signiertes Manifest**
-    (`update.json` neben dem ZIP im Release). Details in §4.
+    Austausch per `.bat` nach dem Prozessende).
+
+    Das **signierte Manifest** ist ebenfalls gebaut, aber **bewusst
+    abgeschaltet** — das Bedrohungsmodell trägt in diesem Kreis nicht
+    (48 Systemadministratoren, zwei Schreibberechtigte auf dem Kanal-Ordner).
+    Begründung und die Bedingungen, unter denen sich das ändern würde, stehen
+    in §4. **Kein offener Punkt.**
 
     **ECDSA P-256 statt des hier notierten Ed25519**: .NET 10 bringt kein
     Ed25519 mit (nachgemessen — `System.Security.Cryptography` kennt ML-DSA und
     SLH-DSA, aber kein Ed25519). Es nachzurüsten hieße BouncyCastle, und ein
-    weiteres NuGet-Paket ist in diesem Netz teuer. P-256 mit SHA-256 ist
-    eingebaut und hier genauso tragfähig.
-
-    **Nicht** an den Fileshare gekoppelt: Der Grund für die Signatur ist ein
-    anderer als ursprünglich gedacht, siehe §4 — und er gilt unabhängig davon,
-    wo der Kanal liegt.
+    weiteres NuGet-Paket ist in diesem Netz teuer.
 18. **DPAPI-NG mit AD-Gruppen-SID** — obsolet, seit die Verbindung wieder user-lokal
     liegt (DPAPI-CurrentUser reicht). Nur relevant, falls wir irgendwann doch wieder
     einen geteilten Store brauchen.

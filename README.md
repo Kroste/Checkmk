@@ -789,6 +789,11 @@ ein älteres Paket zurück in den Ordner, wird daraus also kein „Update".
 
 ### „Update abgelehnt: …" im Update-Dialog
 
+> **Bei uns tritt das nicht auf.** Die Signaturprüfung ist bewusst
+> abgeschaltet — wer auf den Update-Ordner schreiben darf, regelt die
+> NTFS-Berechtigung. Der folgende Abschnitt gilt nur, falls sie jemand
+> einschaltet.
+
 Das ist keine Störung, sondern eine Aussage: Das Paket ist **nicht** das, was es
 sein sollte. Der Dialog nennt den Grund.
 

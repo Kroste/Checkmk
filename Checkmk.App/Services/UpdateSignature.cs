@@ -85,13 +85,19 @@ public static class UpdateSignature
 
     /// <summary>
     /// Öffentlicher Schlüssel (SubjectPublicKeyInfo, Base64) der Stelle, die
-    /// Releases signiert.
+    /// Releases signiert. <b>Leer heißt: keine Prüfung.</b>
     ///
-    /// <b>Leer heißt: keine Prüfung.</b> So bleiben bestehende Releases
-    /// installierbar, bis ein Schlüsselpaar erzeugt und hier eingetragen ist.
-    /// Sobald hier etwas steht, ist ein gültiges Manifest <b>Pflicht</b> — ein
-    /// Update ohne Signatur wird dann abgelehnt, nicht durchgewunken.
-    /// Erzeugen mit <c>Checkmk.App.exe --make-update-key</c>.
+    /// <para><b>Der Wert ist absichtlich leer und soll es bleiben.</b> Das ist
+    /// keine offene Aufgabe. Alle Nutzer dieses Cockpits sind
+    /// Systemadministratoren zentraler Dienste, und Schreibrecht auf dem
+    /// Update-Ordner haben zwei Personen — der Vertrauensanker ist die
+    /// NTFS-Berechtigung, nicht ein Schlüssel. Ausführlich in CLAUDE.md §4.</para>
+    ///
+    /// <para>Einschalten lohnt erst, wenn das Cockpit über diesen Kreis hinaus
+    /// verteilt wird oder der Kanal in ein weniger kontrolliertes Netz wandert.
+    /// Dann: <c>Checkmk.App.exe --make-update-key</c>, den öffentlichen Teil
+    /// hier eintragen — ab da ist ein gültiges Manifest <b>Pflicht</b>, und ein
+    /// Update ohne Signatur wird abgelehnt statt durchgewunken.</para>
     /// </summary>
     public const string PublicKeyBase64 = "";
 
