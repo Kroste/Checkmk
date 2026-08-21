@@ -163,6 +163,26 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   davor unverändert, und die Zusammenführung ist ein `DELETE FROM AreaSite`.
   `AreaStore` liest die Tabelle in einem **eigenen** try — fehlt sie, gelten
   die Bereiche überall, statt dass der ganze Refresh scheitert.
+
+  Drei Dinge, die aus einem echten Fehlbild stammen (Schulen tauchten in der
+  Schul-Sicht nicht auf, dafür die LHP-Bereiche):
+  1. **Neue Bereiche bekommen die aktive Site** (`AreaViewModel.CreateAsync`).
+     Ohne das gilt „keine Zeile = überall", und von Hand angelegte Bereiche wie
+     „Container" standen mit in *jeder* Site. Die Regel „keine Zeile = überall"
+     bleibt trotzdem richtig — sie ist der **Migrationsfall** für Bereiche aus
+     der Zeit vor Schema 4, nicht die Vorgabe für neue.
+  2. **Der Import hängt nicht mehr stillschweigend unter die Auswahl.**
+     Vorher wurde `SelectedNode` als Elternteil genommen; die 82 Schulen
+     landeten unter „Stadthaus". Da dieses keine Site-Zuordnung hat, war es in
+     der Schul-Sicht sichtbar — und die Schulen darin *eingeklappt*, wirkten
+     also verschwunden. Jetzt ist das eine Option im Dialog, standardmäßig aus.
+  3. **Ein Kind mit unsichtbarem Elternteil steigt zur Wurzel auf**
+     (`RebuildIfChanged`). Sonst wäre es in seiner eigenen Site unauffindbar.
+     Verifiziert gegen FOC-SQL01.
+
+  **`SiteSelectDialog` („Sichtbar in Sites…") ist Pflichtbestandteil**, nicht
+  Komfort: Ohne ihn konnte der Store die Sichtbarkeit setzen, die Oberfläche
+  aber nicht — die Korrektur ging nur über SQL.
 - **Technik ist verschiebbar** (`AreaStore.MoveHostsAsync`). Der Alltagsfall,
   den das Zuweisen einzelner Hosts nicht abdeckt: Ein Haus wird aufgelöst, die
   gesamte Technik wandert in den Container — und später vielleicht zurück.

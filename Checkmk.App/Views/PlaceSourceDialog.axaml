@@ -28,6 +28,11 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <!-- Standardmäßig AUS: Vorher landeten die Standorte stillschweigend
+             unter dem gerade markierten Bereich, und in der anderen Site war
+             der Elternteil unsichtbar — die Kinder wirkten damit verschwunden. -->
+        <CheckBox Name="NestBox" Margin="0,8,0,0" IsVisible="False" />
       </StackPanel>
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"

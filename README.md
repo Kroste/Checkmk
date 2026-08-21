@@ -1193,6 +1193,20 @@ Nichts angehakt heißt **überall sichtbar**. Werden die Sites irgendwann
 zusammengeführt, nimmt man die Einschränkung einfach wieder heraus — die
 Bereiche und alle Host-Zuordnungen bleiben, wie sie sind.
 
+Die importierten Standorte landen auf **oberster Ebene**. Ist im Baum etwas
+markiert, bietet der Dialog an, sie stattdessen darunter einzuhängen — das musst
+du aber ausdrücklich ankreuzen.
+
+### Sichtbarkeit nachträglich ändern
+
+Rechtsklick auf einen Bereich → **„Sichtbar in Sites…"**. Dort lässt sich
+jederzeit korrigieren, in welchen Sites er erscheint.
+
+Das brauchst du vor allem für Bereiche, die du **von Hand angelegt hast, bevor
+es die Site-Zuordnung gab** — die haben keine und erscheinen deshalb in jeder
+Site. Neu angelegte Bereiche bekommen automatisch die Site, in der du gerade
+arbeitest.
+
 Nichts ist vorausgewählt: In den Listen stehen auch Bibliotheken und das Museum,
 und alles zu übernehmen macht den Bereichsbaum unbrauchbar.
 

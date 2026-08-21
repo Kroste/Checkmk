@@ -74,7 +74,13 @@ public interface IAreaStore
 
     Task RefreshAsync(CancellationToken ct = default);
 
-    Task<int> CreateAsync(string name, int? parentAreaId, CancellationToken ct = default);
+    /// <param name="sites">Sites, in denen der neue Bereich sichtbar ist.
+    /// Leer/<c>null</c> = überall.</param>
+    Task<int> CreateAsync(string name, int? parentAreaId,
+        IReadOnlyList<string>? sites = null, CancellationToken ct = default);
+
+    /// <summary>Sites, in denen ein Bereich sichtbar ist. Leer = überall.</summary>
+    IReadOnlyList<string> SitesOf(int areaId);
 
     /// <summary>Speichert die Punktlage. <c>null</c> entfernt sie.</summary>
     Task SavePointAsync(int areaId, double? lat, double? lon, CancellationToken ct = default);
@@ -183,19 +189,37 @@ public sealed class AreaStore(CockpitDatabase database) : IAreaStore
         }
     }
 
-    public async Task<int> CreateAsync(string name, int? parentAreaId, CancellationToken ct = default)
+    public IReadOnlyList<string> SitesOf(int areaId)
+        => _current.SitesByArea.TryGetValue(areaId, out var s) ? s : [];
+
+    public async Task<int> CreateAsync(string name, int? parentAreaId,
+        IReadOnlyList<string>? sites = null, CancellationToken ct = default)
     {
         await using var db = database.CreateContext();
 
+        var now = DateTime.UtcNow;
         var area = new Area
         {
             ParentAreaId = parentAreaId,
             Name = name.Trim(),
-            ChangedAtUtc = DateTime.UtcNow,
+            ChangedAtUtc = now,
             ChangedBy = Environment.UserName
         };
         db.Areas.Add(area);
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        // Site-Zuordnung erst nach dem Speichern — vorher gibt es keine AreaId.
+        var wanted = (sites ?? [])
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (wanted.Count > 0)
+        {
+            foreach (var site in wanted)
+                db.AreaSites.Add(new AreaSite { AreaId = area.AreaId, Site = site, AddedAtUtc = now });
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
 
         await RefreshAsync(ct).ConfigureAwait(false);
         return area.AreaId;

@@ -9,9 +9,16 @@ using Checkmk.App.Services;
 
 namespace Checkmk.App.Views;
 
-/// <summary>Auswahl des Anwenders: welche Liste, und für welche Sites.</summary>
+/// <summary>Auswahl des Anwenders: welche Liste, für welche Sites, und wohin.</summary>
 /// <param name="Sites">Leer = in allen Sites sichtbar.</param>
-public sealed record PlaceSourceChoice(PlaceSource Source, IReadOnlyList<string> Sites);
+/// <param name="NestUnderSelection">true = unterhalb des im Baum markierten
+/// Bereichs einhängen. Standard ist <b>false</b>: Vorher landeten die
+/// Standorte stillschweigend unter der Auswahl, und wenn der Elternteil zu
+/// einer anderen Site gehörte, wirkten die Kinder verschwunden.</param>
+public sealed record PlaceSourceChoice(
+    PlaceSource Source,
+    IReadOnlyList<string> Sites,
+    bool NestUnderSelection);
 
 public partial class PlaceSourceDialog : ChromeWindow
 {
@@ -25,10 +32,21 @@ public partial class PlaceSourceDialog : ChromeWindow
     /// <param name="knownSites">Sites aus den Verbindungseinstellungen.</param>
     /// <param name="preselect">Vorauswahl — die gerade aktive Site. Wer
     /// Standorte importiert, meint fast immer die Site, in der er arbeitet.</param>
+    /// <param name="selectedAreaName">Im Baum markierter Bereich, oder
+    /// <c>null</c>. Nur dann gibt es die Option zum Einhängen.</param>
     public PlaceSourceDialog(IReadOnlyList<PlaceSource> sources,
-        IReadOnlyList<string> knownSites, string? preselect)
+        IReadOnlyList<string> knownSites, string? preselect,
+        string? selectedAreaName = null)
     {
         AvaloniaXamlLoader.Load(this);
+
+        if (!string.IsNullOrWhiteSpace(selectedAreaName))
+        {
+            var nest = this.FindControl<CheckBox>("NestBox")!;
+            nest.Content = $"Unterhalb von „{selectedAreaName}“ einhängen";
+            nest.IsVisible = true;
+            nest.IsChecked = false;   // bewusst aus, siehe PlaceSourceChoice
+        }
 
         var box = this.FindControl<ComboBox>("SourceBox")!;
         foreach (var s in sources) box.Items.Add(new Entry(s));
@@ -66,7 +84,9 @@ public partial class PlaceSourceDialog : ChromeWindow
             .Select(s => s!)
             .ToList();
 
-        Close(new PlaceSourceChoice(entry.Source, sites));
+        var nest = this.FindControl<CheckBox>("NestBox")!;
+        Close(new PlaceSourceChoice(entry.Source, sites,
+            nest.IsVisible && nest.IsChecked == true));
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(null);

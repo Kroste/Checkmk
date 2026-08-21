@@ -178,12 +178,9 @@ public partial class AreaView : UserControl
 
         // Welche Liste, und fuer welche Sites? Die Schulen gehoeren zur Site
         // Schul_IT und sind ein eigener Dienst.
-        var settings = App.Services?.GetService<IConnectionSettingsStore>()?.Load();
-        var knownSites = settings?.KnownSites is { Count: > 0 } k
-            ? k
-            : settings?.Site is { Length: > 0 } s ? [s] : new List<string>();
-
-        var pick = new PlaceSourceDialog(PotsdamPlaceImporter.Sources, knownSites, vm.ActiveSite);
+        var selected = vm.SelectedNode is { IsUnassigned: false } sel ? sel.Name : null;
+        var pick = new PlaceSourceDialog(
+            PotsdamPlaceImporter.Sources, KnownSites(), vm.ActiveSite, selected);
         if (await pick.ShowDialog<PlaceSourceChoice?>(owner) is not { } choice) return;
 
         vm.StatusMessage = $"{choice.Source.Label} werden vom Kartenserver geladen…";
@@ -199,7 +196,9 @@ public partial class AreaView : UserControl
         var chosen = await dialog.ShowDialog<IReadOnlyList<ExternalPlace>?>(owner);
         if (chosen is null || chosen.Count == 0) return;
 
-        var parent = vm.SelectedNode is { IsUnassigned: false } n ? n.AreaId : (int?)null;
+        var parent = choice.NestUnderSelection && vm.SelectedNode is { IsUnassigned: false } n
+            ? n.AreaId
+            : (int?)null;
         await vm.ImportPlacesAsync(choice.Source.Id, chosen, parent, choice.Sites);
         RefreshMap();
     }
@@ -229,6 +228,27 @@ public partial class AreaView : UserControl
         if (result.AreaId == node.AreaId) return;   // Ziel = Quelle
 
         await vm.MoveHostsAsync(node.AreaId, result.AreaId);
+        RefreshMap();
+    }
+
+    /// <summary>Bekannte Sites aus den Verbindungseinstellungen.</summary>
+    private static IReadOnlyList<string> KnownSites()
+    {
+        var settings = App.Services?.GetService<IConnectionSettingsStore>()?.Load();
+        if (settings?.KnownSites is { Count: > 0 } k) return k;
+        return settings?.Site is { Length: > 0 } s ? [s] : [];
+    }
+
+    private async void OnEditSitesClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { CanWrite: true } vm) return;
+        if (vm.SelectedNode is not { IsUnassigned: false } node) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var dialog = new SiteSelectDialog(node.Name, KnownSites(), vm.SitesOf(node.AreaId));
+        if (await dialog.ShowDialog<IReadOnlyList<string>?>(owner) is not { } chosen) return;
+
+        await vm.SaveSitesAsync(node.AreaId, chosen);
         RefreshMap();
     }
 

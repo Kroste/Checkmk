@@ -220,9 +220,21 @@ public sealed partial class AreaViewModel : ViewModelBase
         try
         {
             IsBusy = true;
-            await _areas.CreateAsync(name, parent);
+
+            // Neue Bereiche gehören der Site, in der man gerade arbeitet.
+            // Sonst tauchen sie in JEDER Site auf — genau das ist passiert:
+            // „Container" und „Haus 2" standen mit in der Schul-Sicht.
+            // Bestehende Bereiche ohne Zuordnung bleiben davon unberührt,
+            // das ist der Migrationsfall.
+            var sites = string.IsNullOrWhiteSpace(ActiveSite)
+                ? Array.Empty<string>()
+                : [ActiveSite];
+
+            await _areas.CreateAsync(name, parent, sites);
             Recompute(_status.AllServices);
-            StatusMessage = $"Bereich „{name.Trim()}“ angelegt.";
+            StatusMessage = sites.Length > 0
+                ? $"Bereich „{name.Trim()}“ angelegt — sichtbar in {ActiveSite}."
+                : $"Bereich „{name.Trim()}“ angelegt.";
             return true;
         }
         catch (Exception ex)
@@ -319,6 +331,34 @@ public sealed partial class AreaViewModel : ViewModelBase
 
     /// <summary>Hostnamen im Bereich — die „Technik", die dort steht.</summary>
     public IReadOnlyList<string> HostsIn(int areaId) => _areas.HostsIn(areaId);
+
+    /// <summary>Sites, in denen ein Bereich sichtbar ist. Leer = überall.</summary>
+    public IReadOnlyList<string> SitesOf(int areaId) => _areas.SitesOf(areaId);
+
+    /// <summary>Setzt die Sichtbarkeit eines Bereichs. Leer = überall.</summary>
+    public async Task SaveSitesAsync(int areaId, IReadOnlyList<string> sites)
+    {
+        if (!CanWrite) return;
+        try
+        {
+            IsBusy = true;
+            await _areas.SaveSitesAsync(areaId, sites);
+            _builtFrom = "";                     // Sichtbarkeit ändert die Menge
+            Recompute(_status.AllServices);
+            MapChanged?.Invoke();
+
+            var name = NodeOf(areaId)?.Name ?? areaId.ToString();
+            StatusMessage = sites.Count == 0
+                ? $"„{name}“ ist jetzt in allen Sites sichtbar."
+                : $"„{name}“ ist jetzt sichtbar in: {string.Join(", ", sites)}.";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Site-Sichtbarkeit konnte nicht gespeichert werden.");
+            StatusMessage = $"Speichern fehlgeschlagen: {ex.Message}";
+        }
+        finally { IsBusy = false; }
+    }
 
     /// <summary>Lagen aller sichtbaren Bereiche — Mittelpunkt der Fläche oder
     /// der Punkt. Grundlage für das Vorabladen der Kacheln.</summary>
