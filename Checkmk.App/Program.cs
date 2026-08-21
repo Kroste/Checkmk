@@ -270,6 +270,16 @@ internal static class Program
         services.AddSingleton<IUpdatePreferences, UpdatePreferences>();
         services.AddSingleton<IUpdateChecker>(sp =>
         {
+            var url = sp.GetRequiredService<IGlobalSettingsProvider>().Current.UpdateChannelUrl;
+            var prefs = sp.GetRequiredService<IUpdatePreferences>();
+
+            // Der Kanal darf ein Ordner sein (Fileshare) statt einer Adresse.
+            // Erkannt wird das an der Schreibweise, nicht an einer zweiten
+            // Einstellung — ein Pfad und eine URL sind nicht zu verwechseln,
+            // und ein Schalter mehr waere ein Schalter, den jemand falsch setzt.
+            if (FileShareUpdateChecker.LooksLikeFolder(url))
+                return new FileShareUpdateChecker(url, prefs);
+
             // Update-Check laeuft ins Internet -> ueber den Firmen-Proxy. Ohne
             // Proxy-Credentials gibt der FortiProxy 407. DefaultCredentials nutzt
             // den angemeldeten Windows-User (Negotiate/NTLM).
@@ -279,9 +289,7 @@ internal static class Program
                 DefaultProxyCredentials = System.Net.CredentialCache.DefaultCredentials
             };
             var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
-            var url = sp.GetRequiredService<IGlobalSettingsProvider>().Current.UpdateChannelUrl;
-            return new GitHubReleasesUpdateChecker(http, url,
-                sp.GetRequiredService<IUpdatePreferences>());
+            return new GitHubReleasesUpdateChecker(http, url, prefs);
         });
 
         // Self-Update-Installer: nur unter Windows registriert (Cockpit ist WinExe).

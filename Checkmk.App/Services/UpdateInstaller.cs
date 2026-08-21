@@ -57,8 +57,8 @@ public sealed class UpdateInstaller
             var assetName = Path.GetFileName(new Uri(update.WindowsZipUrl).LocalPath);
             var zipPath = Path.Combine(work, assetName);
 
-            Log.Info("Lade Update-ZIP: {Url}", update.WindowsZipUrl);
-            await DownloadWithProgressAsync(update.WindowsZipUrl, zipPath, progress, ct);
+            Log.Info("Hole Update-Paket: {Url}", update.WindowsZipUrl);
+            await FetchAsync(update.WindowsZipUrl, zipPath, progress, ct).ConfigureAwait(false);
 
             // Erst pruefen, dann entpacken. Ein Paket, dessen Herkunft nicht
             // feststeht, wird nicht einmal ausgepackt — ZIP-Entpacken ist selbst
@@ -114,7 +114,9 @@ public sealed class UpdateInstaller
         SignedUpdateManifest? manifest;
         try
         {
-            var json = await _http.GetStringAsync(update.ManifestUrl, ct).ConfigureAwait(false);
+            var json = FileShareUpdateChecker.LooksLikeFolder(update.ManifestUrl)
+                ? File.ReadAllText(update.ManifestUrl)
+                : await _http.GetStringAsync(update.ManifestUrl, ct).ConfigureAwait(false);
             manifest = UpdateSignature.FromJson(json);
         }
         catch (Exception ex)
@@ -124,6 +126,39 @@ public sealed class UpdateInstaller
         }
 
         return UpdateSignature.Verify(manifest, zipPath, update.Version.ToString());
+    }
+
+    /// <summary>
+    /// Holt das Paket — über HTTP oder aus einem Ordner.
+    ///
+    /// <b>Auch vom Fileshare wird kopiert, nicht direkt entpackt.</b> Das Paket
+    /// muss über den ganzen Vorgang unverändert bleiben; läge es weiter auf dem
+    /// Share, könnte es zwischen Prüfung und Entpacken ausgetauscht werden. Und
+    /// ein Netzlaufwerk, das mitten im Entpacken wegbricht, hinterließe einen
+    /// halb ersetzten Programmordner.
+    /// </summary>
+    private async Task FetchAsync(string source, string dest, IProgress<double>? progress,
+        CancellationToken ct)
+    {
+        if (!FileShareUpdateChecker.LooksLikeFolder(source))
+        {
+            await DownloadWithProgressAsync(source, dest, progress, ct).ConfigureAwait(false);
+            return;
+        }
+
+        await using var src = File.OpenRead(source);
+        await using var dst = File.Create(dest);
+        var total = src.Length;
+        var buffer = new byte[81920];
+        long read = 0;
+        int n;
+        while ((n = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+        {
+            await dst.WriteAsync(buffer.AsMemory(0, n), ct).ConfigureAwait(false);
+            read += n;
+            if (total > 0) progress?.Report((double)read / total);
+        }
+        Log.Debug("Vom Ordner kopiert: {Bytes} Bytes", read);
     }
 
     private async Task DownloadWithProgressAsync(

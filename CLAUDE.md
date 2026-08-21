@@ -537,6 +537,29 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Release-Workflow signiert, wenn das Secret `UPDATE_SIGNING_KEY` gesetzt ist —
   die Prüfung darauf steht **im Skript**, nicht in einer `if`-Bedingung, weil
   der `secrets`-Kontext in Step-Bedingungen nicht verfügbar ist.
+- **Der Update-Kanal darf ein Ordner sein** (`FileShareUpdateChecker`).
+  In Betrieb seit 2026-08-21:
+  `\\samba01\542$\5424_IT-Basis-Dienste\CheckMK\CheckMK_Copilot`.
+  Erkannt wird das an der **Schreibweise** von `UpdateChannelUrl`
+  (`\\`, `//` oder `X:`) und nicht an einer zweiten Einstellung — ein Pfad und
+  eine URL sind nicht zu verwechseln, und ein Schalter mehr wäre einer, den
+  jemand falsch setzt. Vier Punkte:
+  1. **Die Version steht im Dateinamen** (`Checkmk-1.14.0-win-x64.zip`). Sie aus
+     dem Paket zu lesen hieße, es bei jedem Start herunterzuladen und
+     auszupacken — 88 MB, nur um festzustellen, dass sich nichts geändert hat.
+  2. **Höchste Version gewinnt, nicht neuester Zeitstempel.** Ein
+     zurückkopiertes älteres Paket ist die jüngste Datei und würde sonst als
+     „Update" angeboten.
+  3. **Liegt ein `update.json` da, gibt es den Ausschlag** — sonst könnte ein
+     danebengelegtes ZIP das signierte überstimmen. Ist ein Signaturschlüssel
+     hinterlegt, ist das Manifest **Pflicht**; ohne Manifest gibt es dann kein
+     Update, statt eines ungeprüften.
+  4. **Auch vom Share wird erst kopiert, dann entpackt.** Läge das Paket
+     während des Vorgangs weiter auf dem Netzlaufwerk, könnte es zwischen
+     Prüfung und Entpacken ausgetauscht werden — und ein wegbrechendes
+     Netzlaufwerk hinterließe einen halb ersetzten Programmordner.
+  Ein unerreichbarer Ordner ist `Debug`, nicht `Error`: Ein Notebook ohne
+  Netzlaufwerk ist der Normalfall, nicht die Störung.
 - **Host-Filter (beide Tabs):** Persistente Favoriten wählbar über eine ComboBox in der Tool-
   bar. Ein Favorit ist entweder ein **Hostname-Regex** (case-insensitive) oder eine explizite
   **Include-Liste** von Hostnamen. Aus dem Hosts-Tab lassen sich per Ctrl+Klick mehrere Hosts
@@ -950,8 +973,21 @@ sich die Clients direkt).
 
 ### Nach der Karte
 
-29. **Update-Bezug über den Fileshare als Zweitweg** — *zurückgestellt, die
-    Prämisse hat sich als falsch erwiesen.*
+29. ✅ **Update-Bezug über den Fileshare** — gebaut, aber aus einem anderen
+    Grund als ursprünglich notiert.
+
+    Seit 2026-08-21 ist
+    `\\samba01\542$\5424_IT-Basis-Dienste\CheckMK\CheckMK_Copilot` der Kanal
+    (`FileShareUpdateChecker`, Details in §4). **Nicht**, weil GitHub gesperrt
+    wäre — das war die Fehldiagnose unten —, sondern weil ein Ordner im eigenen
+    Netz der kürzere Weg ist: kein Proxy, kein Internetzugang nötig, und das
+    Ausrollen ist ein Kopiervorgang.
+
+    Der GitHub-Weg bleibt als Kanal wählbar; welcher gilt, entscheidet allein
+    die Schreibweise von `UpdateChannelUrl`.
+
+    Die Fehldiagnose von damals steht bewusst hier stehen, weil die *Lehre*
+    weiter gilt:
 
     Ursprünglich notiert, weil GitHub angeblich vollständig blockiert war.
     Nachgemessen am 2026-08-21 mit `HttpClient` (also so, wie die Anwendung es
@@ -970,8 +1006,7 @@ sich die Clients direkt).
     antwortet der Server mit **403**, und daran scheitert auch `dotnet restore`
     — Inhaltssperre, kein Zertifikatsproblem. Das Offline-Bundle bleibt also.
 
-    Falls der Update-Check im Cockpit trotzdem klemmt, liegt es nicht am Netz;
-    dann zuerst das Log ansehen, bevor ein Zweitweg gebaut wird.
+    Klemmt der Update-Check, liegt es also nicht am Netz — zuerst ins Log sehen.
 
 ## 9 · Deal
 

@@ -754,10 +754,36 @@ Selbst-signiertes Zertifikat oder nicht im Windows-Zertifikatspeicher. **Lab**:
 Haken „Zertifikatsfehler ignorieren (Lab)" setzen. **Produktion**: ein
 korrektes Zertifikat installieren.
 
+### Woher die Updates kommen
+
+Der Kanal steht zentral in `GlobalSetting.UpdateChannelUrl` und darf **eine
+Adresse oder ein Ordner** sein — das Cockpit erkennt das an der Schreibweise:
+
+| Wert | Weg |
+|---|---|
+| `https://api.github.com/repos/Kroste/Checkmk/releases/latest` | GitHub-Release |
+| `\\samba01\542$\5424_IT-Basis-Dienste\CheckMK\CheckMK_Copilot` | Ordner im Netz |
+
+Beim Ordner reicht es, das ZIP hineinzukopieren — **die Version liest das
+Cockpit aus dem Dateinamen** (`Checkmk-1.14.0-win-x64.zip`). Optional daneben:
+
+- `update.json` — das signierte Manifest (siehe unten). Liegt es da, gibt **es**
+  den Ausschlag, nicht das jüngste ZIP im Ordner.
+- `v1.14.0.md` oder `RELEASE_NOTES.md` — was im Update-Dialog angezeigt wird.
+
+Es gewinnt immer die **höchste Version**, nicht die neueste Datei. Kopierst du
+ein älteres Paket zurück in den Ordner, wird daraus also kein „Update".
+
+„Release-Seite öffnen" öffnet beim Ordner-Kanal den Ordner im Explorer.
+
 ### Der Update-Badge kommt nie, obwohl es eine neue Version gibt
 
-- Kein Internetzugang → GitHub API nicht erreichbar (im Log als Debug-Meldung).
-- Proxy-Auth klappt nicht → einmal ab-/anmelden.
+- Ordner-Kanal: Netzlaufwerk nicht erreichbar, oder kein `Checkmk-*-win-x64.zip`
+  darin (im Log als Debug-Meldung).
+- Ordner-Kanal mit eingeschalteter Signaturprüfung: `update.json` fehlt — dann
+  gibt es bewusst **kein** Update statt eines ungeprüften.
+- GitHub-Kanal: kein Internetzugang, oder Proxy-Auth klappt nicht → einmal
+  ab-/anmelden.
 - Version explizit übersprungen → `%APPDATA%\Kroste\Checkmk\updates.json`
   löschen, dann erscheint der Badge wieder.
 
