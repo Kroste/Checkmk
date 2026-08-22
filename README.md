@@ -1,7 +1,10 @@
 # Checkmk Cockpit — Benutzerhandbuch
 
+> Projekt der **Arbeitsgruppe 5424 IT-Basis-Dienste** der Landeshauptstadt Potsdam.
+> Alle dienstlichen Repos liegen in der GitHub-Organisation [LHP542](https://github.com/LHP542).
+
 Ein Windows-Desktop-Tool für den **täglichen Umgang mit Checkmk 2.5** (REST-API v1),
-gebaut für den Fachbereich **5424 IT-Basis-Dienste**. Es holt die häufigen
+gebaut für die Arbeitsgruppe **5424 IT-Basis-Dienste**. Es holt die häufigen
 Admin-Handgriffe, die das Checkmk-Webinterface tief in Menüs vergräbt, an die
 Zeile, an der du das Problem siehst.
 
@@ -39,7 +42,7 @@ sich für Architektur und Interna interessiert: [`CLAUDE.md`](CLAUDE.md).
 
 **Windows (empfohlen):**
 
-1. Neuestes ZIP von den [GitHub Releases](https://github.com/Kroste/Checkmk/releases)
+1. Neuestes ZIP von den [GitHub Releases](https://github.com/LHP542/Checkmk/releases)
    herunterladen (`Checkmk-x.y.z-win-x64.zip`).
 2. In einen beliebigen Ordner entpacken — z. B. `C:\Tools\Checkmk\`.
 3. `Checkmk.App.exe` starten.
@@ -60,8 +63,8 @@ zeigt **„Zentral: Cache"** in der Statusleiste
 zentral: Anmeldedaten gehören pro Nutzer.
 
 **Hinter einem Proxy?** Der Update-Check nutzt automatisch die
-Windows-Standard-Anmeldedaten für den Proxy (Negotiate/NTLM). Am FortiProxy des
-Fachbereichs funktioniert das ohne Zusatzkonfiguration.
+Windows-Standard-Anmeldedaten für den Proxy (Negotiate/NTLM). Am FortiProxy der
+Arbeitsgruppe funktioniert das ohne Zusatzkonfiguration.
 
 ---
 
@@ -77,8 +80,8 @@ Ganz oben im Dialog: **„Anmeldemethode"** mit zwei Optionen.
 **Windows/LDAP (empfohlen)** — jeder Nutzer meldet sich mit seinem echten
 AD-Account an. Damit steht im Checkmk-Audit-Log bei Ack/Downtime dein Name,
 nicht „automation-User". Der Anmeldename ist mit deinem Windows-User
-vorbelegt; du tippst nur einmal dein AD-Passwort ein. Weil Passwörter im
-Fachbereich maximal einmal jährlich rotieren, ist das kein Alltagsaufwand.
+vorbelegt; du tippst nur einmal dein AD-Passwort ein. Weil Passwörter in der
+Arbeitsgruppe maximal einmal jährlich rotieren, ist das kein Alltagsaufwand.
 
 **Automation-User (Legacy)** — der klassische Weg mit einem dedizierten
 Automation-Account und dessen Secret. Für Skript-artige Nutzung oder für Server,
@@ -572,7 +575,7 @@ Cockpit-Nutzer verfügbar.
 **Installation** (nur wenn du die Funktion brauchst):
 
 1. Neuestes ZIP von den
-   [Plugin-Releases](https://github.com/Kroste/Checkmk-Plugin-AgentUpdater/releases)
+   [Plugin-Releases](https://github.com/LHP542/Checkmk-Plugin-AgentUpdater/releases)
    herunterladen.
 2. Entpacken → `CheckmkPlugin.AgentUpdater.dll` in den Ordner **`plugins/`**
    **neben** deiner `Checkmk.App.exe` legen (Ordner ggf. anlegen).
@@ -761,7 +764,7 @@ Adresse oder ein Ordner** sein — das Cockpit erkennt das an der Schreibweise:
 
 | Wert | Weg |
 |---|---|
-| `https://api.github.com/repos/Kroste/Checkmk/releases/latest` | GitHub-Release |
+| `https://api.github.com/repos/LHP542/Checkmk/releases/latest` | GitHub-Release |
 | `\\samba01\542$\5424_IT-Basis-Dienste\CheckMK\CheckMK_Copilot` | Ordner im Netz |
 
 Beim Ordner reicht es, das ZIP hineinzukopieren — **die Version liest das
@@ -831,8 +834,8 @@ Ab v1.7.0 ist die Funktion ins externe Plugin ausgezogen. Siehe [Abschnitt 11](#
 
 ## 17. Hilfe und Kontakt
 
-- **Fachbereich:** 5424 IT-Basis-Dienste
-- **GitHub-Repo:** <https://github.com/Kroste/Checkmk>
+- **Arbeitsgruppe:** 5424 IT-Basis-Dienste
+- **GitHub-Repo:** <https://github.com/LHP542/Checkmk>
 - **Bugs, Feature-Wünsche:** dort als Issue oder direkt an Lars.
 
 ---

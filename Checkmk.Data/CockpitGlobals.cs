@@ -42,7 +42,7 @@ public sealed class CockpitGlobals
     public string HostDefaultDomain { get; init; } = "lhp.intern";
 
     public string UpdateChannelUrl { get; init; } =
-        "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
+        "https://api.github.com/repos/LHP542/Checkmk/releases/latest";
 
     /// <summary>Kandidaten-Keys fuer die OS-Familie im Host-Config-Dict, erster
     /// Treffer gewinnt.</summary>

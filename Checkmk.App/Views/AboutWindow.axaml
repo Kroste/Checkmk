@@ -18,7 +18,7 @@
                    TextWrapping="Wrap" Foreground="#CCCCCC" />
         <Border Background="#252526" CornerRadius="4" Padding="10" Margin="0,6,0,0">
           <StackPanel Spacing="2">
-            <TextBlock Text="Fachbereich" Foreground="#888888" FontSize="11" />
+            <TextBlock Text="Arbeitsgruppe" Foreground="#888888" FontSize="11" />
             <TextBlock Text="5424 IT-Basis-Dienste" FontWeight="SemiBold" />
           </StackPanel>
         </Border>

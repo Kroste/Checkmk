@@ -10,8 +10,8 @@
     <IsPackable>true</IsPackable>
     <PackageId>Checkmk.PluginContracts</PackageId>
     <Description>Plugin-Contracts fuer das Checkmk Cockpit — Interfaces, die Plugins implementieren, um Tabs, Kontextmenue-Eintraege und wiederverwendbare Services beizusteuern.</Description>
-    <PackageProjectUrl>https://github.com/Kroste/Checkmk</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Kroste/Checkmk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/LHP542/Checkmk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/LHP542/Checkmk</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 

@@ -18,7 +18,7 @@
   <PropertyGroup>
     <Authors>Lars</Authors>
     <Company>Kroste</Company>
-    <RepositoryUrl>https://github.com/Kroste/Checkmk</RepositoryUrl>
+    <RepositoryUrl>https://github.com/LHP542/Checkmk</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 

@@ -197,7 +197,7 @@ internal sealed class Bootstrap
 
     private const string DefaultSharedHostsPath = @"\\Samba01\542$\5424_IT-Basis-Dienste\_Oste\CheckMK\hosts.json";
     private const string DefaultUpdateChannelUrl =
-        "https://api.github.com/repos/Kroste/Checkmk/releases/latest";
+        "https://api.github.com/repos/LHP542/Checkmk/releases/latest";
     private const string DefaultDomain = "lhp.intern";
 
     /// <summary>

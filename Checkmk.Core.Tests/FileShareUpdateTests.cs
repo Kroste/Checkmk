@@ -53,7 +53,7 @@ public class FileShareUpdateTests : IDisposable
         => FileShareUpdateChecker.LooksLikeFolder(channel).Should().BeTrue();
 
     [Theory]
-    [InlineData("https://api.github.com/repos/Kroste/Checkmk/releases/latest")]
+    [InlineData("https://api.github.com/repos/LHP542/Checkmk/releases/latest")]
     [InlineData("http://server/x")]
     [InlineData("")]
     [InlineData(null)]

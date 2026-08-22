@@ -6,7 +6,7 @@ namespace Checkmk.PluginContracts;
 /// </summary>
 /// <param name="UpdateChannelUrl">
 /// Optional. GitHub-Releases-API-URL fuer den Auto-Update-Check, z. B.
-/// <c>https://api.github.com/repos/Kroste/Checkmk-Plugin-AgentUpdater/releases/latest</c>.
+/// <c>https://api.github.com/repos/LHP542/Checkmk-Plugin-AgentUpdater/releases/latest</c>.
 /// Fehlt der Wert, wird das Plugin vom Cockpit-Plugin-Update-Check uebersprungen.
 /// Konvention fuer das Release-Asset: <c>&lt;RepoName&gt;-X.Y.Z.zip</c>, mit
 /// genau einer <c>CheckmkPlugin.&lt;Name&gt;.dll</c> drin.

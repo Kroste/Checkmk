@@ -475,7 +475,7 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   Persistent-Flag im Dialog wählbar. Delete-Endpoint noch nicht implementiert (2.4/2.5-API
   hat konkurrierende Varianten — nachziehen sobald an Live-Server verifiziert).
 - **Client-Aktualisierung** ist seit v1.7.0 **ausgelagert** ins Plugin
-  [`Checkmk-Plugin-AgentUpdater`](https://github.com/Kroste/Checkmk-Plugin-AgentUpdater).
+  [`Checkmk-Plugin-AgentUpdater`](https://github.com/LHP542/Checkmk-Plugin-AgentUpdater).
   Wer die Funktion braucht, legt die Plugin-DLL in den `plugins/`-Ordner neben
   `Checkmk.App.exe`. Grund für das Auslagern: die Aktion braucht Admin-Credentials
   und ist nicht für jeden Cockpit-Nutzer gedacht. Das Plugin exportiert einen
@@ -490,7 +490,7 @@ für das gesamte Muster: kroste-avalonia-Skill (Klemmbrett-Scaffold).
   ohne `submodules: true`), damit End-User-ZIPs plugin-frei bleiben — Plugins
   müssen aktiv installiert werden.
 - **Autoupdater (Phase 1):** Beim Start fragt `GitHubReleasesUpdateChecker` den
-  `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/Kroste/Checkmk/releases/
+  `Bootstrap.UpdateChannelUrl` ab (Default `api.github.com/repos/LHP542/Checkmk/releases/
   latest`), vergleicht mit `Assembly.Version` und meldet bei neuerer Version einen
   gelben Badge in der Statusleiste. Klick öffnet den `UpdateDialog` (Release-Notes +
   „Release-Seite öffnen"/„Später"/„Diese Version überspringen"). Skip-Version liegt in
@@ -823,7 +823,7 @@ eine geforderte ältere Version also nicht.
 ## 7 · Projektstandard
 
 Flach (kein `src/`), `.slnx`, CPM (`Directory.Packages.props`), `Directory.Build.props`
-(net10, Nullable, `TreatWarningsAsErrors`, `RepositoryUrl github.com/Kroste/`), MinVer aus
+(net10, Nullable, `TreatWarningsAsErrors`, `RepositoryUrl github.com/LHP542/`), MinVer aus
 Git-Tags (`v*`), `.editorconfig` (file-scoped namespaces), NLog (Secrets vor dem Loggen
 maskieren), globaler Exception-Handler. **Single-TFM**: `Checkmk.App` und
 `Checkmk.Core.Tests` targeten `net10.0-windows10.0.19041.0` (WinRT-Toasts +
@@ -858,7 +858,7 @@ den Commit-Log an.
 12. ✅ IP-Fallback per Ping/DNS im Host-Detail, wenn Checkmk keine liefert.
 13. ✅ Client-Aktualisierung (Kontextmenü, Remote-PowerShell, Agent-Deinstall/Install/Register)
     — seit v1.7.0 ausgelagert ins Plugin
-    [`Checkmk-Plugin-AgentUpdater`](https://github.com/Kroste/Checkmk-Plugin-AgentUpdater).
+    [`Checkmk-Plugin-AgentUpdater`](https://github.com/LHP542/Checkmk-Plugin-AgentUpdater).
 14. ✅ **Client-Aktualisierung härten**: `Start-Process msiexec` mit `-PassThru`
     + Exit-Code-Prüfung. Wanderte mit dem Plugin-Auszug in v1.7.0 in dessen
     Default-Skript-Vorlage.

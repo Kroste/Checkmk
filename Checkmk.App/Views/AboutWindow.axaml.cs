@@ -9,7 +9,7 @@ namespace Checkmk.App.Views;
 
 public partial class AboutWindow : ChromeWindow
 {
-    private const string GithubUrl = "https://github.com/Kroste/Checkmk";
+    private const string GithubUrl = "https://github.com/LHP542/Checkmk";
 
     private readonly IUpdateChecker? _updateChecker;
     private readonly IUpdatePreferences? _updatePrefs;
